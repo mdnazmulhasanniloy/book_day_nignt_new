@@ -1,0 +1,53 @@
+import type { Event } from '../types';
+import { useTranslation } from "react-i18next";
+
+interface EventCardProps {
+  event: Event;
+  onClick: (event: Event) => void;
+}
+
+export function EventCard({ event, onClick }: EventCardProps) {
+  const { t } = useTranslation();
+
+  return (
+    <div 
+      className="group flex flex-col rounded-2xl border border-gray-200 bg-white overflow-hidden cursor-pointer hover:shadow-md transition-all duration-200"
+      onClick={() => onClick(event)}
+    >
+      <div className="relative h-48 w-full overflow-hidden bg-gray-100">
+        <img 
+          src={event.thumbnail || ""} 
+          alt={event.name}
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+      </div>
+      
+      <div className="flex flex-col p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">{t("commonCards.name")}</span>
+          <span className="text-sm font-medium text-foreground text-right">{event.name}</span>
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">{t("commonCards.dateAndTime")}</span>
+          <span className="text-sm font-medium text-foreground text-right">{event.dateAndTime}</span>
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">{t("commonCards.table")}</span>
+          <span className="text-sm font-medium text-foreground text-right">{event.table}</span>
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">{t("commonCards.country")}</span>
+          <span className="text-sm font-medium text-foreground text-right">{event.country}</span>
+        </div>
+        
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-sm text-muted-foreground">{t("commonCards.price")}</span>
+          <span className="text-sm font-semibold text-foreground text-right">{event.price} {event.currency}</span>
+        </div>
+      </div>
+    </div>
+  );
+}

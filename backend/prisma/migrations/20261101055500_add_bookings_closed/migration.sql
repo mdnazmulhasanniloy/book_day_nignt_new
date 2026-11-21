@@ -1,0 +1,2 @@
+ALTER TABLE "Club" ADD COLUMN "bookingsClosed" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "Event" ADD COLUMN "bookingsClosed" BOOLEAN NOT NULL DEFAULT false;

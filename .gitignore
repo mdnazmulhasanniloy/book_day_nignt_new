@@ -1,0 +1,9 @@
+node_modules/
+.env
+*.env
+!.env.example
+*.dump
+dump.rdb
+build/
+dist/
+.dart_tool/

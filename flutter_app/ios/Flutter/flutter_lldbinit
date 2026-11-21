@@ -1,0 +1,8 @@
+#
+# Persistent LLDB init (not the generated ephemeral copy).
+# Dart JIT on iOS 26 needs this intercept; keep SetAsync off so the
+# RX-page breakpoint can rearm. See flutter/flutter#184254.
+#
+
+command script import --relative-to-command-file flutter_lldb_helper.py
+script lldb.debugger.SetAsync(False)

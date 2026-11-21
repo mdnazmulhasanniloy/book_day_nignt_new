@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Base */
+    --background: 0 0% 100%;
+    --foreground: 216 24% 12%;
+    --heading: 0 0% 12%;
+
+    /* Shadcn defaults aligned with theme */
+    --card: 0 0% 100%;
+    --card-foreground: 216 24% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 216 24% 12%;
+
+    /* Primary (#DDA720) */
+    --primary: 43 75% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary */
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    /* Muted */
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    /* Accent */
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    /* Destructive */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    /* Borders & Inputs */
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 43 75% 50%; /* Match primary */
+    --radius: 0.5rem;
+
+    /* Sidebar */
+    --sidebar: 240 6% 90%;
+    --sidebar-foreground: 213 10% 44%;
+
+    /* Status Colors */
+    --status-canceled: 0 72% 51%;
+    --status-completed: 224 76% 48%;
+    --status-confirmed: 142 76% 36%;
+    --status-suspend: 32 95% 44%;
+    --status-delete: 0 84% 60%;
+  }
+
+  .dark {
+    /* Base */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --heading: 0 0% 100%;
+
+    /* Shadcn defaults aligned with theme */
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+
+    /* Primary (#DDA720) */
+    --primary: 43 75% 50%;
+    --primary-foreground: 0 0% 12%;
+
+    /* Secondary */
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+
+    /* Muted */
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+
+    /* Accent */
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+
+    /* Destructive */
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Borders & Inputs */
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 43 75% 50%; /* Match primary */
+
+    /* Sidebar */
+    --sidebar: 240 5% 10%;
+    --sidebar-foreground: 213 10% 74%;
+
+    /* Status Colors (kept slightly vivid for dark mode visibility) */
+    --status-canceled: 0 72% 51%;
+    --status-completed: 224 76% 55%;
+    --status-confirmed: 142 76% 45%;
+    --status-suspend: 32 95% 55%;
+    --status-delete: 0 84% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-heading font-semibold;
+  }
+}

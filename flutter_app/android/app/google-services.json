@@ -1,0 +1,106 @@
+{
+  "project_info": {
+    "project_number": "878417792682",
+    "project_id": "bookdianight-ecc2a",
+    "storage_bucket": "bookdianight-ecc2a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:878417792682:android:1b17dc4cbdc24b741f0ad3",
+        "android_client_info": {
+          "package_name": "com.bookdianightltd.bookdianightapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "878417792682-5s7pnp7ftbap532if8dm9siapphjjjf7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bookdianightltd.bookdianightapp",
+            "certificate_hash": "ce49c5304b9bae54e5a06a2263148f6f729ffe31"
+          }
+        },
+        {
+          "client_id": "878417792682-j9pi0n7e2llm5i6549c2t5rag5gr1dr0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bookdianightltd.bookdianightapp",
+            "certificate_hash": "a5372f88d3043500e38e81312093b19ba489f2a6"
+          }
+        },
+        {
+          "client_id": "878417792682-kmnp9b7jl61abcrv8ehfep80eb6a5njv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCfe9vogb9PNGASaSQffpm7OwSL_PAwLvs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "878417792682-kmnp9b7jl61abcrv8ehfep80eb6a5njv.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "878417792682-06qmc1n72p6l6rgm98atua2kbbtpdg00.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.bookdianightltd.bookdianightapp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:878417792682:android:1130baee5d1b814a1f0ad3",
+        "android_client_info": {
+          "package_name": "com.example.bookdianight_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "878417792682-i56tt339nvvfn0sv3rmek8h0iai23e8d.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.bookdianight_app",
+            "certificate_hash": "a5372f88d3043500e38e81312093b19ba489f2a6"
+          }
+        },
+        {
+          "client_id": "878417792682-kmnp9b7jl61abcrv8ehfep80eb6a5njv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCfe9vogb9PNGASaSQffpm7OwSL_PAwLvs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "878417792682-kmnp9b7jl61abcrv8ehfep80eb6a5njv.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "878417792682-06qmc1n72p6l6rgm98atua2kbbtpdg00.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.bookdianightltd.bookdianightapp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

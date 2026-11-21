@@ -1,0 +1,999 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // cspell:ignore fuzzystrmatch — real PostgreSQL/PostGIS extension name
+  extensions = [postgis, fuzzystrmatch, postgis_tiger_geocoder, postgis_topology]
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+  DELETED
+}
+
+enum AccountRole {
+  USER
+  ADMIN
+  CLUB_OWNER
+}
+
+enum Platform {
+  ANDROID
+  IOS
+}
+
+enum Service {
+  EVENT
+  CLUB
+}
+
+enum EventCategoryType {
+  CLUB
+  CONCERT
+  FESTIVAL
+  OPEN_AIR
+  WAREHOUSE
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum AuthProvider {
+  MANUAL
+  GOOGLE
+  APPLE
+}
+
+enum NotificationType {
+  NEW_EVENT
+  NEW_CLUB
+  PAYMENT_SUCCESS
+  BOOKING_CONFIRMED
+  PAYMENT_RECEIVED
+  NEW_EVENT_NEARBY
+  NEW_CLUB_NEARBY
+  WISHLIST_EVENT_REMINDER
+  PAYMENT_FAILED
+  TICKET_AVAILABLE
+  CLUB_BOOKING_CONFIRMED
+  CLUB_BOOKING_EXPIRED
+  EVENT_REMINDER
+  CLUB_BOOKING_REMINDER
+  EVENT_CANCELED
+  REFUND_SCHEDULED
+  REFUND_PROCESSED
+  REFUND_FAILED
+  PASSWORD_RESET_SUCCESS
+  NEW_TICKET_SALE
+  NEW_CLUB_BOOKING
+  NEW_CLUB_REVIEW
+  STRIPE_CONNECT_SUCCESS
+  STRIPE_CONNECT_RESTRICTED
+  SELLER_TRANSFER_SUCCESS
+  SELLER_TRANSFER_FAILED
+  EVENT_CANCELED_SUCCESS
+  CLUB_SEAT_AVAILABLE
+  GUEST_LIST_CONFIRMED
+  GUEST_LIST_REJECTED
+  HOST_INQUIRY
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum EventStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELED
+}
+
+enum LegalContentType {
+  ABOUT_US
+  TERMS_AND_CONDITION
+  PRIVACY_AND_POLICY
+}
+
+enum StripeConnectAccountStatus {
+  PENDING
+  ACTIVE
+  RESTRICTED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PAYMENT_FAILED
+}
+
+enum ClubBookingStatus {
+  HOLD
+  BOOKED
+  EXPIRED
+}
+
+enum PaymentTransactionStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+}
+
+enum SellerTransferStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum RefundStatus {
+  SCHEDULED
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum TicketPdfStatus {
+  PENDING
+  GENERATED
+  FAILED
+}
+
+enum EventPurchaseAttendeeType {
+  BUYER
+  FRIEND
+}
+
+enum WaitingListStatus {
+  PENDING
+  NOTIFIED
+  CANCELLED
+}
+
+enum EventModuleStatus {
+  AVAILABLE
+  LIMITED
+  SOLD_OUT
+  UNAVAILABLE
+}
+
+enum QuoteStatus {
+  NEW
+  REPLIED
+  CLOSED
+}
+
+enum GuestListEntryStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum GuestListFallbackType {
+  TICKET_TIER
+  MODULE
+  CLUB_PACKAGE
+  WAITING_LIST
+}
+
+enum ClubHostStatus {
+  NONE
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id            String        @id @default(uuid())
+  name          String
+  email         String        @unique
+  phoneNumber   String        
+  accountStatus AccountStatus @default(ACTIVE)
+  accountRole   AccountRole   @default(USER)
+  isVerified    Boolean       @default(false)
+  password      String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Back Relations
+  profile      Profile?
+  devices      Device[]
+  notifications Notification[]
+  clubs        Club[]
+  clubReviews  ClubReview[]
+  events       Event[]
+  wishlists    Wishlist[]
+  clubFollows  ClubFollower[]
+  waitingLists ClubWaitingList[]
+  stripeConnectAccount StripeConnectAccount?
+  buyerOrders  Order[] @relation("OrderBuyer")
+  sellerOrders Order[] @relation("OrderSeller")
+  promoCodes     PromoCode[]
+  vipHosts       VipHost[]
+  artistFollows  ArtistFollower[]
+  oauthIdentities OAuthIdentity[]
+
+  @@index([accountRole])
+  @@index([accountStatus])
+}
+
+model OAuthIdentity {
+  id             String       @id @default(uuid())
+  provider       AuthProvider
+  providerUserId String
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+model Profile {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location      String?
+  dateOfBirth   DateTime?
+  gender        Gender?
+  profileAvatar String?
+  profileCover  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Device {
+  id               String       @id @default(uuid())
+  userId           String
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceIdentifier String       @unique
+  fcmToken         String?
+  platform         Platform
+  authProvider     AuthProvider
+  isActive         Boolean      @default(true)
+  isLogout         Boolean      @default(false)
+  lastSeenAt       DateTime     @default(now())
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([userId])
+  @@index([userId, isActive])
+  @@index([isActive, lastSeenAt])
+}
+
+model Notification {
+  id                     String           @id @default(uuid())
+  userId                 String
+  user                   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notificationType       NotificationType
+  notificationTitle      String
+  notificationDescription String?
+  isRead                 Boolean          @default(false)
+  metaData               Json?
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+model LegalContent {
+  id               String           @id @default(uuid())
+  legalContentType LegalContentType
+  content          String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([legalContentType])
+}
+
+model ApplicationCharge {
+  id                String   @id @default(uuid())
+  serviceType       Service  @unique
+  chargePercentage  Decimal  @db.Decimal(5, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model ServiceCharge {
+  id        String   @id @default("GLOBAL")
+  amount    Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Club {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  thumbnail   String
+  images      String[]
+  dressCode   String
+  isRecurring Boolean  @default(false)
+  lat         Float
+  lng         Float
+  location    String   @default("")
+  geog        Unsupported("geography(Point, 4326)")?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isVip       Boolean  @default(false)
+  website     String?
+  socialLinks Json?
+  rulesAndVibe String[] @default([])
+  followerCount Int     @default(0)
+  bookingsClosed Boolean @default(false)
+  deactivatedAt DateTime?
+  // Back Relations
+  reviews          ClubReview[]
+  clubOpeningHours ClubOpeningHour[]
+  clubPackages     ClubPackage[]
+  wishlists        Wishlist[]
+  clubBookings     ClubBooking[]
+  followers        ClubFollower[]
+  promoCodes       PromoCode[]
+  waitingLists     ClubWaitingList[]
+  hostedEvents     Event[]
+  vipHosts         ClubVipHost[]
+
+  @@index([userId])
+  @@index([lat, lng])
+  @@index([geog], type: Gist)
+}
+
+model ClubReview {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clubId    String
+  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  rating    Float
+  review    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, clubId]) // one review per user per club
+  @@index([clubId])
+}
+
+model ClubOpeningHour {
+  id             String    @id @default(uuid())
+  clubId         String
+  club           Club      @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  dayOfWeek      Int       // 0-6, where 0 is Sunday and 6 is Saturday
+  isClosed       Boolean   @default(false)
+  openTime       DateTime? @db.Time(0)  // null when isClosed = true
+  closeTime      DateTime? @db.Time(0)  // null when isClosed = true
+  closesNextDay  Boolean   @default(false) // true when closeTime is past midnight (e.g. open 22:00, close 02:00)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([clubId, dayOfWeek]) // one row per club per day
+}
+
+model ClubPackage {
+  id          String   @id @default(uuid())
+  clubId      String
+  club        Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  capacity    Int
+  price       Decimal  @db.Decimal(10, 2)
+  currency    String
+  features    String[]
+  sortOrder   Int      @default(0) // controls display order within a club, lower shows first
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  clubBookings ClubBooking[]
+
+  @@unique([clubId, name])            // no duplicate package names per club
+  @@index([clubId, isActive, sortOrder])
+}
+
+model Event {
+  id               String      @id @default(uuid())
+  userId           String
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventName        String
+  eventDescription String?
+  thumbnail        String
+  images           String[]
+  eventStatus      EventStatus @default(UPCOMING)
+  lat              Float
+  lng              Float
+  location         String      @default("")
+  geog             Unsupported("geography(Point, 4326)")?
+  startAt          DateTime
+  endAt            DateTime
+  dressCode        String
+  categoryType     EventCategoryType @default(CLUB)
+  musicGenres      String[]          @default([])
+  moodTags         String[]          @default([])
+  isResaleEnabled  Boolean           @default(false)
+  viewCount        Int               @default(0)
+  eventPrice       Decimal           @db.Decimal(10, 2)
+  currency         String
+  clubId           String?
+  club             Club?             @relation(fields: [clubId], references: [id], onDelete: SetNull)
+  clubHostStatus   ClubHostStatus    @default(NONE)
+  bookingsClosed   Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deactivatedAt    DateTime?
+
+  // Back Relations
+  wishlists            Wishlist[]
+  eventPurchases       EventPurchase[]
+  eventModulePurchases EventModulePurchase[]
+  ticketTiers          EventTicketTier[]
+  lineup               EventLineup[]
+  promoCodes           PromoCode[]
+  modules              EventModule[]
+  quotes               Quote[]
+  guestList            EventGuestList?
+  vipHosts             EventVipHost[]
+  hostContacts         HostContact[]
+
+  @@index([userId])
+  @@index([clubId, clubHostStatus])
+  @@index([eventStatus, startAt])
+  @@index([lat, lng])
+  @@index([geog], type: Gist)
+}
+
+model Wishlist {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId   String?
+  event     Event?   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  clubId    String?
+  club      Club?    @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, eventId])
+  @@unique([userId, clubId])
+  @@index([userId])
+  @@index([eventId])
+  @@index([clubId])
+}
+
+model StripeConnectAccount {
+  id                   String                     @id @default(uuid())
+  userId               String                     @unique
+  user                 User                       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  stripeAccountId      String                     @unique
+  status               StripeConnectAccountStatus @default(PENDING)
+  onboardingCompletedAt DateTime?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+
+  @@index([status])
+}
+
+model Order {
+  id                  String      @id @default(uuid())
+  buyerUserId         String
+  buyer               User        @relation("OrderBuyer", fields: [buyerUserId], references: [id], onDelete: Restrict)
+  sellerUserId        String
+  seller              User        @relation("OrderSeller", fields: [sellerUserId], references: [id], onDelete: Restrict)
+  serviceType         Service
+  status              OrderStatus @default(PENDING_PAYMENT)
+  buyerName           String
+  buyerPhoneNumber    String
+  buyerDateOfBirth    DateTime?
+  buyerGender         Gender?
+  buyerImage          String?
+  grossAmount         Decimal     @db.Decimal(10, 2)
+  serviceChargeAmount Decimal     @db.Decimal(10, 2)
+  buyerTotal          Decimal     @db.Decimal(10, 2)
+  commissionRate      Decimal     @db.Decimal(5, 2)
+  commissionAmount    Decimal     @db.Decimal(10, 2)
+  sellerEarnings      Decimal     @db.Decimal(10, 2)
+  currency            String
+  idempotencyKey      String
+  checkedInAt         DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  clubBooking          ClubBooking?
+  eventPurchase        EventPurchase?
+  eventModulePurchase  EventModulePurchase?
+  paymentTransaction   PaymentTransaction?
+  sellerTransfer       SellerTransfer?
+  refund               Refund?
+  ticketPdf            TicketPdf?
+
+  @@index([buyerUserId, createdAt])
+  @@index([sellerUserId, createdAt])
+  @@index([serviceType, status, createdAt])
+  @@unique([buyerUserId, idempotencyKey])
+}
+
+model ClubBooking {
+  id              String            @id @default(uuid())
+  orderId         String            @unique
+  order           Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  clubId          String
+  club            Club              @relation(fields: [clubId], references: [id], onDelete: Restrict)
+  clubPackageId   String
+  clubPackage     ClubPackage       @relation(fields: [clubPackageId], references: [id], onDelete: Restrict)
+  status          ClubBookingStatus @default(HOLD)
+  startAt         DateTime
+  endAt           DateTime
+  holdExpiresAt   DateTime
+  guestCount      Int
+  clubName        String
+  clubLocation    String
+  packageName     String
+  packageCapacity Int
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([clubPackageId, status, startAt, endAt])
+  @@index([status, holdExpiresAt])
+  @@index([clubId, startAt])
+}
+
+model EventPurchase {
+  id                 String              @id @default(uuid())
+  orderId            String              @unique
+  order              Order               @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  eventId            String
+  event              Event               @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  personCount        Int
+  eventName          String
+  eventLocation      String
+  eventStartAt       DateTime
+  eventEndAt         DateTime
+  pricePerPerson     Decimal             @db.Decimal(10, 2)
+  transferEligibleAt DateTime
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  attendees EventPurchaseAttendee[]
+
+  @@index([eventId, createdAt])
+  @@index([transferEligibleAt])
+}
+
+model EventPurchaseAttendee {
+  id              String                    @id @default(uuid())
+  eventPurchaseId String
+  eventPurchase   EventPurchase             @relation(fields: [eventPurchaseId], references: [id], onDelete: Restrict)
+  attendeeType    EventPurchaseAttendeeType
+  position        Int
+  name            String
+  phoneNumber     String
+  gender          Gender?
+  age             Int?
+  image           String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  @@unique([eventPurchaseId, position])
+  @@index([eventPurchaseId, attendeeType])
+}
+
+model PaymentTransaction {
+  id                    String                   @id @default(uuid())
+  orderId               String                   @unique
+  order                 Order                    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  stripePaymentIntentId String?                  @unique
+  stripeChargeId        String?                  @unique
+  idempotencyKey        String                   @unique
+  status                PaymentTransactionStatus @default(PENDING)
+  amount                Decimal                  @db.Decimal(10, 2)
+  currency              String
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model WebhookEvent {
+  id            String             @id @default(uuid())
+  stripeEventId String             @unique
+  eventType     String
+  status        WebhookEventStatus @default(RECEIVED)
+  payload       Json
+  processedAt   DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model SellerTransfer {
+  id               String               @id @default(uuid())
+  orderId          String               @unique
+  order            Order                @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  stripeTransferId String?              @unique
+  idempotencyKey   String               @unique
+  status           SellerTransferStatus @default(PENDING)
+  amount           Decimal              @db.Decimal(10, 2)
+  currency         String
+  completedAt      DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model Refund {
+  id             String       @id @default(uuid())
+  orderId        String       @unique
+  order          Order        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  stripeRefundId String?      @unique
+  idempotencyKey String       @unique
+  status         RefundStatus @default(SCHEDULED)
+  amount         Decimal      @db.Decimal(10, 2)
+  currency       String
+  scheduledFor   DateTime
+  completedAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([status, scheduledFor])
+}
+
+model TicketPdf {
+  id         String          @id @default(uuid())
+  orderId    String          @unique
+  order      Order           @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  status     TicketPdfStatus @default(PENDING)
+  storageKey String?
+  generatedAt DateTime?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model EventTicketTier {
+  id          String    @id @default(uuid())
+  eventId     String
+  event       Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      EventTicketTier?  @relation("TierChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children    EventTicketTier[] @relation("TierChildren")
+  tierName    String
+  groupName   String?
+  description String?
+  price       Decimal   @db.Decimal(10, 2)
+  capacity    Int
+  soldCount   Int       @default(0)
+  sortOrder   Int       @default(0)
+  startAt     DateTime?
+  endAt       DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([eventId, isActive, sortOrder])
+  @@index([parentId])
+}
+
+model Artist {
+  id              String   @id @default(uuid())
+  name            String
+  nameKey         String   @unique
+  avatar          String?
+  audioPreviewUrl String?
+  spotifyUrl      String?
+  soundcloudUrl   String?
+  isVerified      Boolean  @default(false)
+  followerCount   Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  lineup    EventLineup[]
+  followers ArtistFollower[]
+
+  @@index([name])
+}
+
+model ArtistFollower {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  artistId  String
+  artist    Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, artistId])
+  @@index([artistId])
+  @@index([userId])
+}
+
+model EventLineup {
+  id              String   @id @default(uuid())
+  eventId         String
+  event           Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  artistId        String?
+  artist          Artist?  @relation(fields: [artistId], references: [id], onDelete: SetNull)
+  artistName      String
+  artistAvatar    String?
+  audioPreviewUrl String?
+  spotifyUrl      String?
+  soundcloudUrl   String?
+  isVerified      Boolean  @default(false)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([eventId, sortOrder])
+  @@index([artistId])
+}
+
+model ClubFollower {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clubId    String
+  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, clubId])
+  @@index([clubId])
+  @@index([userId])
+}
+
+model PromoCode {
+  id               String       @id @default(uuid())
+  code             String       @unique
+  discountType     DiscountType
+  discountValue    Decimal      @db.Decimal(10, 2)
+  eventId          String?
+  event            Event?       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  clubId           String?
+  club             Club?        @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  createdByUserId  String?
+  createdBy        User?        @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  maxUses          Int?
+  usedCount        Int          @default(0)
+  expiresAt        DateTime?
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([code, isActive])
+  @@index([eventId])
+  @@index([clubId])
+  @@index([createdByUserId])
+}
+
+model ClubWaitingList {
+  id         String            @id @default(uuid())
+  clubId     String
+  club       Club              @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status     WaitingListStatus @default(PENDING)
+  /// Preferred booking slot the guest was checking (optional, set by client on join).
+  startAt    DateTime?
+  /// Party size the guest wanted when joining (optional).
+  guestCount Int?
+  notifiedAt DateTime?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@unique([userId, clubId, status])
+  @@index([clubId, status])
+  @@index([userId])
+  @@index([clubId, startAt])
+}
+
+model EventModule {
+  id              String            @id @default(uuid())
+  eventId         String
+  event           Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name            String
+  image           String?
+  description     String?
+  maxGuests       Int
+  startingPrice   Decimal           @db.Decimal(10, 2)
+  minSpend        Decimal           @default(0) @db.Decimal(10, 2)
+  deposit         Decimal           @default(0) @db.Decimal(10, 2)
+  currency        String
+  quantity        Int
+  remaining       Int
+  venueArea       String?
+  includedExtras  String[]          @default([])
+  optionalExtras  String[]          @default([])
+  status          EventModuleStatus @default(AVAILABLE)
+  sortOrder       Int               @default(0)
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  purchases EventModulePurchase[]
+  quotes    Quote[]
+
+  @@index([eventId, isActive, sortOrder])
+  @@index([eventId, status])
+}
+
+model EventModulePurchase {
+  id            String            @id @default(uuid())
+  orderId       String            @unique
+  order         Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  eventId       String
+  event         Event             @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  moduleId      String
+  module        EventModule       @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+  status        ClubBookingStatus @default(HOLD)
+  quantity      Int
+  guestCount    Int
+  dateTime      DateTime?
+  holdExpiresAt DateTime
+  moduleName    String
+  venueArea     String?
+  unitPrice     Decimal           @db.Decimal(10, 2)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([moduleId, status])
+  @@index([eventId, createdAt])
+  @@index([status, holdExpiresAt])
+}
+
+model Quote {
+  id         String      @id @default(uuid())
+  eventId    String
+  event      Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  moduleId   String
+  module     EventModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  name       String
+  email      String
+  phone      String
+  guestCount Int
+  message    String
+  date       DateTime?
+  status     QuoteStatus @default(NEW)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([eventId, status, createdAt])
+  @@index([moduleId])
+}
+
+model EventGuestList {
+  id           String   @id @default(uuid())
+  eventId      String   @unique
+  event        Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  isEnabled    Boolean  @default(false)
+  daysBefore   Int?
+  cutoffAt     DateTime?
+  arrivalTimes String[] @default([])
+  maleCap      Int?
+  femaleCap    Int?
+  freeSpots    Int?
+  dressCode    String?
+  idRequired   Boolean  @default(false)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  entries   EventGuestListEntry[]
+  fallbacks EventGuestListFallback[]
+}
+
+model EventGuestListFallback {
+  id          String                @id @default(uuid())
+  guestListId String
+  guestList   EventGuestList        @relation(fields: [guestListId], references: [id], onDelete: Cascade)
+  type        GuestListFallbackType
+  targetId    String
+  sortOrder   Int                   @default(0)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@index([guestListId, sortOrder])
+}
+
+model EventGuestListEntry {
+  id            String               @id @default(uuid())
+  guestListId   String
+  guestList     EventGuestList       @relation(fields: [guestListId], references: [id], onDelete: Cascade)
+  userId        String?
+  name          String
+  email         String
+  phone         String
+  menCount      Int                  @default(0)
+  womenCount    Int                  @default(0)
+  otherCount    Int                  @default(0)
+  arrivalTime   String
+  status        GuestListEntryStatus @default(PENDING)
+  acceptedTerms Boolean
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([guestListId, status, createdAt])
+  @@index([email])
+}
+
+model VipHost {
+  id                  String   @id @default(uuid())
+  ownerUserId         String
+  owner               User     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  name                String
+  role                String
+  isVerified          Boolean  @default(false)
+  photo               String?
+  whatsapp            String?
+  phone               String?
+  email               String?
+  bio                 String?
+  officialPricesNote  String?
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  eventLinks EventVipHost[]
+  clubLinks  ClubVipHost[]
+  contacts   HostContact[]
+
+  @@index([ownerUserId, isActive])
+}
+
+model EventVipHost {
+  id        String   @id @default(uuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  hostId    String
+  host      VipHost  @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, hostId])
+  @@index([hostId])
+}
+
+model ClubVipHost {
+  id        String   @id @default(uuid())
+  clubId    String
+  club      Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  hostId    String
+  host      VipHost  @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([clubId, hostId])
+  @@index([hostId])
+}
+
+model HostContact {
+  id        String   @id @default(uuid())
+  hostId    String
+  host      VipHost  @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  eventId   String?
+  event     Event?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  name      String
+  email     String
+  phone     String
+  message   String
+  createdAt DateTime @default(now())
+
+  @@index([hostId, createdAt])
+  @@index([eventId, createdAt])
+}
