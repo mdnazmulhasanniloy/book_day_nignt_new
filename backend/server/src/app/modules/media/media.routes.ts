@@ -9,12 +9,14 @@ import {
 } from '@/app/middlewares/multer.middlewares';
 import { validateReqBody } from '@/app/utils/system.utils';
 import { deleteMediaSchema } from '@/app/modules/media/media.schema';
+import { requireMediaAuthMiddleware } from '@/app/modules/media/media.middlewares';
 
 const router = Router();
 
 router
   .route('/media')
   .post(
+    requireMediaAuthMiddleware,
     uploadAttachmentArray('files', 10, true),
     handleAttachmentMulterError,
     uploadMediaController
@@ -22,6 +24,10 @@ router
 
 router
   .route('/media')
-  .delete(validateReqBody(deleteMediaSchema), removeMediaController);
+  .delete(
+    requireMediaAuthMiddleware,
+    validateReqBody(deleteMediaSchema),
+    removeMediaController
+  );
 
 export default router;
