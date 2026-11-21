@@ -297,6 +297,7 @@ export const REDIS_PREFIXES = {
   adminSession: 'admin:session',
   userSession: 'user:session',
   connectOnboarding: 'connect:onboarding',
+  recoverVerified: 'recover:verified',
 } as const;
 
 /**
