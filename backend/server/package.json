@@ -8,7 +8,7 @@
   "main": "./dist/server.js",
   "scripts": {
     "build": "sh scripts/build.sh",
-    "test": "tsx --test src/app/utils/dob.utils.test.ts src/app/utils/otpPolicy.test.ts src/app/modules/admin/admin.helpers.test.ts src/app/utils/stripeSignature.utils.test.ts",
+    "test": "tsx --test src/app/utils/dob.utils.test.ts src/app/utils/otpPolicy.test.ts src/app/modules/admin/admin.helpers.test.ts src/app/utils/stripeSignature.utils.test.ts src/app/middlewares/blacklist.keys.test.ts",
     "dev": "npx prisma generate && nodemon",
     "start": "node ./dist/server.js",
     "format": "prettier --write \"src/**/*.ts\"",
