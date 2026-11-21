@@ -1,6 +1,6 @@
 # System Architecture (as-is)
 
-> Reverse-engineered from `backend/` (server, worker, scheduler, prisma), `admin/` and the Flutter app at `BookingDiaNight/` (the task called it `mobile-app`; no such folder exists).
+> Reverse-engineered from `backend/` (server, worker, scheduler, prisma), `admin/` and the Flutter app at `flutter_app/` (renamed to `flutter_app/`; earlier task text used another name).
 > Current state only; no changes proposed. Uncertain items are marked **⚠️ UNVERIFIED**. Problems are listed in `known-issues.md`.
 > Existing in-repo docs (`backend/docs/`, `.agent/blueprint.md`, `openapi.yaml`) were used only as cross-checks; the code is the source of truth.
 
@@ -26,7 +26,7 @@ There is no ORGANIZER role. `CLUB_OWNER` is selectable at signup (see `known-iss
 | **PostgreSQL + PostGIS** | compose image `postgis/postgis:16-3.4` | Primary data store (see `data-model.md`) |
 | **Redis (Valkey)** | compose image `redis:latest` | BullMQ queues, user/admin sessions, token blacklist, OTP state, Connect callback tokens |
 | **S3-compatible storage** | external (`S3_*` env) | Media uploads and ticket PDFs |
-| **Flutter app** | `BookingDiaNight/` | Mobile client for both USER and CLUB_OWNER (read-only reference) |
+| **Flutter app** | `flutter_app/` | Mobile client for both USER and CLUB_OWNER (read-only reference) |
 | **Admin SPA** | `admin/` | React dashboard for ADMIN |
 | **Stripe, Firebase, SMTP, Google, Apple** | external | See section 9 |
 
@@ -302,6 +302,6 @@ Deployment:
 
 ## 11. Client architectures
 
-**Flutter** (`BookingDiaNight/lib`): GetX modules at `app/modules/<feature>/{controllers,views,repository,model}`, split into `user_side/` and `club_owner_side/`. HTTP through a singleton Dio `BaseClient` (`core/network/base_client.dart`) with `validateStatus: (_) => true` and manual exception mapping. Endpoint constants in `core/network/end_point.dart` (about 15 paths are hardcoded in repositories). No auth interceptor: each repository adds `Authorization: Bearer`. Tokens in GetStorage. Session checked at splash with `POST /auth/check`. No refresh flow, no socket client.
+**Flutter** (`flutter_app/lib`): GetX modules at `app/modules/<feature>/{controllers,views,repository,model}`, split into `user_side/` and `club_owner_side/`. HTTP through a singleton Dio `BaseClient` (`core/network/base_client.dart`) with `validateStatus: (_) => true` and manual exception mapping. Endpoint constants in `core/network/end_point.dart` (about 15 paths are hardcoded in repositories). No auth interceptor: each repository adds `Authorization: Bearer`. Tokens in GetStorage. Session checked at splash with `POST /auth/check`. No refresh flow, no socket client.
 
 **Admin** (`admin/src`): feature folders plus `apis/*.api.ts` hooks (`useXQuery` / `useXMutation`), axios instance in `configs/axios.configs.ts` (`withCredentials`, CSRF header, single-flight refresh on 401), route guard `components/guards/AuthGuard.tsx`. Some pages are still mock-only (notifications, dashboard metrics hook); see `api-usage-map.md`.

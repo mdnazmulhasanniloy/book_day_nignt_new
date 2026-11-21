@@ -2,23 +2,21 @@
 
 ## Changes in v2 (TO-BE, 2026-11-21)
 
-Scope: Approved CRs and the approved parts of Partial CRs in `02-product/change-requests.md`. CR-05 is deferred, so nothing for it appears here. Backend and Admin only for now; backend endpoints for CR-09 to CR-14 are specified now but scheduled with the Flutter handoff (plan M8).
+Scope: Approved CRs and the approved parts of Partial CRs in `02-product/change-requests.md`. CR-05 is deferred. The CR-01 owner-approval gate is deferred until the client answers D1, so no endpoint, field or error code for it appears here. Per-operation detail with a "breaking for the live Flutter app?" answer for every changed v1 operation is in `api-spec-diff-v2.md`.
 
 Compatibility rules used:
 - **v1 is additive only.** New optional parameters and response fields, new endpoints. No field removed or renamed, no type changed.
-- **Breaking changes go to `/api/v2`** and the v1 operation stays and is marked `deprecated`. See ADR-001 (to be written).
+- **Breaking changes go to `/api/v2`** and the v1 operation stays and is marked `deprecated` (ADR-001).
 - **One exception:** `GET /admin/users` no longer returns the bcrypt `password` hash (BUG-S17). Only the Admin client calls it and it does not read that field.
-- **Status-code corrections** (500 to 404/400/401/409/422) are not breaking for the live Flutter app: 4xx bodies are shown with their real message, 5xx show a generic text. `verify-ticket` uses 404/409/422, never 401/403, because Flutter treats 403 like 401.
-- Every operation below has `x-requirement` and `x-status: planned` in `api-spec.yaml`. Operations changed in place also carry `x-change`.
+- **Status-code corrections** (500 to 404/400/401/409/422) are not breaking for the live Flutter app: it shows the real message for any 4xx and a generic text for 5xx. `verify-ticket` uses 404/409/422, never 401/403.
+- Every operation below has `x-requirement` and `x-status: planned` in `api-spec.yaml`; operations changed in place also carry `x-change`.
 
-Totals: 47 added, 37 changed, 6 deprecated. The spec grows from 151 to 198 operations. 5 of the added operations are v2 (breaking-change route).
+Totals: 47 added, 33 changed, 6 deprecated. The spec grows from 151 to 198 operations. 5 of the added operations are v2 (breaking-change route).
 
 ### Added
 
 | Method | Path | Requirement | Compatibility | What |
 |---|---|---|---|---|
-| GET | `/admin/owner-applications` | CR-01 | additive (new endpoint) | List club-owner applications |
-| PATCH | `/admin/owner-applications/{userId}` | CR-01 | additive (new endpoint) | Approve or reject a club owner |
 | GET | `/ticket-tier-presets` | CR-03 | additive (new endpoint) | Preset tier names |
 | POST | `/v2/quotes` | CR-07, BUG-S08 | v2 (new) | Create a quote request (authenticated) |
 | POST | `/event/{eventId}/extras` | CR-07 | additive (new endpoint) | Create an extra |
@@ -61,6 +59,8 @@ Totals: 47 added, 37 changed, 6 deprecated. The spec grows from 151 to 198 opera
 | PATCH | `/v2/admin/pricing-rules/{id}` | CR-15 | v2 (new) | End-date or edit a future rule |
 | GET | `/v2/admin/financials` | CR-15 | v2 (new) | Fees vs commission vs proceeds report |
 | POST | `/owner/orders/{orderId}/refund-requests` | CR-16 | additive (new endpoint) | Request a refund (owner) |
+| GET | `/admin/orders` | CR-16 | additive (new endpoint) | List orders (admin, read only) |
+| GET | `/admin/orders/{orderId}` | CR-16 | additive (new endpoint) | Order detail (admin, read only) |
 | GET | `/admin/refund-requests` | CR-16 | additive (new endpoint) | List refund requests |
 | PATCH | `/admin/refund-requests/{id}` | CR-16 | additive (new endpoint) | Approve or reject a refund request |
 | GET | `/admin/refunds` | CR-16 | additive (new endpoint) | List refunds |
@@ -69,12 +69,7 @@ Totals: 47 added, 37 changed, 6 deprecated. The spec grows from 151 to 198 opera
 
 | Method | Path | Requirement | Compatibility | What changes |
 |---|---|---|---|---|
-| POST | `/auth/signup` | CR-01, BUG-S03 | additive | D1 = B. `role: CLUB_OWNER` is still accepted (backward compatible) but the account is created with ownerApprovalStatus=PENDING. The role value returned to clients stays CLUB_OWNER; selling actions are gated server-side (see POST ... |
-| GET | `/profile` | CR-01 | additive | Response user gains `ownerApprovalStatus` (additive). |
 | POST | `/auth/social` | CR-01 | additive | Request accepts optional `dateOfBirth`. Response `data` gains `profileComplete` (boolean; false while date of birth is missing) so clients can ask for it before purchase. Retried calls with the same provider subject never create ... |
-| POST | `/club` | CR-01 | additive | Owners with ownerApprovalStatus other than APPROVED get 403 errorType OWNER_NOT_APPROVED. Existing owners are backfilled APPROVED so the live app is unaffected. |
-| POST | `/event` | CR-01, CR-02, CR-03, CR-12, CR-17 | additive | Owners with ownerApprovalStatus other than APPROVED get 403 errorType OWNER_NOT_APPROVED. Existing owners are backfilled APPROVED so the live app is unaffected. Request gains optional `timezone`, `pricingMode`, `organizerId` ... |
-| POST | `/connect/onboarding` | CR-01 | additive | Owners with ownerApprovalStatus other than APPROVED get 403 errorType OWNER_NOT_APPROVED. Existing owners are backfilled APPROVED so the live app is unaffected. |
 | POST | `/admin/auth/refresh` | CR-01, CR-17, BUG-B17 | additive | Invalid or expired refresh token returns 401 (errorType TOKEN_INVALID / TOKEN_EXPIRED) instead of 500. Admin client already logs out on any refresh failure, so no client change is needed. |
 | GET | `/admin/users` | CR-17, BUG-B22, BUG-S17 | security exception | Response no longer contains `password` (bcrypt hash leak). This is the only field removal in this release, accepted as a security fix; only the Admin client calls this endpoint and it does not read the field. page/limit that are ... |
 | GET | `/admin/earnings` | CR-17, BUG-B22 | additive | page/limit that are not positive integers return 422 (was NaN behaviour). |
@@ -85,12 +80,13 @@ Totals: 47 added, 37 changed, 6 deprecated. The spec grows from 151 to 198 opera
 | GET | `/event/{id}` | CR-17, BUG-B26 | additive | Event not found or not owned returns 404 (was 500 from unmapped Prisma P2025). |
 | DELETE | `/event/{eventId}/modules/{id}` | CR-17, BUG-B26 | additive | Module referenced by purchases returns 409 (was 500, FK Restrict). |
 | POST | `/wishlist` | CR-17, BUG-B27 | additive | Target not found returns 404 (service threw the wrong error shape and returned 500). |
-| POST | `/promo` | CR-06, CR-17, BUG-B26, BUG-S02 | behaviour (authorization tightened) | Unknown eventId/clubId returns 404 (was 500, FK violation). Requires accountRole CLUB_OWNER (approved) or ADMIN-equivalent owner check, and the promo must belong to the caller's own event or club. Other users get 403. |
+| POST | `/promo` | CR-06, CR-17, BUG-B26, BUG-S02 | behaviour (role check added; owner app unaffected) | Unknown eventId/clubId returns 404 (was 500, FK violation). Requires accountRole CLUB_OWNER (403 otherwise). Checked against flutter_app: only the club-owner Promo tab calls these three operations ... |
+| POST | `/event` | CR-02, CR-03, CR-12, CR-17 | additive | Request gains optional `timezone`, `pricingMode`, `organizerId` (defaults keep current behaviour). Ticket tiers gain `tierType`. Lineup items accept optional `artistId` (and artistAvatar already exists as the photo). |
 | PUT | `/event/{id}` | CR-04, BUG-B24 | additive | Ticket tiers are now updated in place. A tier object WITH `id` updates that tier (soldCount and id preserved); a tier WITHOUT `id` is created; an existing tier missing from the array is deleted if soldCount=0, otherwise ... |
-| POST | `/purchase/event` | CR-04, CR-06, CR-07 | additive | The chosen tier is stored on the purchase (ticketTierId + tierName snapshot) and returned. soldCount is released when the payment expires or fails (stock was leaked before). Response is unchanged otherwise. Free tickets: when the ... |
+| POST | `/purchase/event` | CR-04, CR-06, CR-07 | additive | The chosen tier is stored on the purchase (ticketTierId + tierName snapshot) and returned. soldCount is released when the payment expires or fails (stock was leaked before). Response is unchanged otherwise. Free tickets are ... |
 | GET | `/bookings/{id}` | CR-04 | additive | Event bookings expose `ticketTierId` and `ticketTierName` (null for purchases made before this change and for no-tier purchases). |
-| PUT | `/promo/{id}` | CR-06, BUG-S02 | behaviour (authorization tightened) | Requires accountRole CLUB_OWNER (approved) or ADMIN-equivalent owner check, and the promo must belong to the caller's own event or club. Other users get 403. |
-| DELETE | `/promo/{id}` | CR-06, BUG-S02 | behaviour (authorization tightened) | Requires accountRole CLUB_OWNER (approved) or ADMIN-equivalent owner check, and the promo must belong to the caller's own event or club. Other users get 403. |
+| PUT | `/promo/{id}` | CR-06, BUG-S02 | behaviour (role check added; owner app unaffected) | Requires accountRole CLUB_OWNER (403 otherwise). Checked against flutter_app: only the club-owner Promo tab calls these three operations (promo_repository.dart:36,75,108); customers only call POST /promo/validate ... |
+| DELETE | `/promo/{id}` | CR-06, BUG-S02 | behaviour (role check added; owner app unaffected) | Requires accountRole CLUB_OWNER (403 otherwise). Checked against flutter_app: only the club-owner Promo tab calls these three operations (promo_repository.dart:36,75,108); customers only call POST /promo/validate ... |
 | POST | `/promo/validate` | CR-06, BUG-S09 | additive | Rate limited per IP and per user (suggested 20/min). Excess returns 429 with Retry-After. |
 | POST | `/event/{eventId}/guest-list/join` | CR-06, BUG-B29 | additive | A user with an existing PENDING or APPROVED entry for the same event gets 409 GUEST_LIST_DUPLICATE instead of a second entry. |
 | POST | `/event/{eventId}/modules` | CR-07 | additive | Module gains `pricingType` (default FIXED). |
@@ -121,8 +117,10 @@ Totals: 47 added, 37 changed, 6 deprecated. The spec grows from 151 to 198 opera
 ### Not in this release
 
 - CR-05 (multi-day passes, per-day scanning): deferred (Q5). `POST /owner/verify-ticket` stays one check-in per order.
+- CR-01 owner approval (PENDING on signup, `OWNER_NOT_APPROVED`, admin approval endpoints, `ownerApprovalStatus`): deferred until the client answers D1. Signup and owner endpoints behave as today.
 - CR-04 availability badges, auto progression, starting price: not approved yet, so tiers still expose `soldCount` and `soldOut`.
-- CR-02 unregistered venues and payout split (Q3, Q4); CR-07 quote-to-payment (Q1); CR-15 rule values (Q2); CR-06 guest-list access codes; CR-08 scans and no-shows.
+- CR-02 unregistered venues and payout split (Q3, Q4); CR-07 quote-to-payment (Q1); CR-15 rule values (Q2); CR-06 guest-list access codes; CR-08 scans and no-shows; CR-16 partial refunds per attendee (Q8): one refund per order for now.
+- Gap 2 (pricing rule preview endpoint): deferred.
 
 ---
 

@@ -13,7 +13,7 @@ Statuses were set by the product owner on 2026-11-21 (see Decision log). The CR 
 
 | CR | Title | Tracker IDs | Related BUG | Blocked by | Clients | Breaking risk | Status |
 |---|---|---|---|---|---|---|---|
-| CR-01 | Auth and test-access reliability | P0.1 to P0.4 | BUG-S03, S04, S19, B07, B08, B21 | none | Flutter, Admin | Medium (role self-select closed) | Approved |
+| CR-01 | Auth and test-access reliability | P0.1 to P0.4 | BUG-S03, S04, S19, B07, B08, B21 | D1 (owner gate only) | Flutter, Admin | Medium (role self-select closed) | Partial |
 | CR-02 | Organizer role, collaboration, venues | C1 to C4, C6, A2.20 | BUG-S03 | Q3, Q4 | Flutter, Admin | Low (no enum change) | Partial |
 | CR-03 | Ticket sections, presets, descriptions, pricing mode | A2.1, A2.5, A2.6, A2.7, A2.15, A2.16 | none | none | Flutter, Admin | Low | Approved |
 | CR-04 | Tier inventory, auto progression, starting price, badges | A2.8 to A2.10, A2.17, T1 | BUG-B24 | Q5 | Flutter, Admin | **High** (stock-count exposure, tier persistence) | Partial |
@@ -34,8 +34,8 @@ Statuses were set by the product owner on 2026-11-21 (see Decision log). The CR 
 ## Details
 
 ### CR-01 Auth and test-access reliability
-- **Status:** Approved
-- **Decision note:** Full. D1 = Option B: club owners can still sign up, but cannot create clubs/events or take payments until an admin approves. Existing owners are backfilled as approved.
+- **Status:** Partial
+- **Decision note:** ONLY: social sign-in date of birth (`profileComplete`), admin refresh returns 401 (BUG-B17), retry safety. DEFERRED until the client answers D1: the owner-approval gate (PENDING on signup, `OWNER_NOT_APPROVED`, admin approval endpoints, `ownerApprovalStatus`). Signup and owner endpoints behave as today; BUG-S03 stays open. Changed on 2026-11-21: this replaces the earlier decision "D1 = Option B".
 - **Decided by:** Product owner
 - **Date:** 2026-11-21
 - **Baseline (code):** signup requires `dateOfBirth`; OTP is 6 digits in Redis, 5 min expiry, 5 attempts, 60 s resend (email only). `POST /auth/social` creates a user with an empty profile, so no date of birth. `signup` accepts `role: CLUB_OWNER` from any client (BUG-S03). Flutter never calls `POST /auth/refresh` (BUG-B08) and a 401 does nothing (BUG-B07).
@@ -44,7 +44,7 @@ Statuses were set by the product owner on 2026-11-21 (see Decision log). The CR 
 
 ### CR-02 Organizer role, collaboration, venues
 - **Status:** Partial
-- **Decision note:** ONLY: organizer identity (no new role value; organizer = approved CLUB_OWNER with an organizer profile), organizer profile and follow, collaboration request (organizer to club, accept/reject). NOT YET: unregistered-venue flow (Q4), payout split (Q3).
+- **Decision note:** ONLY: organizer identity (no new role value; organizer = CLUB_OWNER with an organizer profile), organizer profile and follow, collaboration request (organizer to club, accept/reject). NOT YET: unregistered-venue flow (Q4), payout split (Q3). Owner approval (D1) is deferred and not required by anything here.
 - **Decided by:** Product owner
 - **Date:** 2026-11-21
 - **Baseline:** `AccountRole` is `USER | ADMIN | CLUB_OWNER`; there is no organizer role (`auth.routes.ts:63` says organizers use `CLUB_OWNER`). Closest existing concepts: `Event.clubHostStatus`, `VipHost`, `HostContact`.
@@ -104,7 +104,7 @@ Statuses were set by the product owner on 2026-11-21 (see Decision log). The CR 
 
 ### CR-09 City selector, radius, chronological Explore
 - **Status:** Approved
-- **Decision note:** Full. Q6a default: radius steps 10 to 50 km, default 20 km. Backend contract only for now; Flutter work is milestone M8.
+- **Decision note:** Full. Q6a default: radius steps 10 to 50 km, default 20 km. ; Flutter work is milestone M8. Backend implementation moved to the backend milestone M4 (before the admin work); Flutter integration is the last milestone (M8) and is not started.
 - **Decided by:** Product owner
 - **Date:** 2026-11-21
 - **Baseline:** `/explore` has no radius param (fixed 20 km `ST_DWithin` when `lat` and `lng` are sent); `city` is `ILIKE` on a location string; no `City` entity; `sort=trending` ignored (BUG-B28); duplicated events miss `geog` (BUG-B25); `geog` filled only by specific raw SQL (BUG-B02).
@@ -112,7 +112,7 @@ Statuses were set by the product owner on 2026-11-21 (see Decision log). The CR 
 
 ### CR-10 Filters, vocabularies, map
 - **Status:** Approved
-- **Decision note:** Full. Q6b default: starter genre/mood lists editable by admin. Backend contract only for now.
+- **Decision note:** Full. Q6b default: starter genre/mood lists editable by admin. Backend implementation moved to the backend milestone M4 (before the admin work); Flutter integration is the last milestone (M8) and is not started.
 - **Decided by:** Product owner
 - **Date:** 2026-11-21
 - **Baseline:** `/explore/genres` exists; `mood` is a free CSV; no results-count endpoint; `categoryType` for events.
@@ -120,7 +120,7 @@ Statuses were set by the product owner on 2026-11-21 (see Decision log). The CR 
 
 ### CR-11 Interested, recently/most viewed
 - **Status:** Approved
-- **Decision note:** Full. Q6c default: trending = views + interested, 7 days; most viewed = 30 days. Q6d default: count only, no names. Backend contract only for now.
+- **Decision note:** Full. Q6c default: trending = views + interested, 7 days; most viewed = 30 days. Q6d default: count only, no names. Backend implementation moved to the backend milestone M4 (before the admin work); Flutter integration is the last milestone (M8) and is not started.
 - **Decided by:** Product owner
 - **Date:** 2026-11-21
 - **Baseline:** only `Event.viewCount`, incremented on each detail read (not per user). No interested or recently-viewed concept.
@@ -129,7 +129,7 @@ Statuses were set by the product owner on 2026-11-21 (see Decision log). The CR 
 
 ### CR-12 Artists discovery and follow
 - **Status:** Approved
-- **Decision note:** Full. Q6e default: artist profiles maintained by club/organizer or admin; no artist logins. Backend contract only for now.
+- **Decision note:** Full. Q6e default: artist profiles maintained by club/organizer or admin; no artist logins. Backend implementation moved to the backend milestone M4 (before the admin work); Flutter integration is the last milestone (M8) and is not started.
 - **Decided by:** Product owner
 - **Date:** 2026-11-21
 - **Baseline:** `Artist`, `ArtistFollower`, `EventLineup` and an `artists` module exist; backend support is probably present for follow. To be confirmed in gap analysis against the spec and the Flutter code.
@@ -137,14 +137,14 @@ Statuses were set by the product owner on 2026-11-21 (see Decision log). The CR 
 
 ### CR-13 Public event page content
 - **Status:** Approved
-- **Decision note:** Full, limited to fields that do not depend on deferred CRs (no per-ticket valid days, no starting price).
+- **Decision note:** Full, limited to fields that do not depend on deferred CRs (no per-ticket valid days, no starting price). Backend implementation moved to the backend milestone M4 (before the admin work); Flutter integration is the last milestone (M8) and is not started.
 - **Decided by:** Product owner
 - **Date:** 2026-11-21
 - **Proposed:** `organizer` and `club` identities, full address, start and end dates, per-ticket valid days, `mapUrl` or coordinates, mood tags, `startingPrice`, `availability` (from CR-04), `interestedCount` (CR-11). All additive.
 
 ### CR-14 Customer tickets: future, pending, past
 - **Status:** Approved
-- **Decision note:** Full. Backend contract only for now.
+- **Decision note:** Full. Backend implementation moved to the backend milestone M4 (before the admin work); Flutter integration is the last milestone (M8) and is not started.
 - **Decided by:** Product owner
 - **Date:** 2026-11-21
 - **Baseline:** `bookings` module lists the user's bookings and tickets. Pending guest-list requests and in-flight payments are not distinguished.
@@ -161,7 +161,7 @@ Statuses were set by the product owner on 2026-11-21 (see Decision log). The CR 
 
 ### CR-16 Checkout, refunds, payout reconciliation
 - **Status:** Partial
-- **Decision note:** ONLY: refund request by owner, admin approval (full/partial), refund webhook handling, bad-signature 400 fix (BUG-B16). NOT YET: payout mode (Q3), table payment rules (Q1).
+- **Decision note:** ONLY: refund request by owner, admin approval (full/partial), refund webhook handling, bad-signature 400 fix (BUG-B16). NOT YET: payout mode (Q3), table payment rules (Q1). Added 2026-11-21: admin order list and detail (`GET /admin/orders`, `GET /admin/orders/{orderId}`). One refund per order for now (kept on purpose). Per-attendee refunds are NOT built: open question Q8 (the tracker says "full/partial refunds" in E6 and V9 but never mentions a single attendee). Impact if Q8 = C: a refund state per ticket, ticket-level entry invalidation and stock return, a new table or column (see `data-model.md` 8.6.7), and `verify-ticket` changes. Until then a partial refund is a money amount, allowed once per order, and entry is invalidated only by a FULL refund.
 - **Decided by:** Product owner
 - **Date:** 2026-11-21
 - **Baseline:** refunds are created only on formal event cancellation (full gross, service charge kept, executed by `processRefund` job); no user-initiated or partial refund endpoint; unverified whether refund webhooks are handled; Stripe signature errors return 500 (BUG-B16); module purchase has no idempotency body check (BUG-B19).
@@ -187,10 +187,11 @@ Statuses were set by the product owner on 2026-11-21 (see Decision log). The CR 
 
 | Date | Decision | By |
 |---|---|---|
-| 2026-11-21 | Approved: CR-01, 03, 09, 10, 11, 12, 13, 14, 17. | Product owner |
+| 2026-11-21 | Approved: CR-01 (now Partial, see below), 03, 09, 10, 11, 12, 13, 14, 17. | Product owner |
 | 2026-11-21 | Partial: CR-02, 04, 06, 07, 08, 15, 16 (only the parts named in each Decision note). | Product owner |
 | 2026-11-21 | Deferred: CR-05 (waiting on Q5). Rejected: none. | Product owner |
-| 2026-11-21 | D1 (club-owner self-signup) = Option B: signup stays open, an admin must approve before selling. | Product owner |
+| 2026-11-21 | D1 (club-owner self-signup) first recorded as Option B (admin approval). | Product owner |
+| 2026-11-21 | D1 decision REVERSED: owner-approval gate deferred until the client answers D1. Removed from the spec and the data model. CR-01 is now Partial. BUG-S03 stays open. | Product owner |
 | 2026-11-21 | Q1 to Q6 are still unanswered by the client. The Q6 defaults (6a to 6f) are used as working defaults; Q1 to Q5 values are not assumed. | Product owner |
 | 2026-11-21 | Scope for now: backend + admin only. Flutter work starts later (milestone M8, not started). | Product owner |
 | 2026-11-21 | Live Flutter app must keep working: additive changes in v1; breaking changes only in `/api/v2` with the v1 endpoint kept and marked deprecated. | Product owner |
