@@ -11,6 +11,8 @@ import {
   verifyAccessToken,
 } from '@/app/utils/jwt.utils';
 import { getRedisClient } from '@/app/configs/redis.configs';
+import { createRedisKey } from '@/app/utils/system.utils';
+import { REDIS_PREFIXES } from '@/const';
 
 export const socketTraceMiddleware = (
   socket: AuthenticatedSocket,
@@ -45,7 +47,9 @@ export const socketAuthMiddleware = async (
       return next(new Error('UNAUTHORIZED: No token provided'));
     }
     const redisClient = getRedisClient();
-    const isBlackListed = await redisClient.get(`blacklist:jwt:${token}`);
+    const isBlackListed = await redisClient.get(
+      createRedisKey(REDIS_PREFIXES.blacklist, token)
+    );
 
     if (isBlackListed) {
       logger.warn(`Socket auth failed — Token blacklisted: ${socket.id}`);
