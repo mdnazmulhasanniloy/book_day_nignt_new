@@ -133,3 +133,20 @@
 | O-02 | Admin API host (`ibady.nazmul.qzz.io`) differs from the production host named in `CLAUDE.md` (`api.bookdianight.com`). ⚠️ UNVERIFIED which is live. |
 | O-03 | `redis:latest` and `rediscommander/redis-commander:latest` are unpinned images in `docker-compose.yaml`. |
 | O-04 | `lint_results.json` and `admin_dashboard_plan.md` sit in `backend/` root (stray artifacts). ⚠️ UNVERIFIED relevance. |
+
+## 8. Planned disposition (TO-BE, 2026-11-21)
+
+Nothing in this section has been fixed. It records where each item is planned in `05-delivery/implementation-plan.md` and `05-delivery/tasks/`. The tables above stay AS-IS.
+
+| Item | Disposition | Task |
+|---|---|---|
+| CR-17 standard error codes (correct HTTP status plus a stable `errorType` instead of 500 for business failures) | Resolved by the status-code tasks: B-15, B-17, B-18, B-22, B-26, B-27, S-18 | T-010, T-011, T-012, T-013, T-014 (M1); B-16 in HF-002 |
+| S-04 blacklist key mismatch | Hotfix track (verify the writer and readers first) | HF-003 |
+| S-19 reset password without OTP | Hotfix track (verify first, then fix) | HF-004 |
+| S-17 password hash in `GET /admin/users` | Fix already in the baseline code; task is verification (tests run, staging check) | HF-001 |
+| B-16 Stripe webhook signature gives 500 | Hotfix track | HF-002 |
+| B-21 auth check order | Later: auth cleanup, last task of M2, no dependents | T-021 |
+| B-19 module purchase idempotency body check | Built with the module and extras tasks (M5), not as a separate task | T-056 |
+| B-20 inconsistent `/admin/commission` response shapes | Skipped: the v2 pricing rules (CR-15) supersede these endpoints; v1 shapes stay as they are and are deprecated | none |
+| B-24 tier update resets `soldCount` | M1, in place update with no dependency on migration 5 | T-004 |
+| S-03 self-signup as `CLUB_OWNER`, S-21, B-07, B-08, B-10 | Not scheduled in backend/admin: S-03 waits on D1; S-21 belongs to deferred CR-05; B-07, B-08, B-10 are Flutter (M8, not started) | none |

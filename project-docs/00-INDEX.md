@@ -25,9 +25,11 @@ State labels: **AS-IS** = describes the code as it is today. **TO-BE** = approve
 | `04-architecture/adr/` | ADR-001 API versioning and deprecation; ADR-002 organizer as a profile (no new role); ADR-003 pricing rules with effective dates; ADR-004 tier update matching (`PUT /event` fallback) | TO-BE decisions |
 | `04-architecture/api-usage-map.md` | Which Flutter and Admin files call each endpoint, and which endpoints are unused | AS-IS, line numbers mostly unverified |
 | `04-architecture/known-issues.md` | Bugs, dead code, security risks, missing validation (list only, nothing fixed); its IDs are the BUG-xx tags in the CRs | AS-IS |
-| `05-delivery/blockers.md` | Questions for the client in plain English (Q1 to Q6, Q8, D1): why it matters, what it blocks, options, a recommended default. Ready to send | open, none answered |
+| `05-delivery/blockers.md` | Questions for the client in plain English (Q1 to Q6, Q8, Q9, D1): why it matters, what it blocks, options, a recommended default; client notices; and the content we need from the client (genre/mood list, city seed list). Ready to send | open, none answered |
 | `05-delivery/reports/stock-leak.sql` | Read-only SQL report: per event tier, `soldCount` vs paid persons; corrected value for events with one active tier. SELECT only | TO-BE (run on a copy first) |
-| `05-delivery/implementation-plan.md` | Milestones M0 to M8: backend first, then admin, Flutter integration last (not started); Admin endpoint coverage note | TO-BE plan |
+| `05-delivery/implementation-plan.md` | Milestones HF and M0 to M8: backend first, then admin, Flutter integration last (not started); milestone-to-task and migration-to-task maps; traceability tables (CR and BUG to tasks to tests); flags for approved requirements with no task; Admin endpoint coverage note | TO-BE plan |
+| `05-delivery/tasks/` | `README.md` (task list: ID, title, stack, depends on, status) and one file per task (`HF-001` to `HF-004`, `T-001` to `T-079`): stack, CR/BUG IDs, dependencies, docs to read, steps, done criteria with tests, status. `REL-HF` and `REL-M1` to `REL-M7` are release checkpoints (review, staging deploy, smoke list, production deploy, rollback note) | TO-BE plan |
+| `05-delivery/patches/HF-001.md` | Backup of the S-17 patch (already in the baseline code); the task file is `tasks/HF-001.md` | reference |
 
 `backend/CLAUDE.md` expects a changelog under `05-delivery/`; the API changelog lives in `04-architecture/api-spec-changelog.md` instead.
 
@@ -83,7 +85,7 @@ Rules that apply (from `backend/CLAUDE.md`): update `api-spec.yaml` and `data-mo
 3. `04-architecture/api-usage-map.md`: find which endpoints and client files the change would affect, and whether any client depends on the current response shape.
 4. `04-architecture/data-model.md` and `04-architecture/api-spec.yaml`: the models and operations affected. Update both before implementing, per `backend/CLAUDE.md`.
 5. `04-architecture/system-architecture.md`: the flow the change fits into (auth, payments, jobs).
-6. Record unclear requirements as blockers. `05-delivery/blockers.md` is the place named in `backend/CLAUDE.md`, but it does not exist yet. Create it only when needed and say so.
+6. Record unclear requirements as blockers in `05-delivery/blockers.md` (the place named in `backend/CLAUDE.md`).
 
 ## 4. Keeping this index current
 
