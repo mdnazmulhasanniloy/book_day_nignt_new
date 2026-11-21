@@ -10,7 +10,7 @@ One file per task, written 2026-11-21 (rebuilt after the repo was re-created; co
 - Tests are part of the task (harness from T-003; hotfixes may use plain `tsx --test`). A task is Done only when every box in its 'Done when' list is checked.
 - Status values: `not started`, `in progress`, `blocked: <reason>`, `done`. Update the Status line in the task file and the table below.
 - Hotfix track branches from `main` and ships before M1 (REL-HF). All other tasks branch from the v2 work branch.
-- Release checkpoints (REL-*) have five sections: review, staging deploy, smoke list, production deploy, rollback note. Staging deploy mechanics are ⚠️ UNVERIFIED (`release-management.md` documents only the production tag flow); REL-HF settles that first.
+- Release checkpoints (REL-*) have five sections: review, staging deploy, smoke list, production deploy, rollback note. Staging deploy mechanics are ⚠️ UNVERIFIED (the old workflows deploy tag-to-production only, and no workflow runs in the monorepo until root workflows are added); REL-HF settles that first.
 
 ## Order
 
