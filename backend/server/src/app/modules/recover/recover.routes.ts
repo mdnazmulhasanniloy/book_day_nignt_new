@@ -12,7 +12,10 @@ import {
   findUserByEmail,
   limitOtpSendMiddleware,
 } from '@/app/modules/auth/auth.middlewares';
-import { checkResetPasswordPageTokenMiddleware } from '@/app/modules/recover/recover.middlewares';
+import {
+  checkResetPasswordPageTokenMiddleware,
+  requireRecoverVerifiedMiddleware,
+} from '@/app/modules/recover/recover.middlewares';
 import { validateReqBody } from '@/app/utils/system.utils';
 import {
   findRecoverUserByEmailSchema,
@@ -50,6 +53,7 @@ router
     checkResetPasswordPageTokenMiddleware,
     checkUserExistenceMiddleware,
     checkAccountStatus,
+    requireRecoverVerifiedMiddleware,
     recoverUserPasswordResetController
   );
 

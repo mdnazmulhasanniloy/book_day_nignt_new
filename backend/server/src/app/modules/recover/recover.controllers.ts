@@ -54,7 +54,10 @@ export const verifyRecoverUserController = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const traceId = getTraceId();
     const user = req.user as User;
-    await verifyRecoverUserService({ user });
+    await verifyRecoverUserService({
+      user,
+      token: req.headers['x-recover-token'] as string | undefined,
+    });
     res.status(200).json({
       success: true,
       message: 'User verification successful',
