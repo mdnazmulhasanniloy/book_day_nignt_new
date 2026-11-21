@@ -24,7 +24,8 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 | [HF-002](HF-002.md) | Stripe webhooks return 400 on missing or bad signature | backend | none | done in code (staging check pending) |
 | [HF-003](HF-003.md) | Fix blacklist key mismatch (jwt vs token) in socket and OTP-page token checks | backend | none | done in code (staging check pending) |
 | [HF-004](HF-004.md) | Reset password without OTP (verify first, then fix) | backend | none | done in code (staging check pending) |
-| [REL-HF](REL-HF.md) | Release checkpoint: hotfix track | release | HF-001, HF-002, HF-003, HF-004 | not started |
+| [HF-005](HF-005.md) | Require auth on POST and DELETE /media (S-01, Critical) | backend | none | done in code (staging check pending) |
+| [REL-HF](REL-HF.md) | Release checkpoint: hotfix track | release | HF-001, HF-002, HF-003, HF-004, HF-005 | not started |
 
 ## M1 Security and correctness
 

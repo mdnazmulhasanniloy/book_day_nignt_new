@@ -20,7 +20,7 @@ Labels: **Root cause** is "confirmed" only where the code was read; otherwise "U
 
 | Group | What | Start when |
 |---|---|---|
-| A. Critical / security | HF-001 to HF-004 (coded); **S-01 unauthenticated `/media` upload and delete (no task yet, see section 4)**; S-02 promo permissions (T-018); S-09 promo rate limit (T-019); B-24 tier reset on event update (T-004) | Now |
+| A. Critical / security | HF-001 to HF-004 (coded); **HF-005 S-01 unauthenticated `/media` upload and delete (coded, branch `hotfix/media-auth`)**; S-02 promo permissions (T-018); S-09 promo rate limit (T-019); B-24 tier reset on event update (T-004) | Now |
 | B. High | M1: T-002, T-003, T-005 to T-014 (tier on purchase, stock release, social sign-in DOB, status codes); then M2 | After the HF staging check; T-002/T-003 can start now |
 | C. Medium | M3 fees (code only; rule values wait for Q2), M4 discovery (defaults from Q6 are safe), M6 analytics (approved part) | After M1 |
 | D. Low | M5 organizer profile and collaboration, M7 admin pages, hygiene items in section 4 | After M3/M4 |
@@ -115,7 +115,7 @@ Found while checking `known-issues.md` against the task list. None is fixed.
 
 | ID | Issue | Proposal | Needs |
 |---|---|---|---|
-| **S-01** | `POST /media` and `DELETE /media` have no auth middleware (route read: confirmed). Anyone can upload to or delete from the storage bucket | **Add as HF-005 (Critical).** Both clients already send credentials (Flutter bearer token when stored, admin cookie), so requiring auth should be safe. Check signup avatar upload and the shared-link flows first | Your go-ahead, because it changes behaviour for the live app |
+| **S-01** | `POST /media` and `DELETE /media` have no auth middleware (route read: confirmed). Anyone can upload to or delete from the storage bucket | **Add as HF-005 (Critical).** Both clients already send credentials (Flutter bearer token when stored, admin cookie), so requiring auth should be safe. Check signup avatar upload and the shared-link flows first | Approved 2026-11-22; implemented as HF-005 |
 | S-06 | Dump files: not tracked by git now and not in history (checked); `.gitignore` covers `*.dump` and `dump.rdb` | Mark resolved in `known-issues.md` after the second check below | Nothing |
 | S-20, S-23, S-07, S-08 | Public export file URL, unescaped share page, shared JWT secret, public quotes/contact | Verify each (all UNVERIFIED except S-07), then add small tasks | Reproduction |
 | S-05, S-10 to S-13 | Flutter accepts any TLS certificate, stores tokens plainly, logs tokens, bundles `.env`, committed Firebase keys | Flutter hardening task group in M8-early (S-05 first) | Your go-ahead; release build impact |

@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Stack | release |
-| Depends on | HF-001, HF-002, HF-003, HF-004 |
+| Depends on | HF-001, HF-002, HF-003, HF-004, HF-005 |
 | Status | not started |
 
 Do not start the next milestone until every box below is checked or explicitly waived by the product owner.
@@ -15,7 +15,7 @@ HF-001 to HF-004 (S-17 verify, B-16, S-04, S-19). Branch from `main`. No migrati
 ## 1. Review
 
 - [ ] Each HF task has its evidence in the PR (HF-001: test and staging output; HF-004: the reproduction result either way).
-- [ ] Behaviour changes called out in the PR text: revoked tokens are now refused (HF-003); reset without OTP is refused (HF-004); bad Stripe signatures give 400 (HF-002).
+- [ ] Behaviour changes called out in the PR text: revoked tokens are now refused (HF-003); reset without OTP is refused (HF-004); bad Stripe signatures give 400 (HF-002); `/media` upload and delete now need a signed-in account (HF-005).
 - [ ] All tasks listed under 'Depends on' are Done and merged; `api-spec.yaml`, `data-model.md`, `api-usage-map.md` and `known-issues.md` match what shipped; `x-status: planned` removed for shipped operations.
 - [ ] `npm test`, `npm run test:db`, `npm run lint` and `npm run build` green in CI on the release commit.
 
@@ -29,6 +29,7 @@ HF-001 to HF-004 (S-17 verify, B-16, S-04, S-19). Branch from `main`. No migrati
 - [ ] `GET /admin/users?page=1&limit=50` as admin: no item has a `password` key (HF-001).
 - [ ] `POST /webhooks/payment/stripe` and `POST /connect/webhook` with no signature and with a wrong one: 400; with a Stripe test event signed correctly: 200 (HF-002).
 - [ ] Log in, log out, replay the old access token on a protected route and on the socket handshake: both refuse it (HF-003).
+- [ ] `POST /media` and `DELETE /media` with no credentials return 401; with a valid mobile token and with the admin dashboard session, upload and delete still work (HF-005).
 - [ ] Admin forgot-password: full flow works; skipping the verify step returns 403 and the password does not change (HF-004).
 - [ ] Normal login, one ticket purchase in Stripe test mode and one webhook delivery still succeed (regression).
 
