@@ -1,4 +1,5 @@
 import { env } from '@/env';
+import { constructStripeEvent } from '@/app/utils/stripeSignature.utils';
 import { stripe } from '@/app/configs/stripe.configs';
 import prisma from '@/app/configs/db.configs';
 import logger from '@/app/configs/logger.configs';
@@ -30,15 +31,15 @@ export const processPaymentWebhookService = async ({
   signature,
 }: IProcessPaymentWebhookService): Promise<void> => {
   try {
-    if (!signature) throw new Error('Stripe signature is missing');
-
     // 1. Signature Verification
     // WHY: We must verify that the event originated from Stripe and hasn't been intercepted/modified.
-    const event = stripe.webhooks.constructEvent(
+    // A missing or bad signature throws a 400 (INVALID_STRIPE_SIGNATURE).
+    const event = constructStripeEvent({
+      stripe,
       payload,
       signature,
-      env.STRIPE_PAYMENT_WEBHOOK_SECRET_KEY
-    );
+      secret: env.STRIPE_PAYMENT_WEBHOOK_SECRET_KEY,
+    });
 
     const supportedEvents = new Set([
       'payment_intent.succeeded',
