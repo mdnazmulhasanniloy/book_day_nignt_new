@@ -5,6 +5,7 @@ import prisma from '@/app/configs/db.configs';
 import { getRedisClient } from '@/app/configs/redis.configs';
 import { stripe } from '@/app/configs/stripe.configs';
 import { env } from '@/env';
+import { constructStripeEvent } from '@/app/utils/stripeSignature.utils';
 import { REDIS_PREFIXES } from '@/const';
 import { createRedisKey } from '@/app/utils/system.utils';
 import {
@@ -210,12 +211,12 @@ export const processConnectWebhookService = async ({
   signature,
 }: IProcessConnectWebhookService): Promise<void> => {
   try {
-    if (!signature) throw new Error('Stripe signature is missing');
-    const event = stripe.webhooks.constructEvent(
+    const event = constructStripeEvent({
+      stripe,
       payload,
       signature,
-      env.STRIPE_CONNECT_WEBHOOK_SECRET_KEY
-    );
+      secret: env.STRIPE_CONNECT_WEBHOOK_SECRET_KEY,
+    });
     if (
       !new Set([
         'account.updated',
