@@ -135,7 +135,7 @@ Found while checking `known-issues.md` against the task list. None is fixed.
 | M5 | T-047 to T-058 | Organizer, tables, quotes, extras | Permission tests, quote lifecycle tests | Pending; Q1, Q3, Q4 for parts |
 | M6 | T-059 to T-069 | Analytics, refunds, orders, cross-account tests | Reconciliation against sample orders | Pending; Q8, Q9 |
 | M7 | T-070 to T-079 | Admin pages for every new endpoint (adds Vitest) | Component tests, manual admin walkthrough | Pending |
-| M8-early (proposed) | Flutter fixes that need no backend change: B-07 and B-08 (401 and refresh), S-05, B-10, DOB picker (P0.1), error/empty states | Stable login and session in the app | `flutter test`, `flutter analyze`, manual device run | Not started; task files to be written |
+| M8-early (proposed) | Flutter fixes that need no backend change: B-07 and B-08 (401 and refresh), S-05, B-10, DOB picker (P0.1), error/empty states | Stable login and session in the app | `flutter test`, `flutter analyze`, manual device run | Task files written (FL-B07, FL-B08, FL-P01); implementation blocked until a Flutter SDK is available on the dev machine |
 | M8 | Flutter integration for every approved CR | Screens for new endpoints | Flutter tests plus V1 to V10 scenarios | Not started |
 
 After every milestone: report done, remaining, next step; update the task Status line and the table in `tasks/README.md`.
