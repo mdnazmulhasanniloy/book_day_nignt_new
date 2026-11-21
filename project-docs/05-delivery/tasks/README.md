@@ -30,7 +30,7 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 
 | ID | Title | Stack | Depends on | Status |
 |---|---|---|---|---|
-| [T-001](T-001.md) | Restore the dump into a local database and run baseline queries | backend (database) | none | not started |
+| [T-001](T-001.md) | Restore the dump into a local database and run baseline queries | backend (database) | none | done |
 | [T-002](T-002.md) | Single-command migration rehearsal script | backend (database, scripts) | T-001 | not started |
 | [T-003](T-003.md) | Backend test harness (unit and database-backed tests) | backend | T-001 | not started |
 | [T-004](T-004.md) | Update event ticket tiers in place (stable ids, soldCount preserved) | backend | T-003 | not started |
