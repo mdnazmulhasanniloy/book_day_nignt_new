@@ -3304,10 +3304,14 @@ paths:
 
         returned media URLs
 
-        **Security Warning:** This route is currently PUBLIC and requires no
-        authentication.
+        **Authentication required (HF-005):** send a mobile `Authorization:
+        Bearer <access token>` or the admin cookie session (`access_token`
+        cookie + `x-csrf-token` header). Unauthenticated requests get 401.
 
         '
+      security:
+        - bearerAuth: []
+        - adminAuth: []
       requestBody:
         required: true
         content:
@@ -3330,6 +3334,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MediaResponse'
+        '401':
+          description: Missing, invalid, expired or revoked credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '403':
+          description: Invalid or missing CSRF token (admin cookie session)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
         '400':
           description: Multer Upload Error (File size exceeded, unexpected field, etc.)
           content:
@@ -3361,9 +3377,13 @@ paths:
 
         request structure expects a JSON array of URLs
 
-        current authentication state is PUBLIC
+        **Authentication required (HF-005):** Bearer token or admin cookie
+        session (with `x-csrf-token`), same as upload.
 
         '
+      security:
+        - bearerAuth: []
+        - adminAuth: []
       requestBody:
         required: true
         content:
@@ -3377,6 +3397,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: Missing, invalid, expired or revoked credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
+        '403':
+          description: Invalid or missing CSRF token (admin cookie session)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthErrorResponse'
         '422':
           description: Validation failed
           content:
