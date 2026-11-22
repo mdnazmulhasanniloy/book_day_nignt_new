@@ -3380,6 +3380,12 @@ paths:
         **Authentication required (HF-005):** Bearer token or admin cookie
         session (with `x-csrf-token`), same as upload.
 
+        **Ownership:** a non-admin may delete only files they uploaded (recorded
+        when the file was uploaded). Files uploaded before ownership tracking
+        have no owner and can be deleted by ADMIN only. ADMIN may delete any
+        file under `attachments/`. All-or-nothing: if any URL is not permitted,
+        nothing is deleted. URLs must be this service''s own public media URLs.
+
         '
       security:
         - bearerAuth: []
@@ -3404,7 +3410,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuthErrorResponse'
         '403':
-          description: Invalid or missing CSRF token (admin cookie session)
+          description: ACCESS_DENIED. At least one URL is not owned by the caller (or has no owner and the caller is not ADMIN), or the CSRF check failed for an admin cookie session
           content:
             application/json:
               schema:
