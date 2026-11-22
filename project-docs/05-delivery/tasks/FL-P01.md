@@ -7,7 +7,7 @@
 | CR / BUG IDs | P0.1, CR-01 (Flutter part) |
 | Depends on | none for the picker fix; collecting a missing DOB for social sign-in depends on backend T-009 (not in this task) |
 | Size | at most half a day |
-| Status | investigated, not implemented (no Flutter SDK; the original defect is UNVERIFIED) |
+| Status | gap fixed and unit/widget-tested in Docker on branch `fix/flutter-dob-picker` (commit 02e432b); NOT verified on a device; the originally reported picker defect was NOT reproduced |
 
 Branch: from `main` (`fix/flutter-dob-picker`) once the Flutter SDK is available.
 
@@ -37,3 +37,13 @@ Branch: from `main` (`fix/flutter-dob-picker`) once the Flutter SDK is available
 ## Open question (not blocking this task)
 
 Is 18 the product rule for every role, including CLUB_OWNER? The backend applies `MIN_SIGNUP_AGE` to all signups; confirm with the client before changing.
+
+## Implementation status (2026-11-22)
+
+Reproduction in Docker (widget test on the real `showCustomDatePicker` with the real arguments, plus a Dart port of backend `assertSignupDob`):
+
+- Reproduced: the picker offered the current year, and `lastDate` (today) converted by `toApi` is rejected by the backend (age 0 is below `MIN_SIGNUP_AGE = 18`). Both repro tests failed on the unmodified code.
+- Not reproduced: no crash or wrong value for 29 Feb, for `toApi` around midnight in a non-UTC timezone (it uses the date components only), or on the today boundary. The originally reported defect is therefore still unknown; only the under-18 gap was confirmed.
+- Extra edge found while porting the backend rule: the backend measures age on the UTC date, so a naive local-date cutoff can be rejected for users ahead of UTC, and `DateTime(year - 18, 2, 29)` rolls over to 1 March. `DateOfBirth.latestAllowed` uses the UTC date and maps 29 Feb to 28 Feb.
+
+Fix: `DateOfBirth.minSignupAge = 18` (mirrors backend `MIN_SIGNUP_AGE`), `latestAllowed`, `isOldEnough`, `validate`; `lastDate = latestAllowed`; `initialDate = selected ?? lastDate`; inline error on the DOB field (and on submit) with all entered form data kept; `toApi` unchanged. Helper names differ from the plan above (`isOldEnough`, `validate` instead of `isAdult`). 12 tests in `flutter_app/test/dob_test.dart`. `flutter analyze` unchanged from baseline (34 issues); `flutter test` 42 pass, 1 pre-existing failure (template widget test). No controller-level test (the GetX controller needs platform services), so the inline error wiring is untested.

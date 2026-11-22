@@ -7,13 +7,13 @@
 | CR / BUG IDs | B-08 |
 | Depends on | FL-B07 (same interceptor and logout path) |
 | Size | at most one day |
-| Status | investigated, not implemented (no Flutter SDK on the dev machine) |
+| Status | implemented and unit-tested in Docker on branch `fix/flutter-auth-refresh` (commit cba36ac); NOT verified on a device or against a real backend |
 
 Branch: from `main` (`fix/flutter-token-refresh`) once the Flutter SDK is available.
 
 ## What the code does today (verified by reading)
 
-- Login stores both tokens: `sign_in_controller.dart` saves `AppConst.accessToken` and `AppConst.refreshToken` (`'refreshToken'`).
+- CORRECTION (verified 2026-11-22): email login did NOT store the refresh token. `sign_in_controller.dart` saved only the access token, role and device id; only the social path saved `AppConst.refreshToken`. The backend login response does include `refreshToken`; the app dropped it. Fixed on `fix/flutter-auth-refresh` (both login paths now store it).
 - Nothing ever calls the refresh endpoint. `EndPoint` has no refresh constant. The splash "refresh" is `POST /auth/check`, not a token refresh.
 - Backend: `POST /auth/refresh` with body `{ "refreshToken": "<token>" }` (`refreshTokenSchema`, strict). It verifies the JWT, looks the token's hash up in Redis, **deletes it (single use, rotation)**, then issues a new session (new access and refresh token). A second use of the same refresh token returns 401 `TOKEN_BLACKLISTED`.
 
@@ -43,3 +43,15 @@ Because the refresh token is single-use, two requests failing with 401 at the sa
 
 - Any code path that bypasses `BaseClient` (direct Dio use) will not refresh. Grep for `Dio(` before closing.
 - `MediaService`: HF-005 now requires auth on `/media`, so an expired token fails uploads with a generic error until this lands.
+
+## Verified response shape and implementation status (2026-11-22)
+
+`POST /auth/refresh` with body `{ "refreshToken": "<token>" }` returns `{ "success": true, "message": "...", "data": { "token": "<new access>", "refreshToken": "<new refresh>" }, "traceId": "..." }`. The new access token is `data.token` (not `accessToken`). The refresh token is single use (rotated).
+
+Implemented on `fix/flutter-auth-refresh` (commit cba36ac), together with FL-B07; see FL-B07 for the file list.
+
+- Single-flight: one in-flight Future shared by all concurrent 401s; a late 401 that sent an already replaced access token reuses the stored one instead of refreshing again.
+- Rotation: the second refresh uses the NEW refresh token (tested). Both tokens are written together through one helper (`AuthTokenStore.saveSession`); a refresh response missing either token overwrites nothing and does not log out.
+- Retry once (`extra['retried']`), `Authorization` header replaced on the cloned request. Covers `getBytes` and `getAuthorizedFile` because the interceptor sits on the Dio instance. Consumed `FormData` bodies and download streams are not resent: after a successful refresh the caller gets the original 401 and retries itself (so the multipart methods and `uploadFile`/`uploadMultipleFiles`/`uploadFromBytes` still show one error on the first expired upload).
+- Login: email and social paths store both tokens through `persistLoginSession`. Sign-up and OTP verify do not create a session in the app (verify returns to LoginView), so nothing else saves tokens; logout, account deletion and splash clear the refresh token too.
+- Not verified: device behaviour, real backend, real token expiry. `flutter analyze` 34 issues (3 warnings, 31 infos), identical to the baseline; `flutter test` 57 pass, 1 fails, the failing one being the pre-existing template `widget_test.dart` "Counter increments smoke test" (also failing at baseline).

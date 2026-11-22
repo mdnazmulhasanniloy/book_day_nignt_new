@@ -7,7 +7,7 @@
 | CR / BUG IDs | B-07 |
 | Depends on | none (design shares one client change with FL-B08; implement together or B-08 first) |
 | Size | at most one day |
-| Status | investigated, not implemented (no Flutter SDK on the dev machine; cannot run `flutter analyze` or `flutter test`) |
+| Status | implemented and unit-tested in Docker on branch `fix/flutter-auth-refresh` (commit cba36ac); NOT verified on a device or against a real backend |
 
 Branch: from `main` (`fix/flutter-401-handling`) once the Flutter SDK is available. Flutter is otherwise read-only; this task was approved on 2026-11-22.
 
@@ -36,3 +36,16 @@ Branch: from `main` (`fix/flutter-401-handling`) once the Flutter SDK is availab
 
 - A production app consumes this; test login, signup and OTP screens to be sure their 401s still show the inline error.
 - The backend 401 body has `errorType` (`TOKEN_EXPIRED`, `TOKEN_BLACKLISTED`, `TOKEN_INVALID`); use it to tell "expired, try refresh" from "revoked, log out now".
+
+## Implementation status (2026-11-22)
+
+Implemented together with FL-B08 on `fix/flutter-auth-refresh` (not merged). Tests ran with a Linux Flutter SDK in Docker (`ghcr.io/cirruslabs/flutter:stable`, Flutter 3.44.0, Dart 3.12.0).
+
+- Logic: `core/network/auth_refresh_coordinator.dart` (pure Dart), `auth_refresh_interceptor.dart` (Dio `onResponse`, because `validateStatus` is always true), `auth_session.dart` (LocalStorage store, bare-Dio refresh call, logout handler). The `BaseClient._handleUnauthorized` stub is removed; 403 still throws `UnauthorizedException` but never touches the session.
+- Only a 401 ends a session, and only after refresh was impossible (no stored refresh token) or the server rejected the refresh token (400/401/403 from `/auth/refresh`). A network error, timeout or 5xx during refresh keeps the session and returns the original 401.
+- Skipped paths: login, signup, verify, resend, social, google, refresh, logout, `/recover/*`. Guests (no stored access token, or a request without an `Authorization` header) never trigger refresh or navigation.
+- Logout runs once (flag re-armed when a new session is saved): clears access token, refresh token and role, shows "Session expired, please sign in again.", `Get.offAll(LoginView)`.
+- `/auth/check` at splash is not skipped, so a cold start with an expired access token and a stored refresh token now refreshes instead of logging out. If that refresh fails, the handler shows LoginView and splash then replaces it with onboarding (existing behaviour); this ordering is only reasoned, not run on a device.
+- Existing email-login users have no stored refresh token (the app discarded it). No backend fallback was added and none is approved. They keep working until their access token (up to 30 days) is rejected; then they get the clear message and one re-login, as before but without silent failures.
+- Unit tests: `flutter_app/test/auth_refresh_test.dart` (27 tests: 403, guest, auth endpoints, parallel 401s, retry limit, no refresh token, rejected and network failure, FormData, bytes download, `getAuthorizedFile` style request, Authorization overwrite, persistence).
+- Still open: the manual device checks from "Done when" (short-lived token on a local backend; revoke the refresh token in Redis); login, signup and OTP screens still need a manual look to confirm their inline 401 errors are unchanged.
