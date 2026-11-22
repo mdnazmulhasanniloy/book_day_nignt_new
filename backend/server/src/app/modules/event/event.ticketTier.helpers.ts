@@ -47,3 +47,57 @@ export const mapTicketTierTree = (
     };
   });
 };
+
+export type TierFieldsInput = {
+  id?: string;
+  tierName: string;
+  groupName?: string | null;
+  description?: string | null;
+  price: number;
+  capacity: number;
+  sortOrder: number;
+  startAt?: Date | null;
+  endAt?: Date | null;
+  isActive: boolean;
+};
+
+export type TierInput = TierFieldsInput & { children?: TierFieldsInput[] };
+
+export type TierReconcileWarning = {
+  code: 'TIER_MATCH_AMBIGUOUS';
+  eventId: string;
+  tierIds: string[];
+};
+
+export type TierReconcileResult = {
+  warnings: TierReconcileWarning[];
+};
+
+/**
+ * BASELINE (pre-T-004 behaviour, kept only for the failing-test run):
+ * delete every tier of the event and recreate it. Replaced in the next commit.
+ */
+export const reconcileEventTicketTiers = async ({
+  tx,
+  eventId,
+  tiers,
+}: {
+  tx: Prisma.TransactionClient;
+  eventId: string;
+  tiers: TierInput[];
+}): Promise<TierReconcileResult> => {
+  await tx.eventTicketTier.deleteMany({ where: { eventId } });
+  for (const tier of tiers) {
+    const { children = [], id: _id, ...tierData } = tier;
+    const parent = await tx.eventTicketTier.create({
+      data: { ...tierData, eventId },
+    });
+    for (const child of children) {
+      const { id: _childId, ...childData } = child;
+      await tx.eventTicketTier.create({
+        data: { ...childData, eventId, parentId: parent.id },
+      });
+    }
+  }
+  return { warnings: [] };
+};
