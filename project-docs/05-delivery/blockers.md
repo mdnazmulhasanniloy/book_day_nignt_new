@@ -6,6 +6,23 @@ Project: Bookdia Night. Date prepared: 2026-11-21. Based on the review tracker o
 
 "CR-xx" numbers are our internal change-request numbers (see `02-product/change-requests.md`).
 
+## Status after the client response (2026-11-22)
+
+The client answered in `01-discovery/client-answers-01.md`. Full mapping, ambiguities and impact: `05-delivery/client-answers-review-2026-11-22.md`. The question text below is kept as sent.
+
+| # | Status | What is settled | What is still open |
+|---|---|---|---|
+| Q1 | Direction | Fixed and starting-from tables, quotes by club or authorized organizer, deposit/full/both, approval before collection (manual capture proposed) | Stripe feasibility and cost demonstration; quote acceptance duration; deposit balance terms; messaging channel |
+| Q2 | Partly | Fee on every paid product, zero by admin, itemized or included, commission borne by club or organizer, overrides by client/venue/event/product, versioned | Rule values; per-market validation; fee base |
+| Q3 | Answered | Automatic percentage splits with fallbacks | Payout timing, failed transfers, retries, reversal on refund, reporting, tax (requested from us) |
+| Q4 | Answered | Upload evidence, admin approval before sales, dispute suspends sales | Form wording (supplied on request); refunds on dispute |
+| Q5 | Answered | Capacity, passes, holds (24 h configurable), one scan per ticket, no-show at event end | No-show timing for multi-day; entry-window time; who configures the hold |
+| Q6 | Answered | 30 km initial radius, lists C1/C2, trending 7 d, most viewed 30 d, count (optional avatars), artist profiles, hosts | Optional avatar preview scope |
+| Q8 | Answered | Per-ticket cancellation, club cutoff, automatic in-time refund, exceptions | Venue-cancelled events; market requirements |
+| Q9 | Answered | Automatic capacity restore while sales open, manual restock | "Eligible" definition; purchase-limit values; resale is a separate estimate |
+| D1 | Answered | Admin approval before partner access; invitations verified | Confirm account stays a customer until approved; access matrix is "proposed"; referral conditions |
+| C1 to C3 | Answered | Genre, mood and city lists | Cote d'Azur coverage; activation status per destination |
+
 | # | Topic | Blocks | Answer needed |
 |---|---|---|---|
 | Q1 | How are tables paid for? | CR-07, CR-16 | Choose A, B, C or D |

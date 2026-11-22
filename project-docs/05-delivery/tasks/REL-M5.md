@@ -15,7 +15,7 @@ T-047 to T-058. Migrations 2, 9, 8 (apply in that order). Suggested bump: MINOR.
 ## 1. Review
 
 - [ ] Migration 2 adds enum values and cannot be undone: confirm the four names with the product owner before applying.
-- [ ] Q1, Q3, Q4, Q6f are NOT answered by this release: no quote-to-payment, no payout split, no unregistered venues. Say so in the release note.
+- [ ] Q1, Q3, Q4 and Q6f were answered by the client on 2026-11-22 as directions, but this release still ships no quote-to-payment, no payout split and no unregistered venues (they need the Stripe spike and new tasks). Say so in the release note.
 - [ ] All tasks listed under 'Depends on' are Done and merged; `api-spec.yaml`, `data-model.md`, `api-usage-map.md` and `known-issues.md` match what shipped; `x-status: planned` removed for shipped operations.
 - [ ] `npm test`, `npm run test:db`, `npm run lint` and `npm run build` green in CI on the release commit.
 

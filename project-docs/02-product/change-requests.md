@@ -104,7 +104,7 @@ Statuses were set by the product owner on 2026-11-21 (see Decision log). The CR 
 
 ### CR-09 City selector, radius, chronological Explore
 - **Status:** Approved
-- **Decision note:** Full. Q6a default: radius steps 10 to 50 km, default 20 km. ; Flutter work is milestone M8. Backend implementation moved to the backend milestone M4 (before the admin work); Flutter integration is the last milestone (M8) and is not started.
+- **Decision note:** Full. Q6a answered 2026-11-22: radius steps 10, 20, 30, 40, 50 km, initially 30 km (the earlier default was 20 km). ; Flutter work is milestone M8. Backend implementation moved to the backend milestone M4 (before the admin work); Flutter integration is the last milestone (M8) and is not started.
 - **Decided by:** Product owner
 - **Date:** 2026-11-21
 - **Baseline:** `/explore` has no radius param (fixed 20 km `ST_DWithin` when `lat` and `lng` are sent); `city` is `ILIKE` on a location string; no `City` entity; `sort=trending` ignored (BUG-B28); duplicated events miss `geog` (BUG-B25); `geog` filled only by specific raw SQL (BUG-B02).
@@ -183,6 +183,23 @@ Statuses were set by the product owner on 2026-11-21 (see Decision log). The CR 
 3. Whether BUG items should be approved as part of their CR or as a separate fix batch. Recommended: separate, with S-17, S-03, B-24 first.
 4. Whether `500` to `404/401` status corrections (CR-17) count as breaking for Flutter.
 
+## Client answers (2026-11-22)
+
+Source: `01-discovery/client-answers-01.md`. Full review: `05-delivery/client-answers-review-2026-11-22.md`. **No CR status was changed**: statuses are the product owner's decision. The table shows what the answers settle and what the product owner may now want to re-evaluate.
+
+| CR | Answers received | Still open | Product owner may now |
+|---|---|---|---|
+| CR-01 | D1: admin approval required before partner access; invitations verified | Confirm account stays a customer until approved; grandfathering of existing owners | Lift the deferral of the owner-approval gate |
+| CR-02 | Q3 (automatic split, fallbacks), Q4 (venue authorization), D1 | Payout timing; form wording | Extend scope to unregistered venues and settlement after the Stripe spike |
+| CR-04 | Q5 (capacity ceiling, holds, offline allocations) | Auto progression, starting price, badges not covered | Approve capacity and hold parts |
+| CR-05 | Q5 (multi-day credential per day, one scan, no-show) | No-show timing for multi-day; entry-window time | Lift the deferral |
+| CR-06 | Q5 (guest-list hold 24 h configurable) | Access codes not covered | Approve the hold rule |
+| CR-07 | Q1 direction, Q6f | Stripe demonstration; messaging channel; quote duration | Approve table payments after the demonstration |
+| CR-08 | Q5 (scans, no-shows) | Multi-day no-show timing | Approve scan and no-show analytics |
+| CR-09 to CR-12 | Q6a to Q6e, C1 to C3 | Cote d'Azur coverage; activation per destination; optional avatar preview | Already approved; defaults updated (30 km) |
+| CR-15 | Q2 structure (all products, zero by admin, venue scope, display mode) | **Values**; per-market validation | Approve structure with the ADR-003 amendments; values stay pending |
+| CR-16 | Q1, Q2, Q3, Q8, Q9 | Venue-cancelled events; payout timing; admin role in refunds | Replace the refund scope (per-ticket, automatic in-time refunds, restore) |
+
 ## Decision log
 
 | Date | Decision | By |
@@ -197,3 +214,4 @@ Statuses were set by the product owner on 2026-11-21 (see Decision log). The CR 
 | 2026-11-21 | Live Flutter app must keep working: additive changes in v1; breaking changes only in `/api/v2` with the v1 endpoint kept and marked deprecated. | Product owner |
 | 2026-11-21 | Gap check covers Admin requirements only. | Product owner |
 | 2026-11-21 | Recording note: these decisions were taken as Claude's recommended approval sheet, accepted by the product owner in chat, not typed in per CR. | Claude |
+| 2026-11-22 | Client answers received in `01-discovery/client-answers-01.md` (review `05-delivery/client-answers-review-2026-11-22.md`). No CR status changed; recommendations are in the review. | Claude (documentation) |

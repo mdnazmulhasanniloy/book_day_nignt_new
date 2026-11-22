@@ -17,7 +17,7 @@ T-059 to T-069. Migrations 13 and 7. Suggested bump: MINOR.
 - [ ] Migration 13: decision recorded on CONCURRENTLY from the `Order` row count; if the db-migrator cannot run it, the two index statements are applied by hand BEFORE deploy (record who and when).
 - [ ] T-064 (only FULL refunds invalidate entry) is in this release, together with or before T-066.
 - [ ] Client notice 1 (owner earnings now include tables) is sent to the client before the release (T-060).
-- [ ] Q8 (partial refunds) and Q9 (inventory on refund) answers, or the written defaults (B and no), are confirmed by the product owner.
+- [ ] Q8 and Q9 were answered by the client on 2026-11-22 (per-ticket cancellation; automatic restore of eligible capacity). The refund tasks T-063 to T-066 and T-078 are on hold for redesign; confirm the redesigned scope with the product owner before this release.
 - [ ] All tasks listed under 'Depends on' are Done and merged; `api-spec.yaml`, `data-model.md`, `api-usage-map.md` and `known-issues.md` match what shipped; `x-status: planned` removed for shipped operations.
 - [ ] `npm test`, `npm run test:db`, `npm run lint` and `npm run build` green in CI on the release commit.
 
