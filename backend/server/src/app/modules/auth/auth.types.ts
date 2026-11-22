@@ -7,6 +7,7 @@ import {
   TOAuthLoginPayload,
 } from '@/app/modules/auth/auth.schema';
 import { User, Device } from '@prisma/client';
+import type { verifyOAuthIdToken } from '@/app/utils/oauthToken.utils';
 import { ITokenPayload } from '@/app/@types/jwt.types';
 
 /**
@@ -57,4 +58,6 @@ export interface ILogoutService {
 
 export interface IOAuthLoginService {
   payload: TOAuthLoginPayload;
+  /** Test seam: defaults to the real provider token verification. */
+  verifyIdentity?: typeof verifyOAuthIdToken;
 }

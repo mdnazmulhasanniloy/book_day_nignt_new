@@ -543,6 +543,7 @@ const socialPhoneNumber = async ({
 
 export const oAuthLoginService = async ({
   payload,
+  verifyIdentity = verifyOAuthIdToken,
 }: IOAuthLoginService): Promise<Record<string, unknown>> => {
   const {
     deviceIdentifier,
@@ -554,7 +555,7 @@ export const oAuthLoginService = async ({
     phoneNumber,
     name,
   } = payload;
-  const identity = await verifyOAuthIdToken({
+  const identity = await verifyIdentity({
     provider,
     idToken: payload.idToken,
     nonce: payload.nonce,
