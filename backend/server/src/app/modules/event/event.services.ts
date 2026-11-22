@@ -13,7 +13,11 @@ import { getEmailQueue } from '@/app/queues/email/email.queue';
 import { QUEUE_JOBS } from '@/const';
 import { sendPushNotification, getUsersNearby } from '@/app/modules/notification/notification.helpers';
 import { ensureArtistForLineup } from '@/app/modules/artists/artists.helpers';
-import { mapTicketTierTree } from '@/app/modules/event/event.ticketTier.helpers';
+import {
+  mapTicketTierTree,
+  reconcileEventTicketTiers,
+  type TierReconcileWarning,
+} from '@/app/modules/event/event.ticketTier.helpers';
 
 /**
  * Service for creating an Event.
@@ -198,6 +202,7 @@ export const updateEventService = async ({
 
   let createdRefunds: { refundId: string; scheduledFor: Date }[] = [];
   let createdEmails: ICancellationEmail[] = [];
+  let tierWarnings: TierReconcileWarning[] = [];
 
   try {
     const updatedEvent = await prisma.$transaction(async (tx) => {
@@ -220,27 +225,14 @@ export const updateEventService = async ({
       }
 
       // 3. Update ticket tiers if provided (supports nested children)
+      // T-004 / ADR-004: reconcile in place (ids and soldCount survive).
       if (ticketTiers !== undefined) {
-        await tx.eventTicketTier.deleteMany({ where: { eventId } });
-        for (const tier of ticketTiers) {
-          const { children = [], id: _id, ...tierData } = tier;
-          const parent = await tx.eventTicketTier.create({
-            data: {
-              ...tierData,
-              eventId,
-            },
-          });
-          for (const child of children) {
-            const { id: _childId, ...childData } = child;
-            await tx.eventTicketTier.create({
-              data: {
-                ...childData,
-                eventId,
-                parentId: parent.id,
-              },
-            });
-          }
-        }
+        const reconciled = await reconcileEventTicketTiers({
+          tx,
+          eventId,
+          tiers: ticketTiers,
+        });
+        tierWarnings = reconciled.warnings;
       }
 
       // 4. Update lineup if provided (ensures stable Artist ids)
@@ -316,6 +308,15 @@ export const updateEventService = async ({
 
       return eventToReturn;
     });
+
+    if (tierWarnings.length > 0) {
+      const { default: logger } = await import('@/app/configs/logger.configs');
+      for (const warning of tierWarnings) {
+        logger.warn(
+          `[updateEventService] ${warning.code} event=${warning.eventId} tiers=${warning.tierIds.join(',')}`
+        );
+      }
+    }
 
     // 4. Enqueue background jobs AFTER successful transaction
     if (isCancellation && createdRefunds.length > 0) {
