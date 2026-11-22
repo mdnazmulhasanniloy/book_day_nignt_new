@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:bookdianight_app/app/core/local_storage/local_storage.dart';
 import 'package:bookdianight_app/app/core/network/base_client.dart';
+import 'package:bookdianight_app/app/core/network/auth_session.dart';
 import 'package:bookdianight_app/app/core/network/end_point.dart';
+import 'package:bookdianight_app/app/core/network/logout_flow.dart';
 import 'package:bookdianight_app/app/core/resources/app_const/app_const.dart';
 import 'package:bookdianight_app/app/core/resources/app_loader/custom_animated_loader.dart';
 import 'package:bookdianight_app/app/core/utils/custom_snack_bar.dart';
@@ -235,7 +237,22 @@ class ProfileController extends GetxController {
     }
   }
 
-  /// Logs out user via `POST /api/v1/auth/logout`
+  late final LogoutFlow _logoutFlow = LogoutFlow(
+    store: const LocalAuthTokenStore(),
+    deviceIdentifier: DeviceHelper.getDeviceIdentifier,
+    post: (body, headers) => BaseClient().post(
+      endpoint: EndPoint.LOGOUT,
+      body: body,
+      headers: headers,
+    ),
+    onCleared: () async {
+      DeepLinkService.instance.onLoggedOut();
+      NotificationRouter.onLoggedOut();
+    },
+  );
+
+  /// Logs out user via `POST /api/v1/auth/logout` (sends the refresh token so
+  /// the server revokes the refresh session) and clears local credentials.
   Future<void> logout() async {
     if (isLoading.value) return;
 
@@ -250,29 +267,9 @@ class ProfileController extends GetxController {
       barrierDismissible: false,
     );
 
-    String deviceId = DeviceHelper.getDeviceIdentifier();
-    String? token = LocalStorage.getData(key: AppConst.accessToken);
-
-    Map<String, dynamic> headers = {};
-    if (token != null && token.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token';
-    }
-
     try {
-      await BaseClient().post(
-        endpoint: EndPoint.LOGOUT,
-        body: {"deviceIdentifier": deviceId},
-        headers: headers,
-      );
-    } catch (e) {
-      debugPrint("Logout API Error: $e");
+      await _logoutFlow.run();
     } finally {
-      await LocalStorage.removeData(key: AppConst.accessToken);
-      await LocalStorage.removeData(key: AppConst.refreshToken);
-      await LocalStorage.removeData(key: AppConst.role);
-      DeepLinkService.instance.onLoggedOut();
-      NotificationRouter.onLoggedOut();
-
       if (Get.isDialogOpen ?? false) {
         Get.back(); // close loader
       }
