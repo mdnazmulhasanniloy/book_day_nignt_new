@@ -126,10 +126,10 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 | [T-060](T-060.md) | Owner earnings: include tables, event-timezone day boundaries | backend | T-015, T-059 | not started |
 | [T-061](T-061.md) | Owner analytics: GET /owner/analytics | backend | T-059, T-060, T-025 | not started |
 | [T-062](T-062.md) | Owner per-event analytics: GET /owner/events/{eventId}/analytics | backend | T-061 | not started |
-| [T-063](T-063.md) | Migration 7: refund requests | backend (database) | T-002, T-047 | not started |
-| [T-064](T-064.md) | Only a FULL refund invalidates entry (verify-ticket and owner dashboard) | backend | T-063, T-011 | not started |
-| [T-065](T-065.md) | Owner refund request: POST /owner/orders/{orderId}/refund-requests | backend | T-063, T-064, T-047 | not started |
-| [T-066](T-066.md) | Admin refund requests: list and approve or reject | backend | T-065 | not started |
+| [T-063](T-063.md) | Migration 7: refund requests | backend (database) | T-002, T-047 | on hold (client answers Q8, Q9) |
+| [T-064](T-064.md) | Only a FULL refund invalidates entry (verify-ticket and owner dashboard) | backend | T-063, T-011 | on hold (client answers Q8, Q9) |
+| [T-065](T-065.md) | Owner refund request: POST /owner/orders/{orderId}/refund-requests | backend | T-063, T-064, T-047 | on hold (client answers Q8, Q9) |
+| [T-066](T-066.md) | Admin refund requests: list and approve or reject | backend | T-065 | on hold (client answers Q8, Q9) |
 | [T-067](T-067.md) | Handle Stripe refund webhook events | backend | T-063, HF-002 | not started |
 | [T-068](T-068.md) | Admin orders, order detail and refunds list | backend | T-059, T-063 | not started |
 | [T-069](T-069.md) | Cross-account access test suite for owner, organizer and admin routes | backend | T-062, T-066, T-068, T-053, T-051 | not started |
@@ -147,7 +147,7 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 | [T-075](T-075.md) | Admin page: Pricing rules | admin | T-070, T-027 | not started |
 | [T-076](T-076.md) | Admin page: Financials | admin | T-070, T-028 | not started |
 | [T-077](T-077.md) | Admin pages: Orders list and detail | admin | T-070, T-068 | not started |
-| [T-078](T-078.md) | Admin page: Refund requests (approve or reject) | admin | T-070, T-066 | not started |
+| [T-078](T-078.md) | Admin page: Refund requests (approve or reject) | admin | T-070, T-066 | on hold (client answers Q8, Q9) |
 | [T-079](T-079.md) | Admin page: Refunds list | admin | T-070, T-068 | not started |
 | [REL-M7](REL-M7.md) | Release checkpoint: M7 admin app | release | T-070, T-071, T-072, T-073, T-074, T-075, T-076, T-077, T-078, T-079 | not started |
 

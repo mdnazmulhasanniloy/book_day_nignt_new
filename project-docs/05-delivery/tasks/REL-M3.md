@@ -15,7 +15,7 @@ T-022 to T-028. Migration 6 with the v1 write-through (ship together). Suggested
 ## 1. Review
 
 - [ ] Rehearsal: CHECK-violation counts were 0 before migration 6 (attach).
-- [ ] Q2 answers (fee and commission values) are not required to ship: seeded rules reproduce today's values. Free-ticket fee waiver is provisional until Q2 (T-026).
+- [ ] Q2 values are still not given by the client (2026-11-22); they are not required to ship: seeded rules reproduce today's values. The structure answers need the ADR-003 amendments first. Fee only on paid products is confirmed (T-026).
 - [ ] Regression evidence from T-024 and T-025 (old formula equals new path on the sample set).
 - [ ] All tasks listed under 'Depends on' are Done and merged; `api-spec.yaml`, `data-model.md`, `api-usage-map.md` and `known-issues.md` match what shipped; `x-status: planned` removed for shipped operations.
 - [ ] `npm test`, `npm run test:db`, `npm run lint` and `npm run build` green in CI on the release commit.
