@@ -1,7 +1,8 @@
-# Data Model (as-is)
+# Data Model (as-is baseline + approved TO-BE)
 
 > Reverse-engineered from `backend/prisma/schema.prisma` (999 lines) and `backend/prisma/migrations/` (25 migrations + `migration_lock.toml`).
-> Describes the CURRENT state only. No changes are proposed here; see `known-issues.md` for problems.
+> Sections 1 to 7 describe the CURRENT state (as-is). **Section 8 is the TO-BE data model** for the approved change requests (`02-product/change-requests.md`: Approved CRs and the approved parts of Partial CRs; CR-05 is deferred and absent). **Section 9 is the ordered migration plan.** Every TO-BE item is tagged with its CR or BUG ID. Nothing in sections 8 and 9 exists in `schema.prisma` yet.
+> See `known-issues.md` for problems (BUG-xx tags reuse its IDs).
 > Items that could not be confirmed in code are marked **⚠️ UNVERIFIED**.
 
 ## 1. Overview
@@ -11,7 +12,7 @@
 | Database | PostgreSQL 16 (dump header: 16.4 Debian) with PostGIS |
 | ORM | Prisma ^6.19.2, `prisma-client-js`, preview feature `postgresqlExtensions` |
 | Schema location | One schema for all three services: `backend/prisma/schema.prisma`. `server/prisma/`, `worker/prisma/`, `scheduler/prisma/` are empty mount points (`docker-compose.yaml` lines 66, 96, 130). |
-| Counts | 41 models, 26 enums (verified with `grep -c "^model \|^enum "`) |
+| Counts | As-is: 41 models, 26 enums (verified with `grep -c "^model \|^enum "`). TO-BE (section 8): +12 models = 53, +11 enums = 37 |
 | Ids | `String @id @default(uuid())` on every model except `ServiceCharge` (`@default("GLOBAL")`) |
 | Timestamps | `createdAt @default(now())` and `updatedAt @updatedAt` on every model except those noted "no updatedAt" below |
 | Money | `Decimal(10,2)`; rates `Decimal(5,2)`; `currency` is a free `String` |
@@ -24,6 +25,8 @@
 Legend used below: **C** = Cascade, **R** = Restrict, **SN** = SetNull, `uq` = unique, `ix` = index.
 
 ## 2. ERD (split by domain)
+
+> TO-BE additions are drawn in section 8.7 (new and changed entities only); sections 2.1 to 2.4 are the as-is diagrams.
 
 ### 2.1 Accounts and config
 
@@ -522,3 +525,261 @@ No migration drops a table. Schema/migration drift (what Prisma does not model):
 **S3-compatible object storage**: uploads via `POST /media`, ticket PDFs referenced by `TicketPdf.storageKey`. **⚠️ UNVERIFIED** key naming and bucket layout.
 
 **Client-side only**: Flutter keeps `accessToken`, `refreshToken`, `role`, `deviceIdentifier`, `fcmToken` in GetStorage; Admin keeps `adminData` and `csrfToken` in localStorage (`auth-storage`).
+
+## 8. TO-BE data model (approved CRs)
+
+Conventions: `NEW` = new table or enum, `CHG` = change to an existing one. Same notation as section 4. All new ids are `uuid`; all new tables have `createdAt` and `updatedAt` unless noted. All changes are additive (expand only): no column or table is dropped or renamed, so the live Flutter app and the current code keep working. The only relaxed rules are two CHECK constraints on `Order` (8.5).
+
+### 8.1 Enums
+
+| Enum | Kind | Values | Tag |
+|---|---|---|---|
+| TierType | NEW | TICKET, PASS | CR-03 |
+| PricingMode | NEW | SINGLE, TIERED, FREE, MIXED | CR-03 |
+| ModulePricingType | NEW | FIXED, STARTING_FROM | CR-07 |
+| CollaborationStatus | NEW | PENDING, ACCEPTED, REJECTED, CANCELED | CR-02 |
+| FilterOptionKind | NEW | GENRE, MOOD | CR-10 |
+| ProductCategory | NEW | TICKET, TABLE, EXTRA, CLUB_BOOKING | CR-15 |
+| PricingRuleType | NEW | FEE, COMMISSION | CR-15 |
+| PricingScope | NEW | GLOBAL, CLIENT, EVENT | CR-15 |
+| PricingValueType | NEW | PERCENT, FIXED | CR-15 |
+| RefundRequestStatus | NEW | PENDING, APPROVED, REJECTED | CR-16 |
+| RefundType | NEW | FULL, PARTIAL | CR-16 |
+| NotificationType | CHG | add COLLABORATION_REQUESTED, COLLABORATION_RESPONDED, REFUND_REQUESTED, REFUND_REQUEST_DECIDED (31 to 35). The owner-approval values are deferred with D1 | CR-02, CR-16 |
+
+`RefundStatus` is unchanged (SCHEDULED, PENDING, SUCCEEDED, FAILED). `AccountRole` is **not** extended (ADR-002): an organizer is an approved `CLUB_OWNER` with an `OrganizerProfile`.
+
+### 8.2 New models
+
+**OrganizerProfile** (CR-02): `userId → User (C) uq`, `name`, `description?`, `avatar?`, `baseCity?`, `website?`, `tags: String[] =[]`, `socialLinks: Json?`, `followerCount: Int =0`, `isVerified =false`, `isSuspended =false`. ix `baseCity`, `name`.
+
+**OrganizerFollower** (CR-02, no updatedAt): `userId → User (C)`, `organizerId → OrganizerProfile (C)`. uq `(userId, organizerId)`, ix `organizerId`. Same pattern as `ClubFollower`; `followerCount` is maintained in the same transaction.
+
+**CollaborationRequest** (CR-02): `organizerId → OrganizerProfile (C)`, `clubId → Club (C)`, `eventId? → Event (SN)`, `message?`, `status: CollaborationStatus =PENDING`, `respondedAt?`, `respondedByUserId? → User (SN)`, `responseNote?`. ix `(clubId, status, createdAt)`, `(organizerId, status)`. Raw SQL partial unique index: one PENDING request per `(organizerId, clubId, COALESCE(eventId, zero-uuid))` (the API returns 409).
+
+**EventExtra** (CR-07): `eventId → Event (C)`, `name`, `description?`, `image?`, `price: Decimal(10,2)`, `currency`, `quantity: Int`, `remaining: Int`, `peopleIncluded: Int =0`, `isActive =true`, `sortOrder =0`. ix `(eventId, isActive, sortOrder)`. CHECK `price >= 0` and `0 <= remaining <= quantity`.
+
+**EventExtraPurchase** (CR-07, no updatedAt): `orderId → Order (R)`, `extraId → EventExtra (R)`, `quantity`, `unitPrice: Decimal`, `extraName` (snapshot). ix `orderId`, `extraId`. Many rows per order. It is not a purchase child, so the "exactly one child" triggers are unaffected. Included in `Order.grossAmount`. Stock is released with the order (same rule as modules).
+
+**City** (CR-09): `name`, `countryCode?`, `lat: Float`, `lng: Float`, `timezone: String =UTC`, `isLaunched =false`. uq `(name, countryCode)`, ix `isLaunched`, ix `name`. No `geog` column on purpose (BUG-B02: the existing `geog` columns are filled only by raw SQL); distance maths uses lat/lng.
+
+**FilterOption** (CR-10): `kind: FilterOptionKind`, `label`, `labelKey` (lowercase, trimmed), `sortOrder =0`, `isActive =true`. uq `(kind, labelKey)`, ix `(kind, isActive, sortOrder)`. `Event.musicGenres` and `Event.moodTags` stay `String[]` with no FK: the vocabulary is advisory, so old events keep working.
+
+**EventInterest** (CR-11, no updatedAt): `userId → User (C)`, `eventId → Event (C)`. uq `(userId, eventId)` (this is what stops counter inflation), ix `(eventId, createdAt)`. `interestedCount` is computed with `COUNT(*)`, not stored.
+
+**UserRecentEventView** (CR-11): `userId → User (C)`, `eventId → Event (C)`, `lastViewedAt: DateTime`. uq `(userId, eventId)` (upsert on view), ix `(userId, lastViewedAt DESC)`. Retention: keep the 20 newest per user.
+
+**EventViewDaily** (CR-11): composite PK `(eventId → Event (C), day: Date)`, `views: Int`. Feeds "trending" (7 days, with interested taps) and "most viewed" (30 days). `Event.viewCount` stays as the lifetime counter.
+
+**PricingRule** (CR-15, no updatedAt; append-only except `effectiveTo`, plus `value` and `priority` while the rule is still in the future): `ruleType`, `productCategory`, `scope`, `scopeId?` (userId for CLIENT, eventId for EVENT; polymorphic with no FK, the same pattern as `EventGuestListFallback.targetId`), `valueType`, `value: Decimal(10,2)`, `perUnit =false`, `minAmount: Decimal(10,2)?`, `priority: Int =0`, `effectiveFrom`, `effectiveTo?`, `createdByAdminId? → User (R)` (NULL = created by the system, i.e. the migration 6 seed rules; every rule created through the API stores the acting admin; the v1 write-through stores the admin who called `PATCH /admin/commission` or `/service-charge`). ix `(ruleType, productCategory, scope, effectiveFrom)`, `(scope, scopeId)`. CHECKs: `value >= 0`; `valueType <> 'PERCENT' OR value <= 100`; `effectiveTo IS NULL OR effectiveTo > effectiveFrom`; `(scope = 'GLOBAL') = (scopeId IS NULL)`. Precedence (ADR-003): scope EVENT > CLIENT > GLOBAL, then higher `priority`, then later `effectiveFrom`.
+
+**RefundRequest** (CR-16): `orderId → Order (R)`, `requestedByUserId → User (R)`, `reason`, `requestedAmount: Decimal(10,2)?` (null = full), `status: RefundRequestStatus =PENDING`, `approvedAmount: Decimal(10,2)?`, `returnServiceFee =false`, `refundId? → Refund (SN) uq`, `decidedByAdminId? → User (SN)`, `decisionNote?`, `decidedAt?`. ix `(status, createdAt)`, `orderId`. Raw SQL partial unique index: one PENDING request per `orderId`.
+
+### 8.3 Changed models
+
+| Model | Change | Tag |
+|---|---|---|
+| Event | `+ timezone: String =UTC` (IANA); `+ pricingMode: PricingMode =SINGLE`; `+ organizerId? → OrganizerProfile (SN)`; ix `organizerId`. Existing indexes already cover chronological explore (`(eventStatus, startAt)`) and geo (`geog` GiST), so no new explore index is needed | CR-17 (T4), CR-03, CR-02 |
+| EventTicketTier | `+ tierType: TierType =TICKET`; ix `(eventId, groupName, tierName)` (non-unique, used by the ADR-004 matching fallback). No unique constraint is added because existing data may already contain duplicates | CR-03, CR-04 (BUG-B24) |
+| EventPurchase | `+ ticketTierId? → EventTicketTier (SN)`, `+ ticketTierName?` (snapshot); ix `ticketTierId`. Snapshot-immutability trigger extended to the two new columns | CR-04 |
+| EventModule | `+ pricingType: ModulePricingType =FIXED` | CR-07 |
+| Quote | `+ userId? → User (SN)`; ix `userId` | CR-07 (BUG-S08) |
+| HostContact | `+ userId? → User (SN)`; ix `userId` | CR-07 (BUG-B30) |
+| Artist | `+ bio?`, `+ socialLinks: Json?`. The API field `photo` maps to the existing `avatar` column (no rename) | CR-12 |
+| Order | `+ appliedFeeRuleId? → PricingRule (R)`, `+ appliedCommissionRuleId? → PricingRule (R)` (NULL for orders made before this release: their snapshot columns are the record). New ix `(sellerUserId, status, createdAt)` for analytics and `(status, createdAt)` for the admin order list. Snapshot trigger extended to the two rule columns. CHECK changes in 8.5 | CR-15, CR-08, CR-06 |
+| Refund | `+ refundType: RefundType =FULL`, `+ returnServiceFee =false`. `orderId` stays unique: at most one refund per order in this release (see 8.6) | CR-16 |
+| ApplicationCharge, ServiceCharge | Unchanged. Kept as the v1 mirror of the GLOBAL rules; the v1 `PATCH` endpoints write through to `PricingRule` (ADR-003). Their CHECKs stay (`ServiceCharge.amount > 0`) | CR-15 |
+| NotificationType | New values in 8.1 | CR-02, 16 |
+
+### 8.4 Index summary (new)
+
+| Index | Table | Purpose | Tag |
+|---|---|---|---|
+| `(clubId, status, createdAt)`, `(organizerId, status)`, partial unique PENDING | CollaborationRequest | club inbox, duplicate guard | CR-02 |
+| `(eventId, groupName, tierName)` | EventTicketTier | tier matching fallback | CR-04 |
+| `ticketTierId` | EventPurchase | stock release, per-tier reports | CR-04 |
+| `(sellerUserId, status, createdAt)` | Order | owner analytics | CR-08 |
+| `(status, createdAt)` | Order | admin order list (`GET /admin/orders`); the existing `(serviceType, status, createdAt)` does not help a list filtered by status alone | CR-16 |
+| `(eventId, isActive, sortOrder)` | EventExtra | public extras list | CR-07 |
+| `(kind, labelKey)` unique, `(kind, isActive, sortOrder)` | FilterOption | vocabulary | CR-10 |
+| `(userId, eventId)` unique, `(eventId, createdAt)` | EventInterest | idempotent interested, count, trending | CR-11 |
+| `(ruleType, productCategory, scope, effectiveFrom)` | PricingRule | rule resolution at checkout | CR-15 |
+| partial unique PENDING per `orderId` | RefundRequest | one open request per order | CR-16 |
+
+### 8.5 Rules that Prisma cannot express (TO-BE changes to section 5)
+
+- **`Order` CHECK `serviceChargeAmount > 0` becomes `>= 0`** (CR-06). Required for free orders with the service fee waived (provisional until Q2). `ServiceCharge.amount > 0` is unchanged.
+- **`Order` CHECK `commissionAmount = ROUND(grossAmount * commissionRate / 100, 2)` becomes conditional** (CR-15): `appliedCommissionRuleId IS NOT NULL OR commissionAmount = ROUND(...)`, plus `commissionAmount BETWEEN 0 AND grossAmount`. Needed because a FIXED commission has no meaningful `commissionRate`. `sellerEarnings = grossAmount - commissionAmount` and `buyerTotal = grossAmount + serviceChargeAmount` stay.
+- **Snapshot triggers:** `prevent_order_snapshot_mutation` and `prevent_event_purchase_snapshot_mutation` are replaced with versions that also compare the new columns, as migration `20260923130000_add_order_purchase_idempotency` did for `idempotencyKey`.
+- **Partial unique indexes** (raw SQL): `CollaborationRequest` and `RefundRequest`, see 8.2.
+- Not changed: the `ClubBooking` EXCLUDE constraint, the order/purchase pairing triggers, the attendee triggers.
+
+### 8.6 Known limits of the TO-BE model (decide or accept)
+
+1. **One refund per order** (`Refund.orderId` is unique). A partial refund can happen once; a second partial refund is impossible without a later migration that makes the relation 1:N and changes every `order.refund` check in code. `verify-ticket` today rejects any order that has a refund, so a PARTIAL refund would block entry for all tickets of the order. The code must use `refundType = FULL` for that check. This is code work, listed here because the schema cannot enforce it.
+2. **The tier is unknown for old purchases.** `EventPurchase.ticketTierId` is NULL for every purchase made before the release and cannot be reconstructed (only `pricePerPerson` was stored).
+3. **Leaked stock is not repaired.** Past unpaid or expired orders already incremented `soldCount` and never released it (`soldCount` rises when the order is created, `purchase.services.ts:286`, and is never decremented). There is no tier link for them, so no automatic fix exists. A read-only estimate is in `05-delivery/reports/stock-leak.sql` (matches purchases to tiers by price; flags ambiguous cases; shows the corrected value for events with exactly one active tier; no UPDATE). Owners keep the leaked counts; a one-off correction needs a manual decision per event.
+4. **`Event.timezone` is UTC for every existing event** until an owner or admin sets it.
+5. **Scans, no-shows, attendance and multi-day validity are not modelled** (CR-05 deferred). `Order.checkedInAt` stays the only check-in record.
+6. **Owner approval is not modelled** (CR-01 gate deferred until the client answers D1). When D1 is answered with an approval step, the planned shape is a table `OwnerApplication` (`userId` unique, `status` PENDING/APPROVED/REJECTED, `decidedAt`, `decidedByAdminId`, `decisionNote`) and an enum `OwnerApprovalStatus`, with a backfill that marks every existing `CLUB_OWNER` as APPROVED in the same migration (otherwise existing owners are locked out). It is a sketch, not part of this release.
+7. **No per-attendee refunds** (Q8 open). `EventPurchaseAttendee` has no refund state and `Refund` is one row per order, so refunding one attendee of a group order would need a new `EventPurchaseAttendee.refundedAt` or a `RefundItem` table, plus ticket-level entry invalidation. Not designed until the client answers Q8.
+
+### 8.7 TO-BE ERD (new and changed entities only)
+
+Existing entities appear as relationship anchors and where they gain columns. Tags in quotes show the CR.
+
+```mermaid
+erDiagram
+    User ||--o| OrganizerProfile : "has (CR-02)"
+    OrganizerProfile ||--o{ OrganizerFollower : "followed by (CR-02)"
+    User ||--o{ OrganizerFollower : "follows (CR-02)"
+    OrganizerProfile ||--o{ CollaborationRequest : "sends (CR-02)"
+    Club ||--o{ CollaborationRequest : "receives (CR-02)"
+    Event |o--o{ CollaborationRequest : "for (CR-02)"
+    OrganizerProfile |o--o{ Event : "organizes (CR-02)"
+
+    Event ||--o{ EventTicketTier : "has"
+    EventTicketTier |o--o{ EventPurchase : "bought as (CR-04)"
+    Event ||--o{ EventExtra : "offers (CR-07)"
+    EventExtra ||--o{ EventExtraPurchase : "sold as (CR-07)"
+    Order ||--o{ EventExtraPurchase : "lines (CR-07)"
+    User |o--o{ Quote : "sent by (CR-07)"
+    User |o--o{ HostContact : "sent by (CR-07)"
+
+    User ||--o{ EventInterest : "interested (CR-11)"
+    Event ||--o{ EventInterest : "has (CR-11)"
+    User ||--o{ UserRecentEventView : "viewed (CR-11)"
+    Event ||--o{ UserRecentEventView : "viewed (CR-11)"
+    Event ||--o{ EventViewDaily : "views per day (CR-11)"
+
+    PricingRule |o--o{ Order : "applied fee (CR-15)"
+    PricingRule |o--o{ Order : "applied commission (CR-15)"
+    Order ||--o{ RefundRequest : "refund asked (CR-16)"
+    Refund |o--o| RefundRequest : "result (CR-16)"
+
+    OrganizerProfile {
+        string userId UK
+        string name
+        string baseCity
+        string_array tags
+        json socialLinks
+        int followerCount
+        boolean isVerified
+        boolean isSuspended
+    }
+    CollaborationRequest {
+        string organizerId
+        string clubId
+        string eventId "nullable"
+        CollaborationStatus status
+    }
+    Event {
+        string timezone "CR-17 new"
+        PricingMode pricingMode "CR-03 new"
+        string organizerId "CR-02 new"
+    }
+    EventTicketTier {
+        TierType tierType "CR-03 new"
+    }
+    EventPurchase {
+        string ticketTierId "CR-04 new, nullable"
+        string ticketTierName "CR-04 new"
+    }
+    EventModule {
+        ModulePricingType pricingType "CR-07 new"
+    }
+    EventExtra {
+        string eventId
+        string name
+        decimal price
+        int quantity
+        int remaining
+        int peopleIncluded
+    }
+    EventExtraPurchase {
+        string orderId
+        string extraId
+        int quantity
+        decimal unitPrice
+    }
+    City {
+        string name
+        float lat
+        float lng
+        string timezone
+        boolean isLaunched
+    }
+    FilterOption {
+        FilterOptionKind kind
+        string label
+        string labelKey
+    }
+    EventInterest {
+        string userId
+        string eventId
+    }
+    EventViewDaily {
+        string eventId PK
+        date day PK
+        int views
+    }
+    PricingRule {
+        PricingRuleType ruleType
+        ProductCategory productCategory
+        PricingScope scope
+        string scopeId "polymorphic"
+        PricingValueType valueType
+        decimal value
+        datetime effectiveFrom
+        datetime effectiveTo
+    }
+    Order {
+        string appliedFeeRuleId "CR-15 new, nullable"
+        string appliedCommissionRuleId "CR-15 new, nullable"
+    }
+    RefundRequest {
+        string orderId
+        RefundRequestStatus status
+        decimal requestedAmount
+        decimal approvedAmount
+        boolean returnServiceFee
+    }
+    Refund {
+        RefundType refundType "CR-16 new"
+        boolean returnServiceFee "CR-16 new"
+    }
+```
+
+## 9. Migrations (TO-BE, ordered)
+
+Rules for all of them (`backend/prisma/AGENTS.md`, `backend/CLAUDE.md`): forward-only, never edit a merged migration, no `migrate reset`. "Reversible" below means the change can be undone by a **new forward migration** without losing business data (Prisma has no down migrations). Every migration is expand-only, so it can be deployed **before** the code that uses it; the live app and the current code ignore the new columns and tables. Folder names carry the usual timestamp prefix, shown as `<ts>`.
+
+| # | Migration | What it does | Reversible | Backfill (exact rule) | Risk for live data |
+|---|---|---|---|---|---|
+| 1 | ~~`<ts>_add_owner_approval` (CR-01)~~ **DEFERRED (D1 not answered)** | Would add enum `OwnerApprovalStatus` and table `OwnerApplication`. Not part of this release; sketch in 8.6.6. Numbering of the remaining migrations is kept so references stay stable | n/a | When it is built, it must backfill every existing `CLUB_OWNER` as APPROVED in the same migration | n/a. Do not ship the approval gate without that backfill (existing owners would be locked out) |
+| 2 | `<ts>_add_notification_types` (CR-02, 16) | `ALTER TYPE "NotificationType" ADD VALUE IF NOT EXISTS` x4 (COLLABORATION_REQUESTED, COLLABORATION_RESPONDED, REFUND_REQUESTED, REFUND_REQUEST_DECIDED) (use `IF NOT EXISTS`, as migrations 21 and 22 did) | **No** (Postgres cannot drop an enum value) | None | Low. New values cannot be used in the transaction that adds them, so keep this migration separate |
+| 3 | `<ts>_backfill_geog` (CR-09, BUG-B02, BUG-B25) | Data only: `UPDATE "Event" SET geog = ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography WHERE geog IS NULL`; same for `Club` | Not applicable (data only, harmless to keep) | The statement itself; it touches only rows where `geog IS NULL` | Low. Visible effect: duplicated and seeded events now appear in geo-filtered explore results |
+| 4 | `<ts>_add_event_timezone_pricing_mode_tier_type` (CR-17, CR-03) | `Event.timezone TEXT NOT NULL DEFAULT 'UTC'`; enums `PricingMode`, `TierType`; `Event.pricingMode NOT NULL DEFAULT 'SINGLE'`; `EventTicketTier.tierType NOT NULL DEFAULT 'TICKET'` | Yes (drop columns and enums) | `pricingMode`: `TIERED` where the event has at least one `EventTicketTier`; else `FREE` where `eventPrice = 0`; else `SINGLE`. `tierType`: `TICKET` for **all** existing tiers (no name heuristic). Tiers that should be `PASS` are reviewed and changed by hand using the read-only query below `timezone`: `'UTC'` for all (limit 8.6.4) | Low. Constant defaults are metadata-only on PG 16 (no table rewrite). The UPDATEs touch events and tiers only |
+| 5 | `<ts>_add_tier_on_purchase` (CR-04, BUG-B24) | `EventPurchase.ticketTierId` (FK SetNull) and `ticketTierName`; index; non-unique index `EventTicketTier(eventId, groupName, tierName)`; replaces `prevent_event_purchase_snapshot_mutation` to include the two columns | Yes | **None possible** for old purchases (the tier was never stored): they stay NULL. **Existing tiers keep `soldCount` exactly as is**; the migration does not touch `EventTicketTier` rows | Low for the schema. The code change (update tiers in place) is what protects `soldCount`; until it ships, `PUT /event/{id}` still resets counts (BUG-B24) |
+| 6 | `<ts>_add_pricing_rules` (CR-15, CR-06) | Enums `ProductCategory`, `PricingRuleType`, `PricingScope`, `PricingValueType`; table `PricingRule` with CHECKs; `Order.appliedFeeRuleId` and `appliedCommissionRuleId`; replaces the two `Order` CHECKs (8.5); replaces `prevent_order_snapshot_mutation` | Partly. Safe to undo until the first rule-based order exists; after that, dropping the columns loses which rule priced an order. Treat as forward-only once released | Seed GLOBAL rules with `effectiveFrom = '1970-01-01'` and `createdByAdminId = NULL` (system seed, no admin exists to attribute them to). **FEE** from `ServiceCharge(id='GLOBAL').amount` for TICKET, TABLE and CLUB_BOOKING (`FIXED`, `perUnit = false`). **COMMISSION** (`PERCENT`) from `ApplicationCharge`: the `EVENT` percentage for TICKET, TABLE and EXTRA (tables already use the EVENT rate today), the `CLUB` percentage for CLUB_BOOKING. No FEE rule for EXTRA until Q2. Old orders keep NULL rule ids | **Highest.** Changes money CHECKs on the live `Order` table. Add the new CHECKs as `NOT VALID`, then `VALIDATE CONSTRAINT`, to avoid a long exclusive lock; the new rules are weaker than the old ones, so validation passes. Before deploy, count rows that violate the new rules (expected 0). The v1 `PATCH /admin/commission` and `/admin/service-charge` must write through to `PricingRule` in the same release, or the two sources diverge |
+| 7 | `<ts>_add_refund_requests` (CR-16) | Enums `RefundRequestStatus`, `RefundType`; table `RefundRequest`; `Refund.refundType NOT NULL DEFAULT 'FULL'`, `Refund.returnServiceFee NOT NULL DEFAULT false`; partial unique index (one PENDING per order) | Yes | Existing `Refund` rows get `refundType = FULL` and `returnServiceFee = false` from the column defaults (matches today's event-cancellation refunds: full gross, service charge kept). No UPDATE needed | Low for the schema. Code risk: every `order.refund` check (for example `verify-ticket` and the owner dashboard filters) must consider only `refundType = FULL` to invalidate entry |
+| 8 | `<ts>_add_extras_module_pricing_quote_user` (CR-07, BUG-S08, BUG-B30) | Tables `EventExtra`, `EventExtraPurchase`; enum `ModulePricingType`; `EventModule.pricingType NOT NULL DEFAULT 'FIXED'`; `Quote.userId`, `HostContact.userId` (FK SetNull) | Yes | `pricingType = FIXED` for all existing modules (they are purchasable at their price today). `userId` stays NULL for old quotes and inquiries | Low |
+| 9 | `<ts>_add_organizers_collaboration` (CR-02) | Enum `CollaborationStatus`; tables `OrganizerProfile`, `OrganizerFollower`, `CollaborationRequest`; `Event.organizerId` (FK SetNull); partial unique index | Yes | None. Existing `Event.clubHostStatus` values are **not** converted into requests (they have no organizer to point at) | Low |
+| 10 | `<ts>_add_cities_filter_options` (CR-09, CR-10) | Tables `City`, `FilterOption`; enum `FilterOptionKind` | Yes | `FilterOption`: one row per distinct value of `unnest(Event.musicGenres)` (GENRE) and `unnest(Event.moodTags)` (MOOD), trimmed, de-duplicated case-insensitively on `labelKey`, `sortOrder` alphabetical, `isActive = true`; the product-supplied starter list (Q6b) is added on top. `City`: none (event locations are free text, so there is no safe automatic mapping); an admin creates cities or loads a product-supplied seed list | Low. Until cities exist, `GET /cities` is empty and the app keeps working with GPS and text city as today |
+| 11 | `<ts>_add_engagement_tracking` (CR-11) | Tables `EventInterest`, `UserRecentEventView`, `EventViewDaily` | Yes | None, because the history does not exist. Rule until 7 days of `EventViewDaily` exist: trending and most-viewed fall back to lifetime `Event.viewCount` | Medium for write load: one upsert per event-detail view on `EventViewDaily` can become a hot row. Mitigation: count in Redis and flush from the scheduler every minute (same pattern as the existing jobs) |
+| 12 | `<ts>_add_artist_profile_fields` (CR-12) | `Artist.bio`, `Artist.socialLinks` | Yes | None | Low |
+| 13 | `<ts>_add_analytics_indexes` (CR-08, CR-16) | Indexes `Order(sellerUserId, status, createdAt)` and `Order(status, createdAt)` | Yes (drop indexes) | None | Low to medium: building an index on `Order` blocks writes while it builds. Table size is ⚠️ UNVERIFIED; if it is large, create the index with `CREATE INDEX CONCURRENTLY` outside a transaction |
+
+**Review query for migration 4 (read-only, run after migration 4, change tiers by hand where needed):** lists tiers whose name or group contains "pass" so the product owner can decide which ones become `PASS`.
+
+```sql
+SELECT t.id, t."eventId", e."eventName", t."groupName", t."tierName", t.price, t."tierType", t."soldCount"
+FROM "EventTicketTier" t
+JOIN "Event" e ON e.id = t."eventId"
+WHERE t."tierName" ILIKE '%pass%' OR t."groupName" ILIKE '%pass%'
+ORDER BY e."eventName", t."groupName", t."sortOrder";
+```
+
+**Deployment order against code:** apply the migrations before the code that uses them, milestone by milestone as in `05-delivery/implementation-plan.md`. Migration 1 is deferred. Migration 6 goes out together with the v1 write-through. Mapping to the milestones in `implementation-plan.md` (M1 security and correctness, M2 tiers/free/promo, M3 fees, M4 discovery backend, M5 organizer/tables/extras, M6 analytics/refunds/admin orders, M7 admin app, M8 Flutter): **M1: 5. M2: 4. M3: 6** (with the v1 write-through). **M4: 3, 10, 11, 12. M5: 2 (before 9 is used), 8, 9. M6: 7, 13.** Migration 2 (notification values) must be applied before the M5 collaboration code and the M6 refund-request code use them. M7 (admin app) needs no migration of its own. M8 (Flutter) needs none. Migration 1 is deferred. Every migration is first rehearsed on the restored dump (first task of M1).
+
+**Not in this plan (deferred or unapproved):** `EventDay`, entry scans, per-attendee entitlements and no-show data (CR-05); tier availability thresholds and starting-price columns (CR-04 remainder); unregistered-venue authorization records (CR-02, Q4); payout-split fields on `Order` or `SellerTransfer` (CR-02 and CR-16, Q3); guest-list access codes (CR-06); quote offer and acceptance fields (CR-07, Q1).
