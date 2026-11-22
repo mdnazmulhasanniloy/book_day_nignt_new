@@ -1,14 +1,16 @@
 import 'package:bookdianight_app/app/core/local_storage/local_storage.dart';
 import 'package:bookdianight_app/app/core/location/auth_coordinates.dart';
-import 'package:bookdianight_app/app/core/network/api_expection.dart';
+import 'package:bookdianight_app/app/core/network/auth_session.dart';
+import 'package:bookdianight_app/app/core/network/cold_start_session.dart';
 import 'package:bookdianight_app/app/core/resources/app_const/app_const.dart';
 import 'package:bookdianight_app/app/core/resources/common_style/responsive_helper.dart';
 import 'package:bookdianight_app/app/core/routes/app_routes.dart';
 import 'package:bookdianight_app/app/core/utils/device_helper.dart';
 import 'package:bookdianight_app/app/modules/authentication/auth_repository/auth_repository.dart';
 import 'package:bookdianight_app/app/services/notification_services.dart';
+import 'package:dio/dio.dart' show Response;
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' hide Response;
 import '../../core/location/location_access.dart';
 import '../../core/resources/app_assets/app_assets.dart';
 import '../club_owner_side/dashboard/dashboard/owner_dashboard.dart';
@@ -36,14 +38,18 @@ class _SplashViewState extends State<SplashView> {
     await LocationAccess.ensure(context);
     if (!mounted) return;
 
-    var token = LocalStorage.getData(key: AppConst.accessToken)?.toString();
     final role = LocalStorage.getData(key: AppConst.role);
 
-    if (token != null && token.isNotEmpty) {
-      token = await _refreshSession(token);
-    }
+    final outcome = await resolveColdStartSession(
+      store: const LocalAuthTokenStore(),
+      runCheck: _checkAuth,
+    );
+    if (!mounted) return;
 
-    if (token != null && token.isNotEmpty) {
+    // The session-expired handler already navigated to login: do nothing.
+    if (outcome == ColdStartOutcome.alreadyAtLogin) return;
+
+    if (outcome == ColdStartOutcome.proceedLoggedIn) {
       if (role == 'CLUB_OWNER') {
         final status = await StripeConnectController.ensure().refreshStatus();
         if (!mounted) return;
@@ -60,42 +66,17 @@ class _SplashViewState extends State<SplashView> {
     }
   }
 
-  Future<String?> _refreshSession(String token) async {
-    try {
-      final fcmToken = await NotificationService().currentToken();
-      final coords = await AuthCoordinates.read();
-      final response = await AuthRepository().checkAuth(
-        deviceIdentifier: DeviceHelper.getDeviceIdentifier(),
-        platform: DeviceHelper.getPlatform(),
-        lat: coords.lat,
-        lng: coords.lng,
-        fcmToken: fcmToken,
-        token: token,
-      );
-      final body = response.data;
-      if (body is Map && body['success'] == false) {
-        await LocalStorage.removeData(key: AppConst.accessToken);
-        await LocalStorage.removeData(key: AppConst.refreshToken);
-        await LocalStorage.removeData(key: AppConst.role);
-        return null;
-      }
-      return token;
-    } on UnauthorizedException {
-      await LocalStorage.removeData(key: AppConst.accessToken);
-      await LocalStorage.removeData(key: AppConst.refreshToken);
-      await LocalStorage.removeData(key: AppConst.role);
-      return null;
-    } on ApiException catch (error) {
-      if (error.statusCode == 401 || error.statusCode == 403) {
-        await LocalStorage.removeData(key: AppConst.accessToken);
-        await LocalStorage.removeData(key: AppConst.refreshToken);
-        await LocalStorage.removeData(key: AppConst.role);
-        return null;
-      }
-      return token;
-    } catch (_) {
-      return token;
-    }
+  Future<Response> _checkAuth(String token) async {
+    final fcmToken = await NotificationService().currentToken();
+    final coords = await AuthCoordinates.read();
+    return AuthRepository().checkAuth(
+      deviceIdentifier: DeviceHelper.getDeviceIdentifier(),
+      platform: DeviceHelper.getPlatform(),
+      lat: coords.lat,
+      lng: coords.lng,
+      fcmToken: fcmToken,
+      token: token,
+    );
   }
 
   @override
