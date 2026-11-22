@@ -219,6 +219,7 @@ model User {
   notifications Notification[]
   clubs        Club[]
   clubReviews  ClubReview[]
+  mediaAssets  MediaAsset[]
   events       Event[]
   wishlists    Wishlist[]
   clubFollows  ClubFollower[]
@@ -996,4 +997,19 @@ model HostContact {
 
   @@index([hostId, createdAt])
   @@index([eventId, createdAt])
+}
+
+/// Ownership record for every file uploaded through POST /media (HF-005 follow-up).
+/// Files uploaded before this table existed have no row; only ADMIN may delete those.
+model MediaAsset {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  url       String
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  mimeType  String
+  sizeBytes Int
+  createdAt DateTime @default(now())
+
+  @@index([ownerId, createdAt])
 }
