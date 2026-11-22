@@ -155,10 +155,11 @@ class SignUpView extends StatelessWidget {
                 const SizedBox(height: 12),
 
                 // --- Date of Birth Field ---
-                CustomTextField(
+                Obx(() => CustomTextField(
                   controller: controller.dateOfBirthController,
                   label: "Date of Birth",
                   hint: "DD/MM/YYYY",
+                  errorText: controller.dobError.value,
                   labelColor: Colors.white,
                   hintColor: Colors.white.withValues(alpha: 0.4),
                   filled: true,
@@ -171,7 +172,7 @@ class SignUpView extends StatelessWidget {
                     size: 20,
                     color: Colors.white.withValues(alpha: 0.6),
                   ),
-                ),
+                )),
                 const SizedBox(height: 12),
 
                 // --- Location Field ---

@@ -35,6 +35,7 @@ class SignUpController extends GetxController {
   final List<String> genders = Gender.labels;
   final selectedGender = Rxn<Gender>();
   DateTime? selectedDateOfBirth;
+  final RxnString dobError = RxnString();
 
   void onRoleChanged(String? label) {
     if (label == null) return;
@@ -51,13 +52,14 @@ class SignUpController extends GetxController {
     final picked = await showCustomDatePicker(
       context,
       title: 'Select date of birth',
-      initialDate: selectedDateOfBirth ?? DateTime(lastDate.year - 18),
+      initialDate: selectedDateOfBirth ?? lastDate,
       firstDate: DateOfBirth.firstDate,
       lastDate: lastDate,
     );
     if (picked == null) return;
     selectedDateOfBirth = picked;
     dateOfBirthController.text = DateOfBirth.format(picked);
+    dobError.value = DateOfBirth.validate(picked);
   }
 
   var isLoading = false.obs;
@@ -138,10 +140,13 @@ class SignUpController extends GetxController {
     }
 
     final dateOfBirth = selectedDateOfBirth;
-    if (dateOfBirth == null) {
-      CustomSnackBar.error(message: "Please select your date of birth");
+    final dobMessage = DateOfBirth.validate(dateOfBirth);
+    if (dateOfBirth == null || dobMessage != null) {
+      // Inline on the field; every other entered value is kept.
+      dobError.value = dobMessage;
       return;
     }
+    dobError.value = null;
 
     if (password != confirmPassword) {
       CustomSnackBar.error(message: "Passwords do not match");
