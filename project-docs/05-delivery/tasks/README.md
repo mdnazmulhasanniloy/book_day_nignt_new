@@ -42,7 +42,7 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 | [T-006](T-006.md) | Store the chosen tier on each event purchase | backend | T-005 | not started |
 | [T-007](T-007.md) | Release soldCount when a payment fails or is canceled | backend | T-006 | not started |
 | [T-008](T-008.md) | Release soldCount when an unpaid order expires (new job) | backend (server, worker) | T-007 | not started |
-| [T-009](T-009.md) | Social sign-in: date of birth and profileComplete, retry-safe | backend | T-003 | not started |
+| [T-009](T-009.md) | Social sign-in: date of birth and profileComplete, retry-safe | backend | T-003 | coded, tested locally (not merged) |
 | [T-010](T-010.md) | Admin status codes: refresh 401, suspend 404, page/limit 422 | backend | T-003 | not started |
 | [T-011](T-011.md) | verify-ticket business errors return real status codes | backend | T-003 | not started |
 | [T-012](T-012.md) | Map Prisma not-found and FK errors for club and event routes | backend | T-003 | not started |

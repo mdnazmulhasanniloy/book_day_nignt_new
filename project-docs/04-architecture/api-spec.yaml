@@ -1212,7 +1212,7 @@ paths:
       tags:
       - auth
       summary: Google / Apple social login
-      description: 'Creates a verified USER account on first login; links to an existing account by provider email if one exists. New social accounts are always role USER. If the provider returns no email a placeholder @users.bookdianight.invalid email is used. TO-BE (CR-01): Request accepts optional `dateOfBirth`. Response `data` gains `profileComplete` (boolean; false while date of birth is missing) so clients can ask for it before purchase. Retried calls with the same provider subject never create a second account.'
+      description: 'Creates a verified USER account on first login; links to an existing account by provider email if one exists. New social accounts are always role USER. If the provider returns no email a placeholder @users.bookdianight.invalid email is used. CR-01 (implemented on branch feat/t-009-social-dob, T-009; not released): Request accepts optional `dateOfBirth` (ISO UTC datetime, same rules as signup: real calendar date, not in the future, at least MIN_SIGNUP_AGE years; invalid returns 422 and creates nothing). Response `data` gains `profileComplete` (boolean; true when the profile has a date of birth, false while it is missing) so clients can ask for it before purchase. The date of birth is stored only while the profile has none; an existing date of birth is never overwritten. User, profile and identity are created in one transaction; repeated or parallel calls with the same provider subject return the same single account (unique violation is caught, no 500).'
       x-auth: 'public. chain: validateReqBody(oAuthLoginSchema)'
       security: []
       requestBody:
@@ -1258,8 +1258,9 @@ paths:
                   type: number
                 dateOfBirth:
                   type: string
-                  format: date
-                  description: Optional. Same validation as signup (assertSignupDob). When omitted for a new user the profile is created without it and `profileComplete` is false.
+                  format: date-time
+                  example: '1999-05-20T00:00:00.000Z'
+                  description: Optional. ISO UTC datetime, validated with assertSignupDob (same as signup; a plain date such as 2000-01-01 is rejected with 422). When omitted for a new user the profile is created without it and `profileComplete` is false. Saved only while the profile has no date of birth; never overwrites an existing one.
               required:
               - idToken
               - deviceIdentifier
@@ -1300,6 +1301,7 @@ paths:
                         const: true
                       profileComplete:
                         type: boolean
+                        description: True when the profile has a date of birth. Not in the required list so clients written against the old response keep working.
                     required:
                     - token
                     - refreshToken
@@ -1387,7 +1389,7 @@ paths:
                     traceId: string
                     errorType: PROVIDER_NOT_CONFIGURED
         '422':
-          description: 'Zod body validation failed (validateReqBody). NOTE: status is 422, not 400. errors[].field is the dotted path (or "body").'
+          description: 'Zod body validation failed (validateReqBody). NOTE: status is 422, not 400. errors[].field is the dotted path (or "body"). Includes an invalid dateOfBirth (errors[].field = dateOfBirth; not ISO UTC, impossible date, future, or under MIN_SIGNUP_AGE). No account or identity is created. The service re-checks the same rules and also answers 422 (errorType VALIDATION_ERROR) if called with an invalid value.'
           content:
             application/json:
               schema:
