@@ -142,7 +142,7 @@ Nothing in this section has been fixed. It records where each item is planned in
 |---|---|---|
 | CR-17 standard error codes (correct HTTP status plus a stable `errorType` instead of 500 for business failures) | Resolved by the status-code tasks: B-15, B-17, B-18, B-22, B-26, B-27, S-18 | T-010, T-011, T-012, T-013, T-014 (M1); B-16 in HF-002 |
 | S-04 blacklist key mismatch | Hotfix track (verify the writer and readers first) | HF-003 |
-| S-01 unauthenticated `/media` upload and delete | Hotfix track. Auth now required (bearer or admin cookie + CSRF). Residual: any signed-in account can delete any URL (no ownership record); DELETE body validation not applied (S-18) | HF-005 |
+| S-01 unauthenticated `/media` upload and delete | Hotfix track. Auth now required (bearer or admin cookie + CSRF). Ownership-based delete added (MediaAsset table). Residual: files uploaded before the migration have no owner (ADMIN-only delete); S-18 still affects other DELETE routes (media validates its body in the controller) | HF-005 |
 | S-19 reset password without OTP | Hotfix track (verify first, then fix) | HF-004 |
 | S-17 password hash in `GET /admin/users` | Fix already in the baseline code; task is verification (tests run, staging check) | HF-001 |
 | B-16 Stripe webhook signature gives 500 | Hotfix track | HF-002 |

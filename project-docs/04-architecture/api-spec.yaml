@@ -6742,7 +6742,7 @@ paths:
       tags:
       - media
       summary: Upload attachments to S3
-      description: 'multipart/form-data, field name `files`, 1-10 files, max 50 MB each. Allowed mime types: images (jpeg,png,webp,svg,gif,avif,bmp,tiff,heic,heif,ico), pdf, msword/ms-excel/ms-powerpoint + OOXML, odt/ods/odp, txt/csv/markdown/rtf/json/xml, zip/rar/7z/gzip/tar, audio (mpeg,wav,ogg,webm,mp4,aac,flac,m4a), video (mp4,mpeg,quicktime,avi,wmv,webm,ogg,mkv,3gpp). S3 key: attachments/<uuid>-<ts>.<ext>. S3 failure -> 500. Requires authentication (HF-005): missing/invalid credentials -> 401, admin cookie without a matching CSRF header -> 403.'
+      description: 'multipart/form-data, field name `files`, 1-10 files, max 50 MB each. Allowed mime types: images (jpeg,png,webp,svg,gif,avif,bmp,tiff,heic,heif,ico), pdf, msword/ms-excel/ms-powerpoint + OOXML, odt/ods/odp, txt/csv/markdown/rtf/json/xml, zip/rar/7z/gzip/tar, audio (mpeg,wav,ogg,webm,mp4,aac,flac,m4a), video (mp4,mpeg,quicktime,avi,wmv,webm,ogg,mkv,3gpp). S3 key: attachments/<uuid>-<ts>.<ext>. S3 failure -> 500. Requires authentication (HF-005): missing/invalid credentials -> 401, admin cookie without a matching CSRF header -> 403. Each uploaded file is recorded in MediaAsset with the uploader as owner (response unchanged).'
       x-auth: 'HF-005: requireMediaAuth (media.guard.ts): Authorization Bearer present -> checkUserAccessToken + checkUserExistence + checkAccountStatus (any role); else admin access_token cookie -> checkCsrfToken + checkAdminAccessToken + checkAdminExistence; neither -> 401. Runs BEFORE multer. chain: requireMediaAuth -> uploadAttachmentArray("files",10,required) -> handleAttachmentMulterError'
       security:
       - userBearer: []
@@ -6815,8 +6815,8 @@ paths:
       tags:
       - media
       summary: Delete uploaded media by URL
-      description: 'urls are converted to S3 keys via URL pathname (or the raw string if not a URL). No ownership check. Empty array accepted. ⚠️ UNVERIFIED: whether validateReqBody actually runs for DELETE (depends on ALLOWED_WRITE_METHODS, not read).'
-      x-auth: 'HF-005: requireMediaAuth (same as POST /media). Any authenticated account can still delete any URL (no ownership record; see known-issues S-01 follow-up). chain: requireMediaAuth -> validateReqBody(deleteMediaSchema) (validation not applied on DELETE, S-18)'
+      description: 'urls must be this service''s own media URLs (<S3_PUBLIC_URL>/attachments/<name>); anything else is 422 INVALID_MEDIA_URL. Non-admins may delete only files they uploaded (MediaAsset row owner); files with no row (uploaded before ownership tracking) are ADMIN-only; ADMIN may delete any file under attachments/. All-or-nothing: if any URL is not permitted the call returns 403 ACCESS_DENIED and deletes nothing. Empty array accepted. Responses 200 unchanged; new: 403, 422.'
+      x-auth: 'HF-005: requireMediaAuth (same as POST /media). ownership rule in media.policy.ts (authorizeMediaDelete). chain: requireMediaAuth -> controller validates body with deleteMediaSchema (validateReqBody skips DELETE, S-18) -> removeMediaService'
       security:
       - userBearer: []
       - adminCookie: []

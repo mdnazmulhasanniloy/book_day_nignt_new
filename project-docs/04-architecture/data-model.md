@@ -513,6 +513,12 @@ All come from raw SQL in `20260923111443_booking_payment_foundation`, `202609231
 
 No migration drops a table. Schema/migration drift (what Prisma does not model): `btree_gist` missing from the schema `extensions` list, plus all section 5 objects.
 
+### 6.1 MediaAsset (migration 20261122120000_add_media_asset_ownership, applied outside the TO-BE list)
+
+New table, additive, no backfill. Columns: `id` uuid PK, `key` text UNIQUE (S3 key, `attachments/<uuid>-<ts>.<ext>`), `url`, `ownerId` FK User ON DELETE CASCADE, `mimeType`, `sizeBytes`, `createdAt`; index `(ownerId, createdAt)`. Written by `POST /media`; read by `DELETE /media` to decide ownership. Ownership is never derived from the URL.
+
+Impact: files uploaded before this migration have no row. They can be deleted by ADMIN only. Flutter and Admin delete only files they just uploaded (Flutter) or an old avatar as ADMIN (Admin dashboard), so no current flow breaks; both clients ignore delete failures. A reference-based backfill (a URL used as `Club.thumbnail` by that club's owner, etc.) was NOT done: references are not proof of upload, one URL can be referenced by several rows, and S3 has no uploader metadata. Decide with the product owner before attempting it. Deleting a user cascades their MediaAsset rows but not the S3 objects (orphaned, same as before). Rollback: forward-only; the table can stay unused if the code is reverted.
+
 ## 7. Other data stores
 
 **Redis / Valkey** (queues, cache, sessions). Key patterns:
