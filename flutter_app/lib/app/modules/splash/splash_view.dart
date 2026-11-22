@@ -75,17 +75,20 @@ class _SplashViewState extends State<SplashView> {
       final body = response.data;
       if (body is Map && body['success'] == false) {
         await LocalStorage.removeData(key: AppConst.accessToken);
+        await LocalStorage.removeData(key: AppConst.refreshToken);
         await LocalStorage.removeData(key: AppConst.role);
         return null;
       }
       return token;
     } on UnauthorizedException {
       await LocalStorage.removeData(key: AppConst.accessToken);
+      await LocalStorage.removeData(key: AppConst.refreshToken);
       await LocalStorage.removeData(key: AppConst.role);
       return null;
     } on ApiException catch (error) {
       if (error.statusCode == 401 || error.statusCode == 403) {
         await LocalStorage.removeData(key: AppConst.accessToken);
+        await LocalStorage.removeData(key: AppConst.refreshToken);
         await LocalStorage.removeData(key: AppConst.role);
         return null;
       }

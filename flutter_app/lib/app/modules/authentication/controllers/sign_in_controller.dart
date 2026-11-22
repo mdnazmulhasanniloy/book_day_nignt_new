@@ -1,6 +1,8 @@
 import 'package:bookdianight_app/app/core/local_storage/local_storage.dart';
 import 'package:bookdianight_app/app/core/network/base_client.dart';
 import 'package:bookdianight_app/app/core/network/end_point.dart';
+import 'package:bookdianight_app/app/core/network/auth_refresh_coordinator.dart';
+import 'package:bookdianight_app/app/core/network/auth_session.dart';
 import 'package:bookdianight_app/app/core/resources/app_const/app_const.dart';
 import 'package:bookdianight_app/app/core/resources/app_loader/custom_animated_loader.dart';
 import 'package:bookdianight_app/app/core/utils/custom_snack_bar.dart';
@@ -148,7 +150,7 @@ class LoginController extends GetxController {
           return;
         }
 
-        await LocalStorage.saveData(key: AppConst.accessToken, data: token);
+        await persistLoginSession(const LocalAuthTokenStore(), data);
         if (role != null) {
           await LocalStorage.saveData(key: AppConst.role, data: role);
         }
@@ -380,11 +382,7 @@ class LoginController extends GetxController {
       }
 
       final role = data?['role']?.toString();
-      await LocalStorage.saveData(key: AppConst.accessToken, data: token);
-      final refresh = data?['refreshToken']?.toString().trim() ?? '';
-      if (refresh.isNotEmpty) {
-        await LocalStorage.saveData(key: AppConst.refreshToken, data: refresh);
-      }
+      await persistLoginSession(const LocalAuthTokenStore(), data);
       if (role != null && role.isNotEmpty) {
         await LocalStorage.saveData(key: AppConst.role, data: role);
       }

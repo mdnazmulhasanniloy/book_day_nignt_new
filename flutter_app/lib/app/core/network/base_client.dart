@@ -3,6 +3,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'api_error_handler.dart';
 import 'api_expection.dart';
+import 'auth_refresh_coordinator.dart';
+import 'auth_refresh_interceptor.dart';
+import 'auth_session.dart';
 
 class BaseClient {
   static final BaseClient _instance = BaseClient._internal();
@@ -33,6 +36,17 @@ class BaseClient {
     );
 
     _dio.interceptors.add(_createInterceptor());
+    // After the logging interceptor so retried calls are logged too.
+    _dio.interceptors.add(
+      AuthRefreshInterceptor(
+        dio: _dio,
+        coordinator: AuthRefreshCoordinator(
+          store: const LocalAuthTokenStore(),
+          refreshCall: bareDioRefreshCall(baseUrl: baseUrl ?? ''),
+          onSessionExpired: handleSessionExpired,
+        ),
+      ),
+    );
   }
 
   InterceptorsWrapper _createInterceptor() {
@@ -490,7 +504,8 @@ class BaseClient {
     final message = ApiErrorHandler.extractErrorMessage(response.data);
 
     if (statusCode == 401 || statusCode == 403) {
-      _handleUnauthorized();
+      // Refresh and logout on 401 happen in AuthRefreshInterceptor, before
+      // this point. A 403 is a permission error and never ends the session.
       throw UnauthorizedException(message, statusCode);
     } else if (statusCode >= 400 && statusCode < 500) {
       throw ValidationException(message, statusCode);
@@ -499,13 +514,6 @@ class BaseClient {
     } else {
       throw ApiException(message, statusCode);
     }
-  }
-
-  void _handleUnauthorized() {
-    debugPrint("⚠️ Unauthorized - Token Expired or Invalid. Redirecting logic goes here.");
-    // e.g. LocalStorage.removeData(key: 'token');
-    // LocalStorage.removeData(key: 'token');
-    // Get.offAllNamed('/loginView');
   }
 
   CancelToken createCancelToken() => CancelToken();

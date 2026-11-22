@@ -13,6 +13,8 @@ class EndPoint {
   static const String socialLogin = '/auth/social';
   static const String CHECK_AUTH = '/auth/check';
   static const String LOGOUT = '/auth/logout';
+  // ignore: constant_identifier_names
+  static const String REFRESH = '/auth/refresh';
 
   // ─── Recover Password ───────────────────────────────────────────────────────
   static const String FORGOT_PASSWORD = '/recover/find';

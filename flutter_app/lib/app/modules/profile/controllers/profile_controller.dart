@@ -268,6 +268,7 @@ class ProfileController extends GetxController {
       debugPrint("Logout API Error: $e");
     } finally {
       await LocalStorage.removeData(key: AppConst.accessToken);
+      await LocalStorage.removeData(key: AppConst.refreshToken);
       await LocalStorage.removeData(key: AppConst.role);
       DeepLinkService.instance.onLoggedOut();
       NotificationRouter.onLoggedOut();
@@ -307,6 +308,7 @@ class ProfileController extends GetxController {
       }
 
       await LocalStorage.removeData(key: AppConst.accessToken);
+      await LocalStorage.removeData(key: AppConst.refreshToken);
       await LocalStorage.removeData(key: AppConst.role);
       DeepLinkService.instance.onLoggedOut();
       NotificationRouter.onLoggedOut();
