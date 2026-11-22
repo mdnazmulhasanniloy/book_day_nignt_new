@@ -25,9 +25,9 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 | [HF-003](HF-003.md) | Fix blacklist key mismatch (jwt vs token) in socket and OTP-page token checks | backend | none | done in code (staging check pending) |
 | [HF-004](HF-004.md) | Reset password without OTP (verify first, then fix) | backend | none | done in code (staging check pending) |
 | [HF-005](HF-005.md) | Require auth on POST and DELETE /media (S-01, Critical) | backend | none | done in code (staging check pending) |
-| [FL-B07](FL-B07.md) | Flutter: handle 401 (clear session, redirect once, 403 is not logout) | flutter | none | investigated, blocked on Flutter SDK |
-| [FL-B08](FL-B08.md) | Flutter: single-flight token refresh with one retry (backend rotates refresh tokens) | flutter | FL-B07 | investigated, blocked on Flutter SDK |
-| [FL-P01](FL-P01.md) | Flutter: DOB picker limited to adults, inline validation keeps form data | flutter | none | investigated, blocked on Flutter SDK |
+| [FL-B07](FL-B07.md) | Flutter: handle 401 (clear session, redirect once, 403 is not logout) | flutter | none | implemented + unit-tested in Docker (`fix/flutter-auth-refresh`), not verified on device |
+| [FL-B08](FL-B08.md) | Flutter: single-flight token refresh with one retry (backend rotates refresh tokens) | flutter | FL-B07 | implemented + unit-tested in Docker (`fix/flutter-auth-refresh`), not verified on device |
+| [FL-P01](FL-P01.md) | Flutter: DOB picker limited to adults, inline validation keeps form data | flutter | none | gap fixed + tested in Docker (`fix/flutter-dob-picker`), not verified on device; reported defect not reproduced |
 | [REL-HF](REL-HF.md) | Release checkpoint: hotfix track | release | HF-001, HF-002, HF-003, HF-004, HF-005 | not started |
 
 ## M1 Security and correctness
