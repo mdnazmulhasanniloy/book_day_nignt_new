@@ -1,6 +1,6 @@
 # Known Issues (as-is)
 
-> List only. Nothing here has been fixed or changed. Found while reverse-engineering `backend/`, `admin/` and `BookingDiaNight/` (Flutter).
+> List only. Nothing here has been fixed or changed. Found while reverse-engineering `backend/`, `admin/` and `flutter_app/` (Flutter).
 > Severity is a first-pass judgement: **High** = exploitable or data-loss/money impact, **Med** = wrong behaviour or weak control, **Low** = hygiene.
 > "Verified" means the file was read directly in this session; otherwise the finding comes from a code-reading subagent and is marked **⚠️ UNVERIFIED** until re-checked.
 
@@ -12,15 +12,15 @@
 | S-02 | High | `backend/server/src/app/modules/promo/promo.routes.ts:37-66`, `promo.services.ts:18-22,109` | Promo create/update/delete need only a logged-in USER (comment says "Admin or authenticated owner"). No role check and no ownership check on `eventId` / `clubId`; global codes (no event or club) appear editable and deletable by any user. | Routes verified; service behaviour ⚠️ UNVERIFIED |
 | S-03 | High | `backend/server/src/app/modules/auth/auth.schema.ts:22` | `POST /auth/signup` accepts `role: 'CLUB_OWNER'` from the client, so anyone can self-assign the owner role. | Verified |
 | S-04 | High | `backend/server/src/app/middlewares/socket.middlewares.ts:48`, `modules/auth/auth.middlewares.ts:77`, `const.ts:294` | Blacklist key mismatch: middlewares read `blacklist:jwt:<token>` but the key prefix in `const.ts` is `blacklist:token`. Logout writes `blacklist:token:<token>` (**⚠️ UNVERIFIED**), so these two checks never see revoked tokens (socket auth and the OTP-page token check). Whether the normal HTTP user middleware blacklists correctly was not checked. | Mismatch verified; impact ⚠️ UNVERIFIED |
-| S-05 | High | `BookingDiaNight/lib/main.dart:52,121-127` | `MyHttpOverrides.badCertificateCallback` returns `true` and is installed globally, so the app accepts any TLS certificate for all requests (man-in-the-middle possible). | Verified |
+| S-05 | High | `flutter_app/lib/main.dart:52,121-127` | `MyHttpOverrides.badCertificateCallback` returns `true` and is installed globally, so the app accepts any TLS certificate for all requests (man-in-the-middle possible). | Verified |
 | S-06 | High | `backend/bookdianight.dump`, `backend/dump.rdb` | A Postgres dump (191 KB) and a Redis dump are tracked in git (`git ls-files`), and `.gitignore` does not exclude them. They may contain PII, hashes, tokens or sessions. | Tracked: verified; contents ⚠️ UNVERIFIED |
 | S-07 | Med | `backend/server/src/app/utils/jwt.utils.ts:16-37` | User and admin access tokens are signed with the same `JWT_ACCESS_TOKEN_SECRET_KEY`. Role separation then depends only on server-side checks. | Verified |
 | S-08 | Med | `backend/server/src/app/modules/quotes/quotes.routes.ts:28`, `hosts/hosts.routes.ts:74` | `POST /quotes` and `POST /hosts/:id/contact` are public with no rate limit and trigger emails to owners or hosts (spam and email-bombing). | ⚠️ UNVERIFIED |
 | S-09 | Med | `backend/server/src/app/modules/promo/promo.routes.ts:28` | `POST /promo/validate` is public with no rate limit; codes can be enumerated. | Route verified |
-| S-10 | Med | `BookingDiaNight` `lib/app/core/local_storage/local_storage.dart`, `sign_in_controller.dart:93,384-386` | Access token, refresh token and, with "remember me", the plain-text password are stored in unencrypted GetStorage. | ⚠️ UNVERIFIED |
-| S-11 | Med | `BookingDiaNight` `lib/main.dart:33,41`, Dio interceptor in `core/network/base_client.dart` | Debug logging prints the access token, the FCM token, and full request/response bodies (including passwords). | ⚠️ UNVERIFIED |
-| S-12 | Med | `BookingDiaNight` `.env` listed as an asset in `pubspec.yaml`; `explore_repository.dart`, `club_location_repository.dart` | `.env` is bundled in the app package, so `MAP_API_KEY` and the Stripe publishable key can be extracted. Google Places is called directly from the client with `X-Goog-Api-Key`, so that key needs app and API restrictions. | ⚠️ UNVERIFIED |
-| S-13 | Med | `BookingDiaNight` `lib/firebase_options.dart:44-80`, `ios/Runner/GoogleService-Info.plist`, `android/app/google-services.json` | Firebase API keys committed in the app. Normal for Firebase, but restrictions in the console cannot be confirmed from code. | ⚠️ UNVERIFIED |
+| S-10 | Med | `flutter_app` `lib/app/core/local_storage/local_storage.dart`, `sign_in_controller.dart:93,384-386` | Access token, refresh token and, with "remember me", the plain-text password are stored in unencrypted GetStorage. | ⚠️ UNVERIFIED |
+| S-11 | Med | `flutter_app` `lib/main.dart:33,41`, Dio interceptor in `core/network/base_client.dart` | Debug logging prints the access token, the FCM token, and full request/response bodies (including passwords). | ⚠️ UNVERIFIED |
+| S-12 | Med | `flutter_app` `.env` listed as an asset in `pubspec.yaml`; `explore_repository.dart`, `club_location_repository.dart` | `.env` is bundled in the app package, so `MAP_API_KEY` and the Stripe publishable key can be extracted. Google Places is called directly from the client with `X-Goog-Api-Key`, so that key needs app and API restrictions. | ⚠️ UNVERIFIED |
+| S-13 | Med | `flutter_app` `lib/firebase_options.dart:44-80`, `ios/Runner/GoogleService-Info.plist`, `android/app/google-services.json` | Firebase API keys committed in the app. Normal for Firebase, but restrictions in the console cannot be confirmed from code. | ⚠️ UNVERIFIED |
 | S-14 | Low | `backend/.agent/blueprint.md` | Contains the production droplet IP and SSH user. Values are intentionally not copied here. | ⚠️ UNVERIFIED |
 | S-15 | Low | `backend/server/src/const.ts` (`corsWhiteList`), `app.ts:173`, `server.ts:25` | Dev tunnel and LAN origins in the production CORS whitelist; hardcoded host `https://ibady.nazmul.qzz.io` in Swagger config. | ⚠️ UNVERIFIED |
 | S-16 | Low | `backend/server/src/app/modules/notification/notification.routes.ts:41` | `PATCH /notifications/:id/read` has no params schema (see V-01). | ⚠️ UNVERIFIED |
@@ -41,11 +41,11 @@
 | B-04 | Med | `schema.prisma:13` vs migration `20260923111443_booking_payment_foundation` | `btree_gist` is created by a migration (needed by the `ClubBooking` EXCLUDE constraint) but is missing from the schema `extensions` list. `prisma migrate dev` may report drift or try to drop it. | Schema line verified; migrate behaviour ⚠️ UNVERIFIED |
 | B-05 | Low | `backend/server/src/const.ts:49` vs `jwt.utils.ts:16-26` | `userAccessTokenExpiresIn = '30d'` while the token code hardcodes `7d` / `30d`. | Verified; whether the constant is used ⚠️ UNVERIFIED |
 | B-06 | Low | `backend/.env.example` | Missing `SERVER_URL`, which `server/src/env.ts` requires (`getEnv` throws if missing). | ⚠️ UNVERIFIED |
-| B-07 | Med | `BookingDiaNight` `lib/app/core/network/base_client.dart` | `_handleUnauthorized()` is an empty stub: a 401 never logs the user out or redirects. | ⚠️ UNVERIFIED |
-| B-08 | Med | `BookingDiaNight` auth repository | The app saves `refreshToken` but never calls `POST /auth/refresh`; after the access token expires the user must log in again. | ⚠️ UNVERIFIED |
-| B-09 | Low | `BookingDiaNight/lib/main.dart:36-37,45-58` | `AppConfig.init()` and `BaseClient().init()` are called twice; Stripe publishable key is also set again in `buy_ticker_controller.dart`. | ⚠️ UNVERIFIED |
-| B-10 | Low | `BookingDiaNight` `club_community_section.dart:597` | Builds `/explore/club/{id}/events/${kind}`; the backend accepts only `upcoming` and `past`. | ⚠️ UNVERIFIED |
-| B-11 | Low | `BookingDiaNight` `lib/app/config/flavor_config.dart` | `isProduction` hardcoded to `true`, so `LOCAL_BASE_URL` is never used. | ⚠️ UNVERIFIED |
+| B-07 | Med | `flutter_app` `lib/app/core/network/base_client.dart` | `_handleUnauthorized()` is an empty stub: a 401 never logs the user out or redirects. | ⚠️ UNVERIFIED |
+| B-08 | Med | `flutter_app` auth repository | The app saves `refreshToken` but never calls `POST /auth/refresh`; after the access token expires the user must log in again. | ⚠️ UNVERIFIED |
+| B-09 | Low | `flutter_app/lib/main.dart:36-37,45-58` | `AppConfig.init()` and `BaseClient().init()` are called twice; Stripe publishable key is also set again in `buy_ticker_controller.dart`. | ⚠️ UNVERIFIED |
+| B-10 | Low | `flutter_app` `club_community_section.dart:597` | Builds `/explore/club/{id}/events/${kind}`; the backend accepts only `upcoming` and `past`. | ⚠️ UNVERIFIED |
+| B-11 | Low | `flutter_app` `lib/app/config/flavor_config.dart` | `isProduction` hardcoded to `true`, so `LOCAL_BASE_URL` is never used. | ⚠️ UNVERIFIED |
 | B-12 | Low | `backend/scheduler/src/app/jobs/` | No distributed lock: with more than one scheduler instance, hourly reminders and the minute-by-minute status sync are enqueued more than once (some jobs use deterministic jobIds, others may not). | ⚠️ UNVERIFIED |
 | B-13 | Low | migrations `20261101163000_waiting_list_slot_context`, `20261102104500_guest_list_entry_notifications` | Use `IF NOT EXISTS`, which suggests they were applied by hand somewhere before being committed. | Inference, ⚠️ UNVERIFIED |
 | B-14 | Low | `schema.prisma:168` vs `:102` | Spelling inconsistency: `WaitingListStatus.CANCELLED` vs `EventStatus.CANCELED` / `NotificationType.EVENT_CANCELED`. | Verified |
@@ -107,8 +107,8 @@
 |---|---|---|
 | X-01 | `backend/server/src/app/configs/socket.config.ts`, `const.ts` | `chatNameSpace`, `notificationNameSpace` never initialised; `SOCKET_EVENTS` unused; the default namespace has no handlers beyond connect/disconnect. |
 | X-02 | `backend/server/src/const.ts` | `baseUrl.v2` unused. |
-| X-03 | `BookingDiaNight` | `EndPoint.GOOGLE_LOGIN = '/auth/google'` (`end_point.dart:12`) has no backend route and no callers. |
-| X-04 | `BookingDiaNight/pubspec.yaml` | `firebase_auth`, `flutter_map`, `latlong2` listed but not used; `AppConfig.socketUrl` never read; `device_preview` listed (dev package in dependencies, ⚠️ UNVERIFIED). |
+| X-03 | `flutter_app` | `EndPoint.GOOGLE_LOGIN = '/auth/google'` (`end_point.dart:12`) has no backend route and no callers. |
+| X-04 | `flutter_app/pubspec.yaml` | `firebase_auth`, `flutter_map`, `latlong2` listed but not used; `AppConfig.socketUrl` never read; `device_preview` listed (dev package in dependencies, ⚠️ UNVERIFIED). |
 | X-05 | `admin/src/features/{clubs,events,earnings,settings}/api/mock.ts` | Mock files that nothing imports. |
 | X-06 | `admin/src/features/notifications/api/mock.ts`, `features/dashboard/api/dashboard.api.ts` | Notifications page and `useGetDashboardMetrics` run on mock data; the backend has no admin notifications endpoint. |
 | X-07 | Backend routes no client calls (from usage scan) | `/auth/roles`, `GET /admin/profile`, `PATCH /admin/users/:id/restore`, `GET /profile/deletion-preview`, `PUT /club/:id/bookings/close`, `POST /event/:eventId/modules/reorder`. Server-to-server routes are expected to have no client. Full table in `api-usage-map.md`. |
@@ -121,7 +121,7 @@
 | R-01 | `backend/openapi.yaml` has 85 paths and 99 operations against 139 routes in code (about 70% coverage). Missing: eventModule (6), guestList (5), hosts (10), quotes (3), `/auth/roles`, `/auth/refresh`, `/admin/users/:id/restore`, `/admin/earnings`, `/admin/club`, `/admin/event`, club/event `bookings/close`, `/event/:id/duplicate`, `/purchase/module`, `/owner/bookings/export`, `/profile/deletion-preview`, and artist follow routes. (From exploration; ⚠️ UNVERIFIED until the merged spec is compared.) |
 | R-02 | `backend/CLAUDE.md` says to keep both OpenAPI files in sync with code, and that `project-docs/04-architecture/` files do not exist yet; this folder now contains the as-is versions. |
 | R-03 | `backend/CLAUDE.md` lists `blockers.md` and a changelog under `project-docs/05-delivery/`; neither exists. |
-| R-04 | The task said the Flutter app was `./mobile-app`; it is `./BookingDiaNight`. |
+| R-04 | Earlier task text used a different folder name for the Flutter app; it is now `flutter_app/`. |
 | R-05 | Initial exploration counted 39 models and 25 enums; the schema actually has 41 and 26 (`grep`-verified). Treat other subagent counts as ⚠️ UNVERIFIED until re-counted. |
 | R-06 | Request validation failures (Zod body, query, params, and a missing `Idempotency-Key`) return HTTP **422**, not 400 (`system.utils.ts:117-140`). The only real 400s seen are bad Connect callback tokens. Existing `openapi.yaml` and any 400-based client handling should be checked against this. (Flutter `BaseClient` maps all 4xx to `ValidationException`, so it works there.) |
 
@@ -133,3 +133,20 @@
 | O-02 | Admin API host (`ibady.nazmul.qzz.io`) differs from the production host named in `CLAUDE.md` (`api.bookdianight.com`). ⚠️ UNVERIFIED which is live. |
 | O-03 | `redis:latest` and `rediscommander/redis-commander:latest` are unpinned images in `docker-compose.yaml`. |
 | O-04 | `lint_results.json` and `admin_dashboard_plan.md` sit in `backend/` root (stray artifacts). ⚠️ UNVERIFIED relevance. |
+
+## 8. Planned disposition (TO-BE, 2026-11-21)
+
+Nothing in this section has been fixed. It records where each item is planned in `05-delivery/implementation-plan.md` and `05-delivery/tasks/`. The tables above stay AS-IS.
+
+| Item | Disposition | Task |
+|---|---|---|
+| CR-17 standard error codes (correct HTTP status plus a stable `errorType` instead of 500 for business failures) | Resolved by the status-code tasks: B-15, B-17, B-18, B-22, B-26, B-27, S-18 | T-010, T-011, T-012, T-013, T-014 (M1); B-16 in HF-002 |
+| S-04 blacklist key mismatch | Hotfix track (verify the writer and readers first) | HF-003 |
+| S-19 reset password without OTP | Hotfix track (verify first, then fix) | HF-004 |
+| S-17 password hash in `GET /admin/users` | Fix already in the baseline code; task is verification (tests run, staging check) | HF-001 |
+| B-16 Stripe webhook signature gives 500 | Hotfix track | HF-002 |
+| B-21 auth check order | Later: auth cleanup, last task of M2, no dependents | T-021 |
+| B-19 module purchase idempotency body check | Built with the module and extras tasks (M5), not as a separate task | T-056 |
+| B-20 inconsistent `/admin/commission` response shapes | Skipped: the v2 pricing rules (CR-15) supersede these endpoints; v1 shapes stay as they are and are deprecated | none |
+| B-24 tier update resets `soldCount` | M1, in place update with no dependency on migration 5 | T-004 |
+| S-03 self-signup as `CLUB_OWNER`, S-21, B-07, B-08, B-10 | Not scheduled in backend/admin: S-03 waits on D1; S-21 belongs to deferred CR-05; B-07, B-08, B-10 are Flutter (M8, not started) | none |

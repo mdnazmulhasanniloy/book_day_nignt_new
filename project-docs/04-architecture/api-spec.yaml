@@ -144,7 +144,7 @@ paths:
       tags:
       - auth
       summary: Register a user / club owner and send verification OTP
-      description: 'If the email exists but is NOT verified, that unverified account is updated and a new OTP is sent. Zod schema is .strict() (unknown keys -> 422). dateOfBirth must be an ISO UTC datetime (YYYY-MM-DDTHH:mm:ss[.sss]Z), a real calendar date, not in the future, and age >= 18 (else 422 with field=dateOfBirth). OTP is 6 digits, valid 5 minutes. TO-BE (CR-01, BUG-S03): D1 = B. `role: CLUB_OWNER` is still accepted (backward compatible) but the account is created with ownerApprovalStatus=PENDING. The role value returned to clients stays CLUB_OWNER; selling actions are gated server-side (see POST /club, POST /event, POST /connect/onboarding).'
+      description: If the email exists but is NOT verified, that unverified account is updated and a new OTP is sent. Zod schema is .strict() (unknown keys -> 422). dateOfBirth must be an ISO UTC datetime (YYYY-MM-DDTHH:mm:ss[.sss]Z), a real calendar date, not in the future, and age >= 18 (else 422 with field=dateOfBirth). OTP is 6 digits, valid 5 minutes.
       x-auth: 'public. chain: limitOtpSend (10 req / 15 min per IP) -> validateReqBody(signupSchema) -> checkSignupUserExists'
       security: []
       requestBody:
@@ -306,9 +306,6 @@ paths:
                 - message
                 - errors
       operationId: auth_post_auth_signup
-      x-requirement: CR-01, BUG-S03
-      x-status: planned
-      x-change: modified
   /auth/login:
     post:
       tags:
@@ -5475,14 +5472,6 @@ paths:
                             enum:
                             - COMPLETE
                             - UNVERIFIED
-                          ownerApprovalStatus:
-                            type: string
-                            enum:
-                            - NOT_REQUIRED
-                            - PENDING
-                            - APPROVED
-                            - REJECTED
-                            description: NOT_REQUIRED for USER/ADMIN. Existing owners are backfilled APPROVED.
                     required:
                     - user
                   traceId:
@@ -5554,10 +5543,6 @@ paths:
                     traceId: string
                     errorType: USER_NOT_FOUND
       operationId: profile_get_profile
-      x-requirement: CR-01
-      x-status: planned
-      x-change: modified
-      description: 'TO-BE (CR-01): Response user gains `ownerApprovalStatus` (additive).'
     patch:
       tags:
       - profile
@@ -8005,7 +7990,7 @@ paths:
       - club
       summary: Create a club
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + checkConnectReadinessMiddleware (Stripe Connect canCreateListings) + validateReqBody(createClubSchema)'
-      description: 'Creates Club, sets PostGIS geog, creates 7 opening-hour rows and packages in one transaction; then fire-and-forget push to users within 5 km. Cross-field rules: openingHours must have exactly 7 entries with distinct dayOfWeek 0-6; all packages must share one currency (else 422 body validation). Response is the bare Club row (no openingHours/packages). No limit on number of clubs per owner is enforced here. TO-BE (CR-01): Owners with ownerApprovalStatus other than APPROVED get 403 errorType OWNER_NOT_APPROVED. Existing owners are backfilled APPROVED so the live app is unaffected.'
+      description: 'Creates Club, sets PostGIS geog, creates 7 opening-hour rows and packages in one transaction; then fire-and-forget push to users within 5 km. Cross-field rules: openingHours must have exactly 7 entries with distinct dayOfWeek 0-6; all packages must share one currency (else 422 body validation). Response is the bare Club row (no openingHours/packages). No limit on number of clubs per owner is enforced here.'
       security:
       - userBearer: []
       requestBody:
@@ -8295,7 +8280,7 @@ paths:
         '403':
           description: '- ACCESS_DENIED: ''Access denied: Requires club owner privileges'' (accountRole must be CLUB_OWNER)
 
-            - (no errorType) ''Complete Stripe Connect setup before managing listings'' (checkConnectReadinessMiddleware; response is {success,message,traceId}) | TO-BE: 403 errorType OWNER_NOT_APPROVED while approval is PENDING or REJECTED.'
+            - (no errorType) ''Complete Stripe Connect setup before managing listings'' (checkConnectReadinessMiddleware; response is {success,message,traceId})'
           content:
             application/json:
               schema:
@@ -8307,10 +8292,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: club_post_club
-      x-requirement: CR-01
-      x-status: planned
-      x-change: modified
-      x-owner-approval-required: true
   /club/{id}:
     get:
       tags:
@@ -9229,7 +9210,7 @@ paths:
       - event
       summary: Create an event
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + checkConnectReadinessMiddleware (Stripe Connect canCreateListings) + validateReqBody(createEventSchema)'
-      description: 'Creates Event + PostGIS geog + ticketTiers (with one level of children) + lineup (upserts global Artist by lowercased name) in one transaction, then enqueues BullMQ jobs MAKE_EVENT_ONGOING / MAKE_EVENT_COMPLETED and pushes NEW_EVENT notifications to users within 5 km. Response is the bare Event row (no tiers/lineup). `clubId` is stored without ownership validation. TO-BE (CR-01): Owners with ownerApprovalStatus other than APPROVED get 403 errorType OWNER_NOT_APPROVED. Existing owners are backfilled APPROVED so the live app is unaffected. TO-BE (CR-17, CR-03, CR-02): Request gains optional `timezone`, `pricingMode`, `organizerId` (defaults keep current behaviour). Ticket tiers gain `tierType`. TO-BE (CR-12): Lineup items accept optional `artistId` (and artistAvatar already exists as the photo).'
+      description: 'Creates Event + PostGIS geog + ticketTiers (with one level of children) + lineup (upserts global Artist by lowercased name) in one transaction, then enqueues BullMQ jobs MAKE_EVENT_ONGOING / MAKE_EVENT_COMPLETED and pushes NEW_EVENT notifications to users within 5 km. Response is the bare Event row (no tiers/lineup). `clubId` is stored without ownership validation. TO-BE (CR-17, CR-03, CR-02): Request gains optional `timezone`, `pricingMode`, `organizerId` (defaults keep current behaviour). Ticket tiers gain `tierType`. TO-BE (CR-12): Lineup items accept optional `artistId` (and artistAvatar already exists as the photo).'
       security:
       - userBearer: []
       requestBody:
@@ -9685,7 +9666,7 @@ paths:
         '403':
           description: '- ACCESS_DENIED: ''Access denied: Requires club owner privileges'' (accountRole must be CLUB_OWNER)
 
-            - (no errorType) ''Complete Stripe Connect setup before managing listings'' (checkConnectReadinessMiddleware; response is {success,message,traceId}) | TO-BE: 403 errorType OWNER_NOT_APPROVED while approval is PENDING or REJECTED.'
+            - (no errorType) ''Complete Stripe Connect setup before managing listings'' (checkConnectReadinessMiddleware; response is {success,message,traceId})'
           content:
             application/json:
               schema:
@@ -9697,10 +9678,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: event_post_event
-      x-requirement: CR-01, CR-17, CR-03, CR-02, CR-12
+      x-requirement: CR-17, CR-03, CR-02, CR-12
       x-status: planned
       x-change: modified
-      x-owner-approval-required: true
     get:
       tags:
       - event
@@ -19959,7 +19939,7 @@ paths:
       - promo
       summary: Create a promo code
       x-auth: 'user bearer: checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus (any role) + validateReqBody(createPromoCodeSchema)  (comment in routes: ''Admin or authenticated owner'' but NO role check)'
-      description: 'Errors are built by the controller as {success,message,traceId} (no errorType). createdByUserId = caller. Code uppercased and must be unique (409). The service does NOT verify that eventId/clubId belong to the caller or even exist: a non-existent id causes an unmapped Prisma FK error -> 500; an existing id owned by someone else is accepted. PERCENTAGE value must be <= 100 (422 on discountValue). TO-BE (CR-17, BUG-B26): Unknown eventId/clubId returns 404 (was 500, FK violation). TO-BE (CR-06, BUG-S02): Requires accountRole CLUB_OWNER (approved) or ADMIN-equivalent owner check, and the promo must belong to the caller''s own event or club. Other users get 403.'
+      description: 'Errors are built by the controller as {success,message,traceId} (no errorType). createdByUserId = caller. Code uppercased and must be unique (409). The service does NOT verify that eventId/clubId belong to the caller or even exist: a non-existent id causes an unmapped Prisma FK error -> 500; an existing id owned by someone else is accepted. PERCENTAGE value must be <= 100 (422 on discountValue). TO-BE (CR-17, BUG-B26): Unknown eventId/clubId returns 404 (was 500, FK violation). TO-BE (CR-06, BUG-S02): Requires accountRole CLUB_OWNER (403 otherwise). Checked against flutter_app: only the club-owner Promo tab calls these three operations (promo_repository.dart:36,75,108); customers only call POST /promo/validate (club_purchase_repository.dart:220). If eventId or clubId is sent it must belong to the caller (404 otherwise, not 403, because the Flutter client treats 403 like 401). A promo with neither scope is still allowed, because the owner Add Promo screen can submit it (add_promo_view.dart:338,355 toggle the ids to null and nothing forces one). Update and delete keep the existing ownership filter (createdByUserId, own event or own club; promo.services.ts:9-22, 404 otherwise).'
       security:
       - userBearer: []
       requestBody:
@@ -20133,7 +20113,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: '- USER_NOT_FOUND: ''User not found'' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)'
+          description: '- USER_NOT_FOUND: ''User not found'' (JWT valid but user row no longer exists; checkUserExistenceMiddleware) | TO-BE: eventId/clubId not owned by caller'
           content:
             application/json:
               schema:
@@ -20145,7 +20125,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Not a club owner, or the promo/event/club is not yours (TO-BE)
+          description: Caller is not a club owner (TO-BE)
           content:
             application/json:
               schema:
@@ -20160,7 +20140,7 @@ paths:
       - promo
       summary: Update a promo code (partial)
       x-auth: 'user bearer: checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus (any role) + validateReqParams(promoIdParamsSchema) + validateReqBody(updatePromoCodeSchema)'
-      description: 'AUTHORIZATION (service ownedPromoAccessFilter, NO role check - any authenticated user, not only CLUB_OWNER/ADMIN): a promo is accessible if createdByUserId = caller, OR its event is owned by caller, OR its club is owned by caller, OR it is a GLOBAL code (eventId, clubId and createdByUserId all null). ⚠️ Consequence as coded: every authenticated user can list, edit and delete global/seed promo codes. Errors are built by the controller as {success,message,traceId} (no errorType). Not accessible -> 404 ''Promo code not found''. At least one field required (422). Nullable fields (eventId, clubId, maxUses, expiresAt) accept null to clear. Setting eventId/clubId connects to any existing event/club without ownership check (non-existent -> unmapped Prisma error 500). Code change conflicts -> 409. PERCENTAGE > 100 -> 422 (both schema and service). TO-BE (CR-06, BUG-S02): Requires accountRole CLUB_OWNER (approved) or ADMIN-equivalent owner check, and the promo must belong to the caller''s own event or club. Other users get 403.'
+      description: 'AUTHORIZATION (service ownedPromoAccessFilter, NO role check - any authenticated user, not only CLUB_OWNER/ADMIN): a promo is accessible if createdByUserId = caller, OR its event is owned by caller, OR its club is owned by caller, OR it is a GLOBAL code (eventId, clubId and createdByUserId all null). ⚠️ Consequence as coded: every authenticated user can list, edit and delete global/seed promo codes. Errors are built by the controller as {success,message,traceId} (no errorType). Not accessible -> 404 ''Promo code not found''. At least one field required (422). Nullable fields (eventId, clubId, maxUses, expiresAt) accept null to clear. Setting eventId/clubId connects to any existing event/club without ownership check (non-existent -> unmapped Prisma error 500). Code change conflicts -> 409. PERCENTAGE > 100 -> 422 (both schema and service). TO-BE (CR-06, BUG-S02): Requires accountRole CLUB_OWNER (403 otherwise). Checked against flutter_app: only the club-owner Promo tab calls these three operations (promo_repository.dart:36,75,108); customers only call POST /promo/validate (club_purchase_repository.dart:220). If eventId or clubId is sent it must belong to the caller (404 otherwise, not 403, because the Flutter client treats 403 like 401). A promo with neither scope is still allowed, because the owner Add Promo screen can submit it (add_promo_view.dart:338,355 toggle the ids to null and nothing forces one). Update and delete keep the existing ownership filter (createdByUserId, own event or own club; promo.services.ts:9-22, 404 otherwise).'
       security:
       - userBearer: []
       parameters:
@@ -20323,7 +20303,7 @@ paths:
         '404':
           description: '- USER_NOT_FOUND: ''User not found'' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
 
-            - ''Promo code not found'''
+            - ''Promo code not found'' | TO-BE: eventId/clubId not owned by caller'
           content:
             application/json:
               schema:
@@ -20341,7 +20321,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Not a club owner, or the promo/event/club is not yours (TO-BE)
+          description: Caller is not a club owner (TO-BE)
           content:
             application/json:
               schema:
@@ -20355,7 +20335,7 @@ paths:
       - promo
       summary: Delete a promo code
       x-auth: 'user bearer: checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus (any role) + validateReqParams(promoIdParamsSchema)'
-      description: 'AUTHORIZATION (service ownedPromoAccessFilter, NO role check - any authenticated user, not only CLUB_OWNER/ADMIN): a promo is accessible if createdByUserId = caller, OR its event is owned by caller, OR its club is owned by caller, OR it is a GLOBAL code (eventId, clubId and createdByUserId all null). ⚠️ Consequence as coded: every authenticated user can list, edit and delete global/seed promo codes. Errors are built by the controller as {success,message,traceId} (no errorType). Hard delete; not accessible -> 404 ''Promo code not found''. TO-BE (CR-06, BUG-S02): Requires accountRole CLUB_OWNER (approved) or ADMIN-equivalent owner check, and the promo must belong to the caller''s own event or club. Other users get 403.'
+      description: 'AUTHORIZATION (service ownedPromoAccessFilter, NO role check - any authenticated user, not only CLUB_OWNER/ADMIN): a promo is accessible if createdByUserId = caller, OR its event is owned by caller, OR its club is owned by caller, OR it is a GLOBAL code (eventId, clubId and createdByUserId all null). ⚠️ Consequence as coded: every authenticated user can list, edit and delete global/seed promo codes. Errors are built by the controller as {success,message,traceId} (no errorType). Hard delete; not accessible -> 404 ''Promo code not found''. TO-BE (CR-06, BUG-S02): Requires accountRole CLUB_OWNER (403 otherwise). Checked against flutter_app: only the club-owner Promo tab calls these three operations (promo_repository.dart:36,75,108); customers only call POST /promo/validate (club_purchase_repository.dart:220). If eventId or clubId is sent it must belong to the caller (404 otherwise, not 403, because the Flutter client treats 403 like 401). A promo with neither scope is still allowed, because the owner Add Promo screen can submit it (add_promo_view.dart:338,355 toggle the ids to null and nothing forces one). Update and delete keep the existing ownership filter (createdByUserId, own event or own club; promo.services.ts:9-22, 404 otherwise).'
       security:
       - userBearer: []
       parameters:
@@ -20441,13 +20421,13 @@ paths:
         '404':
           description: '- USER_NOT_FOUND: ''User not found'' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
 
-            - ''Promo code not found'''
+            - ''Promo code not found'' | TO-BE: eventId/clubId not owned by caller'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Not a club owner, or the promo/event/club is not yours (TO-BE)
+          description: Caller is not a club owner (TO-BE)
           content:
             application/json:
               schema:
@@ -21913,7 +21893,7 @@ paths:
       tags:
       - purchase
       summary: Create an event ticket purchase (Order + EventPurchase + attendees)
-      description: 'Creates a PENDING_PAYMENT Order, an immutable EventPurchase snapshot and attendee rows (position 1 = BUYER taken from the profile, then FRIENDs). Buyer age is derived server-side from profile dateOfBirth. personCount = friends.length + 1; price = tier price (if ticketTierId) else event.eventPrice, times personCount; an invalid promoCode is silently ignored. Replay returns 200. Errors: 404 Event not found or unavailable (missing, deactivated or not UPCOMING); 404 Ticket tier not found; 409 Ticket sales are closed for this event; 409 Ticket tier is sold out; 422 A buyer date of birth is required to purchase an Event; 422 Buyer age is invalid. TO-BE (CR-04): The chosen tier is stored on the purchase (ticketTierId + tierName snapshot) and returned. soldCount is released when the payment expires or fails (stock was leaked before). Response is unchanged otherwise. TO-BE (CR-06): Free tickets: when the selected tier price (or eventPrice) is 0 after promo, no PaymentIntent is needed. The order is created already PAID, response carries `paymentRequired: false`, and the buyer service fee is waived (provisional until Q2). Paid orders return `paymentRequired: true`. Tier price 0 is accepted by tier create/update (already allowed by the schema). TO-BE (CR-07): Optional `extras` lines add purchasable extras (e.g. sunbed for two) to the same order. Extras stock is checked and decremented inside the same transaction and released with the order. Service fee/commission treatment of extras waits for Q2.'
+      description: 'Creates a PENDING_PAYMENT Order, an immutable EventPurchase snapshot and attendee rows (position 1 = BUYER taken from the profile, then FRIENDs). Buyer age is derived server-side from profile dateOfBirth. personCount = friends.length + 1; price = tier price (if ticketTierId) else event.eventPrice, times personCount; an invalid promoCode is silently ignored. Replay returns 200. Errors: 404 Event not found or unavailable (missing, deactivated or not UPCOMING); 404 Ticket tier not found; 409 Ticket sales are closed for this event; 409 Ticket tier is sold out; 422 A buyer date of birth is required to purchase an Event; 422 Buyer age is invalid. TO-BE (CR-04): The chosen tier is stored on the purchase (ticketTierId + tierName snapshot) and returned. soldCount is released when the payment expires or fails (stock was leaked before). Response is unchanged otherwise. TO-BE (CR-06): Free tickets are OPT-IN so the live app is not affected. Today a price-0 order still carries the buyer service fee, so it is paid through POST /payment/intent. The live app would call /payment/intent for an order that is already PAID, so the new path must not be the default. New optional request field `freeCheckout: true`: when the order gross is 0 after promo, no PaymentIntent is needed, the order is created already PAID, the buyer service fee is waived (provisional until Q2) and the response carries `paymentRequired: false`. Without `freeCheckout` (or when gross > 0) behaviour is exactly as today and `paymentRequired` is true. Tier price 0 is already accepted by tier create/update. TO-BE (CR-07): Optional `extras` lines add purchasable extras (e.g. sunbed for two) to the same order. Extras stock is checked and decremented inside the same transaction and released with the order. Service fee/commission treatment of extras waits for Q2.'
       x-auth: user bearer + Idempotency-Key header + checkPurchasableEvent + checkEventPurchaseBuyerProfile + checkEventPurchaseIdempotency
       security:
       - userBearer: []
@@ -21969,6 +21949,10 @@ paths:
                       image:
                         type: string
                         format: uri
+                freeCheckout:
+                  type: boolean
+                  default: false
+                  description: Opt in to the free-order path (CR-06). Flutter sends it from milestone M8.
                 extras:
                   type: array
                   items:
@@ -22585,7 +22569,7 @@ paths:
       tags:
       - connect
       summary: Create or resume Stripe Connect onboarding
-      description: 'Creates an Express Stripe account (country IT, transfers capability) if the owner has none, then returns the sanitized status and a fresh single-use onboarding URL (null when state is READY or RESTRICTED). A callback token (UUID, 30 min TTL) is stored in Redis and embedded in the refresh/return URLs. No request body. Stripe errors give 500. TO-BE (CR-01): Owners with ownerApprovalStatus other than APPROVED get 403 errorType OWNER_NOT_APPROVED. Existing owners are backfilled APPROVED so the live app is unaffected.'
+      description: Creates an Express Stripe account (country IT, transfers capability) if the owner has none, then returns the sanitized status and a fresh single-use onboarding URL (null when state is READY or RESTRICTED). A callback token (UUID, 30 min TTL) is stored in Redis and embedded in the refresh/return URLs. No request body. Stripe errors give 500.
       x-auth: owner (user bearer + checkClubOwnerRoleMiddleware, accountRole CLUB_OWNER)
       security:
       - userBearer: []
@@ -22646,7 +22630,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: 'Access denied: Requires club owner privileges (errorType ACCESS_DENIED) | TO-BE: 403 errorType OWNER_NOT_APPROVED while approval is PENDING or REJECTED.'
+          description: 'Access denied: Requires club owner privileges (errorType ACCESS_DENIED)'
           content:
             application/json:
               schema:
@@ -22658,10 +22642,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: connect_post_connect_onboarding
-      x-requirement: CR-01
-      x-status: planned
-      x-change: modified
-      x-owner-approval-required: true
   /connect/status:
     get:
       tags:
@@ -24191,181 +24171,6 @@ paths:
               schema:
                 type: string
       operationId: public-web_get_connect_complete
-  /admin/owner-applications:
-    get:
-      tags:
-      - admin
-      summary: List club-owner applications
-      description: Club owners who signed up via POST /auth/signup (role CLUB_OWNER). Default filter status=PENDING.
-      x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
-      security: &id020
-      - adminCookie: []
-      x-requirement: CR-01
-      x-status: planned
-      x-change: added
-      parameters:
-      - name: status
-        in: query
-        required: false
-        schema:
-          type: string
-          enum:
-          - PENDING
-          - APPROVED
-          - REJECTED
-      - name: search
-        in: query
-        required: false
-        schema:
-          type: string
-      - &id018
-        name: page
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          default: 1
-      - &id019
-        name: limit
-        in: query
-        required: false
-        schema:
-          type: integer
-          minimum: 1
-          maximum: 50
-          default: 10
-      responses:
-        '200':
-          description: Applications
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                - success
-                - message
-                properties:
-                  success:
-                    type: boolean
-                    const: true
-                  message:
-                    type: string
-                  traceId:
-                    type: string
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/OwnerApplication'
-                  meta:
-                    $ref: '#/components/schemas/PageMeta'
-        '403':
-          description: Not admin
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Token missing, invalid or expired
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: Validation failed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      operationId: admin_get_admin_owner_applications
-  /admin/owner-applications/{userId}:
-    patch:
-      tags:
-      - admin
-      summary: Approve or reject a club owner
-      description: Approval unlocks club/event creation and Stripe Connect onboarding for that owner. Rejected owners keep their account but cannot sell. Notifies the owner (push + email).
-      x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
-      security: &id021
-      - adminCookie: []
-        csrfHeader: []
-      x-requirement: CR-01
-      x-status: planned
-      x-change: added
-      parameters:
-      - name: userId
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              - decision
-              properties:
-                decision:
-                  type: string
-                  enum:
-                  - APPROVED
-                  - REJECTED
-                note:
-                  type: string
-                  maxLength: 500
-      responses:
-        '200':
-          description: Updated
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                - success
-                - message
-                properties:
-                  success:
-                    type: boolean
-                    const: true
-                  message:
-                    type: string
-                  traceId:
-                    type: string
-                  data:
-                    $ref: '#/components/schemas/OwnerApplication'
-        '403':
-          description: Not admin / CSRF
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: User is not a club owner or not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Already decided
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Token missing, invalid or expired
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: Validation failed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-      operationId: admin_patch_admin_owner_applications_userId
   /ticket-tier-presets:
     get:
       tags:
@@ -24504,7 +24309,7 @@ paths:
       - extras
       summary: Create an extra
       description: Purchasable add-on for an event (e.g. 2-person sunbed). Owner of the event only. Included benefits stay as text on tables; only these are purchasable.
-      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER) + owner approved (CR-01 / D1)'
+      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER)'
       security: &id009
       - userBearer: []
       x-requirement: CR-07
@@ -24544,7 +24349,7 @@ paths:
                   data:
                     $ref: '#/components/schemas/Extra'
         '403':
-          description: Not your event / owner not approved
+          description: Not your event
           content:
             application/json:
               schema:
@@ -24574,7 +24379,7 @@ paths:
       summary: List extras of an event
       description: Public list of active extras (owner sees inactive too with a bearer token). `remaining` is shown to owners; public clients get availability only once CR-04 badges ship, so for now `remaining` is returned to everyone.
       x-auth: 'optional user bearer: optionalUserAccessToken'
-      security: &id028
+      security: &id027
       - optionalUserBearer: []
       x-requirement: CR-07
       x-status: planned
@@ -24633,7 +24438,7 @@ paths:
       - extras
       summary: Update an extra
       description: Price changes do not touch past orders (snapshots). `quantity` cannot go below units already sold.
-      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER) + owner approved (CR-01 / D1)'
+      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER)'
       security: *id009
       x-requirement: CR-07
       x-status: planned
@@ -24743,7 +24548,7 @@ paths:
       - extras
       summary: Delete or deactivate an extra
       description: Deleted when never sold, otherwise deactivated (isActive=false).
-      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER) + owner approved (CR-01 / D1)'
+      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER)'
       security: *id009
       x-requirement: CR-07
       x-status: planned
@@ -24815,7 +24620,7 @@ paths:
       - analytics
       summary: Club overview analytics
       description: Only confirmed orders (PAID and not refunded) count; pending, failed, canceled and refunded orders are excluded from totals. Scans, no-shows and attendance rate are NOT included (deferred with CR-05).
-      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER) + owner approved (CR-01 / D1)'
+      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER)'
       security: *id009
       x-requirement: CR-08
       x-status: planned
@@ -24918,7 +24723,7 @@ paths:
                   data:
                     $ref: '#/components/schemas/AnalyticsResponse'
         '403':
-          description: Not an approved owner / Connect not ready
+          description: Not a club owner / Connect not ready
           content:
             application/json:
               schema:
@@ -24942,7 +24747,7 @@ paths:
       - analytics
       summary: Per-event analytics
       description: Same definitions and response as the club overview, restricted to one event you own. Multi-day breakdown arrives with CR-05.
-      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER) + owner approved (CR-01 / D1)'
+      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER)'
       security: *id009
       x-requirement: CR-08
       x-status: planned
@@ -25030,8 +24835,23 @@ paths:
         schema:
           type: boolean
           default: false
-      - *id018
-      - *id019
+      - &id018
+        name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - &id019
+        name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 10
       responses:
         '200':
           description: Cities
@@ -25070,7 +24890,8 @@ paths:
       summary: List cities (admin)
       description: Includes unlaunched cities.
       x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
-      security: *id020
+      security: &id028
+      - adminCookie: []
       x-requirement: CR-09
       x-status: planned
       x-change: added
@@ -25131,7 +24952,9 @@ paths:
       summary: Create a city
       description: Name + coordinates + timezone. isLaunched defaults to false.
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
-      security: *id021
+      security: &id020
+      - adminCookie: []
+        csrfHeader: []
       x-requirement: CR-09
       x-status: planned
       x-change: added
@@ -25146,19 +24969,19 @@ paths:
               - lat
               - lng
               properties:
-                name: &id022
+                name: &id021
                   type: string
-                countryCode: &id023
+                countryCode: &id022
                   type: string
                   description: ISO 3166-1 alpha-2
-                lat: &id024
+                lat: &id023
                   type: number
-                lng: &id025
+                lng: &id024
                   type: number
-                timezone: &id026
+                timezone: &id025
                   type: string
                   description: IANA zone
-                isLaunched: &id027
+                isLaunched: &id026
                   type: boolean
                   description: false = city is known but not live; clients show a "coming soon" state
       responses:
@@ -25213,7 +25036,7 @@ paths:
       summary: Update a city (launch / unlaunch)
       description: Toggle isLaunched, rename, fix coordinates.
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
-      security: *id021
+      security: *id020
       x-requirement: CR-09
       x-status: planned
       x-change: added
@@ -25231,12 +25054,12 @@ paths:
             schema:
               type: object
               properties:
-                name: *id022
-                countryCode: *id023
-                lat: *id024
-                lng: *id025
-                timezone: *id026
-                isLaunched: *id027
+                name: *id021
+                countryCode: *id022
+                lat: *id023
+                lng: *id024
+                timezone: *id025
+                isLaunched: *id026
       responses:
         '200':
           description: Updated
@@ -25375,7 +25198,7 @@ paths:
       summary: Map pins with the same filters as /explore
       description: Accepts exactly the filter query parameters of GET /explore (type, city/cityId, lat, lng, radiusKm, dates, price, genres, mood, categoryType, search ...) so list and map never disagree. No pagination; capped at 300 pins; sorted by distance when a centre exists.
       x-auth: 'optional user bearer: optionalUserAccessToken'
-      security: *id028
+      security: *id027
       x-requirement: CR-10
       x-status: planned
       x-change: added
@@ -25540,7 +25363,7 @@ paths:
       summary: List genre and mood vocabulary
       description: 'Admin view of the editable vocabularies (Q6b: starter list that the owner edits).'
       x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
-      security: *id020
+      security: *id028
       x-requirement: CR-10
       x-status: planned
       x-change: added
@@ -25615,7 +25438,7 @@ paths:
       summary: Add a genre or mood
       description: Labels are unique per kind (case-insensitive). Deactivating (PATCH) hides it from pickers without breaking existing events that use it.
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
-      security: *id021
+      security: *id020
       x-requirement: CR-10
       x-status: planned
       x-change: added
@@ -25692,7 +25515,7 @@ paths:
       summary: Edit or deactivate a genre or mood
       description: Rename, reorder or deactivate.
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
-      security: *id021
+      security: *id020
       x-requirement: CR-10
       x-status: planned
       x-change: added
@@ -26027,7 +25850,7 @@ paths:
       summary: Discover artists
       description: Artists linked to at least one upcoming event, with photo. Sorted by upcoming event count, then name.
       x-auth: 'optional user bearer: optionalUserAccessToken'
-      security: *id028
+      security: *id027
       x-requirement: CR-12
       x-status: planned
       x-change: added
@@ -26089,7 +25912,7 @@ paths:
       summary: Artist profile
       description: Profile with follower count, isFollowing (bearer) and upcoming linked events.
       x-auth: 'optional user bearer: optionalUserAccessToken'
-      security: *id028
+      security: *id027
       x-requirement: CR-12
       x-status: planned
       x-change: added
@@ -26144,7 +25967,7 @@ paths:
       - artists
       summary: Edit an artist profile (owner)
       description: Allowed for a club owner who has the artist in the lineup of one of their events (manager-maintained profile, Q6e default). No artist login exists.
-      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER) + owner approved (CR-01 / D1)'
+      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER)'
       security: *id009
       x-requirement: CR-12
       x-status: planned
@@ -26214,7 +26037,7 @@ paths:
       summary: List artists (admin)
       description: All artists including those without upcoming events.
       x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
-      security: *id020
+      security: *id028
       x-requirement: CR-12
       x-status: planned
       x-change: added
@@ -26281,7 +26104,7 @@ paths:
       summary: Edit or verify an artist (admin)
       description: Fix names, photo, bio, links; set isVerified.
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
-      security: *id021
+      security: *id020
       x-requirement: CR-12
       x-status: planned
       x-change: added
@@ -26348,8 +26171,8 @@ paths:
       tags:
       - organizer
       summary: Create my organizer profile
-      description: 'No new account role (ADR-002): an organizer is an approved CLUB_OWNER who has an organizer profile. One profile per user.'
-      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER) + owner approved (CR-01 / D1)'
+      description: 'No new account role (ADR-002): an organizer is a CLUB_OWNER who has an organizer profile. One profile per user.'
+      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER)'
       security: *id009
       x-requirement: CR-02
       x-status: planned
@@ -26381,7 +26204,7 @@ paths:
                   data:
                     $ref: '#/components/schemas/OrganizerProfile'
         '403':
-          description: Not an approved owner
+          description: Not a club owner
           content:
             application/json:
               schema:
@@ -26410,7 +26233,7 @@ paths:
       - organizer
       summary: Update my organizer profile
       description: Replace editable fields.
-      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER) + owner approved (CR-01 / D1)'
+      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER)'
       security: *id009
       x-requirement: CR-02
       x-status: planned
@@ -26442,7 +26265,7 @@ paths:
                   data:
                     $ref: '#/components/schemas/OrganizerProfile'
         '403':
-          description: Not an approved owner
+          description: Not a club owner
           content:
             application/json:
               schema:
@@ -26473,7 +26296,7 @@ paths:
       summary: Public organizer profile
       description: Name, description, base city, website, tags, social links, followerCount, isFollowing (bearer).
       x-auth: 'optional user bearer: optionalUserAccessToken'
-      security: *id028
+      security: *id027
       x-requirement: CR-02
       x-status: planned
       x-change: added
@@ -26652,7 +26475,7 @@ paths:
       - collaboration
       summary: Ask a club to host an event
       description: Organizer to registered club. The event cannot be published or sold with that club until the request is ACCEPTED. Unregistered venues are NOT part of this release (Q4).
-      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER) + owner approved (CR-01 / D1)'
+      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER)'
       security: *id009
       x-requirement: CR-02
       x-status: planned
@@ -26696,7 +26519,7 @@ paths:
                   data:
                     $ref: '#/components/schemas/CollaborationRequest'
         '403':
-          description: No organizer profile / not approved
+          description: No organizer profile
           content:
             application/json:
               schema:
@@ -26731,7 +26554,7 @@ paths:
       - collaboration
       summary: List my collaboration requests
       description: 'As organizer: requests I sent. As club owner: requests for my clubs. Use `as` to pick the side.'
-      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER) + owner approved (CR-01 / D1)'
+      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER)'
       security: *id009
       x-requirement: CR-02
       x-status: planned
@@ -26801,7 +26624,7 @@ paths:
       - collaboration
       summary: Accept, reject or cancel
       description: 'Club owner: ACCEPTED | REJECTED. Organizer: CANCELED (only while PENDING). The other party is notified.'
-      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER) + owner approved (CR-01 / D1)'
+      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER)'
       security: *id009
       x-requirement: CR-02
       x-status: planned
@@ -26889,7 +26712,7 @@ paths:
       summary: List organizer profiles (admin)
       description: Moderation list.
       x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
-      security: *id020
+      security: *id028
       x-requirement: CR-02
       x-status: planned
       x-change: added
@@ -26956,7 +26779,7 @@ paths:
       summary: Verify or suspend an organizer (admin)
       description: isVerified and isSuspended (suspended organizers cannot publish events).
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
-      security: *id021
+      security: *id020
       x-requirement: CR-02
       x-status: planned
       x-change: added
@@ -27030,7 +26853,7 @@ paths:
       summary: List collaboration requests (admin, read only)
       description: Support view for disputes.
       x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
-      security: *id020
+      security: *id028
       x-requirement: CR-02
       x-status: planned
       x-change: added
@@ -27106,7 +26929,7 @@ paths:
       summary: List fee and commission rules
       description: Technical fees and Bookdia commissions are separate rule types and are never combined in one field or report (E4).
       x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
-      security: *id020
+      security: *id028
       x-requirement: CR-15
       x-status: planned
       x-change: added
@@ -27195,9 +27018,9 @@ paths:
       tags:
       - pricing
       summary: Create a rule
-      description: Rules are append-only. A new rule must start in the future (effectiveFrom > now) unless it is the first rule for its combination. Applied rule ids are stored on each new order; existing orders and settled payouts are never rewritten (E5). Rule VALUES are the client's decision (Q2); the endpoint does not assume any.
+      description: Rules are append-only. A new rule must start in the future (effectiveFrom > now) unless it is the first rule for its combination; the only path that starts a rule immediately is the v1 write-through (PATCH /admin/commission, /admin/service-charge), see ADR-003. Applied rule ids are stored on each new order; existing orders and settled payouts are never rewritten (E5). Rule VALUES are the client's decision (Q2); the endpoint does not assume any.
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
-      security: *id021
+      security: *id020
       x-requirement: CR-15
       x-status: planned
       x-change: added
@@ -27263,7 +27086,7 @@ paths:
       summary: End-date or edit a future rule
       description: Only rules with effectiveFrom in the future can change value; a rule already in force can only be end-dated (effectiveTo). Keeps history auditable.
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
-      security: *id021
+      security: *id020
       x-requirement: CR-15
       x-status: planned
       x-change: added
@@ -27359,7 +27182,7 @@ paths:
       summary: Fees vs commission vs proceeds report
       description: Paid, non-refunded orders in the period, with technical fees, commission, refunds and recipient proceeds as separate columns, grouped by productCategory. Internal split never appears in customer-facing endpoints.
       x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
-      security: *id020
+      security: *id028
       x-requirement: CR-15
       x-status: planned
       x-change: added
@@ -27457,7 +27280,7 @@ paths:
       - refunds
       summary: Request a refund (owner)
       description: Owner asks for a full or partial refund of an order they sold. Does not move money; an admin decides. One open request per order.
-      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER) + owner approved (CR-01 / D1)'
+      x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER)'
       security: *id009
       x-requirement: CR-16
       x-status: planned
@@ -27538,6 +27361,183 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: refunds_post_owner_orders_orderId_refund_requests
+  /admin/orders:
+    get:
+      tags:
+      - refunds
+      summary: List orders (admin, read only)
+      description: Support and refund view. Filters combine with AND. `search` matches order id or buyer email exactly.
+      x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
+      security: *id028
+      x-requirement: CR-16
+      x-status: planned
+      x-change: added
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - PENDING_PAYMENT
+          - PAID
+          - PAYMENT_FAILED
+      - name: serviceType
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - CLUB
+          - EVENT
+      - name: sellerId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: buyerId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: eventId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: hasRefundRequest
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - name: search
+        in: query
+        required: false
+        schema:
+          type: string
+      - *id018
+      - *id019
+      responses:
+        '200':
+          description: Orders
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - success
+                - message
+                properties:
+                  success:
+                    type: boolean
+                    const: true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminOrderSummary'
+                  meta:
+                    $ref: '#/components/schemas/PageMeta'
+        '403':
+          description: Not admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      operationId: refunds_get_admin_orders
+  /admin/orders/{orderId}:
+    get:
+      tags:
+      - refunds
+      summary: Order detail (admin, read only)
+      description: 'Everything needed to decide a refund request or audit pricing: amounts, applied rule ids, payment, purchase lines, refund and refund requests.'
+      x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
+      security: *id028
+      x-requirement: CR-16
+      x-status: planned
+      x-change: added
+      parameters:
+      - name: orderId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Order
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - success
+                - message
+                properties:
+                  success:
+                    type: boolean
+                    const: true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/AdminOrderDetail'
+        '403':
+          description: Not admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      operationId: refunds_get_admin_orders_orderId
   /admin/refund-requests:
     get:
       tags:
@@ -27545,7 +27545,7 @@ paths:
       summary: List refund requests
       description: Default status=PENDING.
       x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
-      security: *id020
+      security: *id028
       x-requirement: CR-16
       x-status: planned
       x-change: added
@@ -27611,7 +27611,7 @@ paths:
       summary: Approve or reject a refund request
       description: 'APPROVED creates a Refund (idempotent via Idempotency-Key and the existing Refund.idempotencyKey), executed by the existing refund worker. Approval invalidates entry (Order.checkedInAt cannot be set afterwards: verify-ticket already rejects refunded orders) and releases tier/module/extra stock for full refunds. `returnServiceFee` false keeps the service fee (matches today''s event-cancellation refunds). Commission handling follows the order snapshot. Partial amounts must not exceed what is still refundable.'
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
-      security: *id021
+      security: *id020
       x-requirement: CR-16
       x-status: planned
       x-change: added
@@ -27707,7 +27707,7 @@ paths:
       summary: List refunds
       description: Includes event-cancellation refunds already created by the system, for reconciliation with Stripe.
       x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
-      security: *id020
+      security: *id028
       x-requirement: CR-16
       x-status: planned
       x-change: added
@@ -27850,42 +27850,6 @@ components:
           type: integer
         totalPages:
           type: integer
-    OwnerApplication:
-      type: object
-      properties:
-        userId:
-          type: string
-          format: uuid
-        name:
-          type: string
-        email:
-          type: string
-          format: email
-        phoneNumber:
-          type: string
-        status:
-          type: string
-          enum:
-          - PENDING
-          - APPROVED
-          - REJECTED
-        appliedAt:
-          type: string
-          format: date-time
-        decidedAt:
-          type:
-          - string
-          - 'null'
-          format: date-time
-        decidedByAdminId:
-          type:
-          - string
-          - 'null'
-          format: uuid
-        decisionNote:
-          type:
-          - string
-          - 'null'
     City:
       type: object
       required:
@@ -27898,12 +27862,12 @@ components:
         id:
           type: string
           format: uuid
-        name: *id022
-        countryCode: *id023
-        lat: *id024
-        lng: *id025
-        timezone: *id026
-        isLaunched: *id027
+        name: *id021
+        countryCode: *id022
+        lat: *id023
+        lng: *id024
+        timezone: *id025
+        isLaunched: *id026
     Extra:
       type: object
       required:
@@ -28220,7 +28184,10 @@ components:
           - 'null'
           format: date-time
         createdByAdminId:
-          type: string
+          description: Admin who created the rule. null = system seed from migration 6.
+          type:
+          - string
+          - 'null'
           format: uuid
         createdAt:
           type: string
@@ -28310,10 +28277,10 @@ components:
           type: string
           enum:
           - SCHEDULED
-          - PROCESSING
+          - PENDING
           - SUCCEEDED
           - FAILED
-          description: check RefundStatus in data-model.md; names are indicative
+          description: Existing RefundStatus enum, unchanged
         scheduledFor:
           type:
           - string
@@ -28401,3 +28368,120 @@ components:
                 type: string
               totals:
                 $ref: '#/components/schemas/AnalyticsTotals'
+    AdminOrderSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        serviceType:
+          type: string
+          enum:
+          - CLUB
+          - EVENT
+        productKind:
+          type: string
+          enum:
+          - CLUB_BOOKING
+          - EVENT_TICKET
+          - EVENT_MODULE
+          description: Which child purchase the order has
+        status:
+          type: string
+          enum:
+          - PENDING_PAYMENT
+          - PAID
+          - PAYMENT_FAILED
+        buyer:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            email:
+              type: string
+        seller:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+        title:
+          type: string
+          description: Event, club or module name snapshot
+        currency:
+          type: string
+        grossAmount:
+          type: string
+        serviceChargeAmount:
+          type: string
+        buyerTotal:
+          type: string
+        commissionAmount:
+          type: string
+        sellerEarnings:
+          type: string
+        refundStatus:
+          type:
+          - string
+          - 'null'
+          description: RefundStatus of the order refund, null when none
+        hasOpenRefundRequest:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    AdminOrderDetail:
+      allOf:
+      - $ref: '#/components/schemas/AdminOrderSummary'
+      - type: object
+        properties:
+          commissionRate:
+            type: string
+          idempotencyKey:
+            type: string
+          checkedInAt:
+            type:
+            - string
+            - 'null'
+            format: date-time
+          appliedFeeRuleId:
+            type:
+            - string
+            - 'null'
+            format: uuid
+            description: null for orders created before pricing rules (CR-15); their amounts are the snapshot
+          appliedCommissionRuleId:
+            type:
+            - string
+            - 'null'
+            format: uuid
+          payment:
+            type:
+            - object
+            - 'null'
+            properties:
+              status:
+                type: string
+              stripePaymentIntentId:
+                type:
+                - string
+                - 'null'
+              amount:
+                type: string
+          purchase:
+            type: object
+            additionalProperties: true
+            description: ClubBooking, EventPurchase (with attendees and ticketTierName) or EventModulePurchase, plus extra lines
+          refund:
+            oneOf:
+            - $ref: '#/components/schemas/Refund'
+            - type: 'null'
+          refundRequests:
+            type: array
+            items:
+              $ref: '#/components/schemas/RefundRequest'
