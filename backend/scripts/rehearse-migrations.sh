@@ -72,6 +72,10 @@ NERR=0; [[ -n "$ERRS" ]] && NERR="$(echo "$ERRS" | wc -l)"
 if [[ $NERR -gt 0 ]]; then fail "restore reported $NERR error(s)"; echo "$ERRS" | head -5 | tee -a "$OUT"; fi
 say "- restore took $(( $(now_s) - t0 ))s (exit $rc, errors other than 'already exists': $NERR)"
 
+# 2b. T-005 baseline: purchase count and SUM(soldCount) before migrations (tables exist in the dump)
+BEFORE_SOLD="$(psqlc -d "$REHEARSAL_DB" -At -c "SELECT COALESCE(SUM(\"soldCount\"),0) FROM \"EventTicketTier\";" 2>/dev/null || echo n/a)"
+BEFORE_PUR="$(psqlc -d "$REHEARSAL_DB" -At -c "SELECT count(*) FROM \"EventPurchase\";" 2>/dev/null || echo n/a)"
+
 # 3. migrate deploy (never `migrate dev`)
 say; say "## 3. prisma migrate deploy"
 export DATABASE_URL="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$REHEARSAL_DB?schema=public"
@@ -100,6 +104,19 @@ if [[ -n "$UNEXPECTED" ]]; then
 else
   say "- no drift beyond the known btree_gist item (BUG-B04)"
 fi
+
+# 3c. T-005 tier-on-purchase checks
+say; say "## 3c. Tier on purchase (T-005)"
+AFTER_SOLD="$(psqlc -d "$REHEARSAL_DB" -At -c "SELECT COALESCE(SUM(\"soldCount\"),0) FROM \"EventTicketTier\";")"
+AFTER_PUR="$(psqlc -d "$REHEARSAL_DB" -At -c "SELECT count(*) FROM \"EventPurchase\";")"
+NULLTIER="$(psqlc -d "$REHEARSAL_DB" -At -c "SELECT count(*) FROM \"EventPurchase\" WHERE \"ticketTierId\" IS NULL AND \"ticketTierName\" IS NULL;")"
+say "- SUM(soldCount) before=$BEFORE_SOLD after=$AFTER_SOLD; EventPurchase rows before=$BEFORE_PUR after=$AFTER_PUR; rows with NULL tier columns=$NULLTIER"
+[[ "$BEFORE_SOLD" == "$AFTER_SOLD" ]] || fail "SUM(soldCount) changed across migrations ($BEFORE_SOLD -> $AFTER_SOLD)"
+[[ "$AFTER_PUR" == "$NULLTIER" ]] || fail "EventPurchase rows with non-NULL tier columns after migrate"
+TT="$(psqlc -d "$REHEARSAL_DB" < "$ROOT/backend/prisma/tests/tier_on_purchase.sql" 2>&1)" || fail "tier_on_purchase.sql errored"
+echo "$TT" | grep -E "TIERTEST" | tee -a "$OUT"
+echo "$TT" | grep -q "|FAIL" && fail "tier_on_purchase.sql reported FAIL"
+echo "$TT" | grep -q "TIERTEST" || fail "tier_on_purchase.sql produced no result"
 
 # 4. violation checks
 say; say "## 4. Violation checks (GATE rows must be 0)"

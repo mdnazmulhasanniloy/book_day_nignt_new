@@ -569,6 +569,9 @@ model EventPurchase {
   eventEndAt         DateTime
   pricePerPerson     Decimal             @db.Decimal(10, 2)
   transferEligibleAt DateTime
+  ticketTierId       String?
+  ticketTier         EventTicketTier?    @relation(fields: [ticketTierId], references: [id], onDelete: SetNull)
+  ticketTierName     String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -576,6 +579,7 @@ model EventPurchase {
 
   @@index([eventId, createdAt])
   @@index([transferEligibleAt])
+  @@index([ticketTierId])
 }
 
 model EventPurchaseAttendee {
@@ -678,6 +682,7 @@ model EventTicketTier {
   parentId    String?
   parent      EventTicketTier?  @relation("TierChildren", fields: [parentId], references: [id], onDelete: Cascade)
   children    EventTicketTier[] @relation("TierChildren")
+  purchases   EventPurchase[]
   tierName    String
   groupName   String?
   description String?
@@ -693,6 +698,7 @@ model EventTicketTier {
 
   @@index([eventId, isActive, sortOrder])
   @@index([parentId])
+  @@index([eventId, groupName, tierName])
 }
 
 model Artist {
