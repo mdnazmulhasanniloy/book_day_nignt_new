@@ -17,7 +17,11 @@ export const createWishlistService = async ({ userId, payload }: ICreateWishlist
       where: { id: targetId, deactivatedAt: null }
     });
     if (!club) {
-      throw { status: 404, message: 'Club not found or unavailable' };
+      throw {
+        statusCode: 404,
+        message: 'Club not found or unavailable',
+        errorType: 'NOT_FOUND',
+      };
     }
     
     // Idempotent upsert logic
@@ -34,7 +38,11 @@ export const createWishlistService = async ({ userId, payload }: ICreateWishlist
       where: { id: targetId, deactivatedAt: null, eventStatus: 'UPCOMING' }
     });
     if (!event) {
-      throw { status: 404, message: 'Event not found or unavailable' };
+      throw {
+        statusCode: 404,
+        message: 'Event not found or unavailable',
+        errorType: 'NOT_FOUND',
+      };
     }
     
     const existing = await prisma.wishlist.findUnique({
