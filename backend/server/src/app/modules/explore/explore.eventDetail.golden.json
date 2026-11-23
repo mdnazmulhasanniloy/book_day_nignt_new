@@ -1,0 +1,63 @@
+{
+  "id": "045a0000-0000-4000-8000-0000000000e1",
+  "eventName": "T045 Event",
+  "eventDescription": null,
+  "thumbnail": "https://example.test/t.png",
+  "images": [],
+  "eventStatus": "UPCOMING",
+  "lat": 23.78,
+  "lng": 90.4,
+  "location": "12 Test Lane, Dhaka",
+  "startAt": "2030-01-10T20:00:00.000Z",
+  "endAt": "2030-01-11T02:00:00.000Z",
+  "dressCode": "casual",
+  "categoryType": "CLUB",
+  "musicGenres": [
+    "house"
+  ],
+  "moodTags": [
+    "chill",
+    "late"
+  ],
+  "isResaleEnabled": false,
+  "viewCount": 0,
+  "timezone": "Europe/London",
+  "pricingMode": "SINGLE",
+  "eventPrice": "10",
+  "currency": "USD",
+  "clubId": null,
+  "clubHostStatus": "NONE",
+  "bookingsClosed": false,
+  "ticketTiers": [
+    {
+      "id": "045a0000-0000-4000-8000-0000000000a1",
+      "eventId": "045a0000-0000-4000-8000-0000000000e1",
+      "parentId": null,
+      "tierName": "General",
+      "groupName": null,
+      "description": null,
+      "price": "10.00",
+      "capacity": 100,
+      "soldCount": 0,
+      "soldOut": false,
+      "sortOrder": 0,
+      "startAt": null,
+      "endAt": null,
+      "isActive": true,
+      "tierType": "TICKET",
+      "children": []
+    }
+  ],
+  "lineup": [],
+  "modules": [],
+  "guestList": null,
+  "hosts": [],
+  "organizer": {
+    "id": "045a0000-0000-4000-8000-0000000000c1",
+    "name": "T045 Owner Club",
+    "thumbnail": "https://example.test/t.png",
+    "location": "1 Owner Road",
+    "followerCount": 7
+  },
+  "interestedCount": 0
+}
