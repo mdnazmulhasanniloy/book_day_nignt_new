@@ -423,7 +423,7 @@ Indexes: `accountRole`, `accountStatus`. Back-relations: Profile, OAuthIdentity,
 **ArtistFollower** (717, no updatedAt): `userId → User (C)`, `artistId → Artist (C)`. uq `(userId, artistId)`, ix `artistId`, `userId`.
 **EventLineup** (730): `eventId → Event (C)`, `artistId? → Artist (SN)`, `artistName`, `artistAvatar?`, `audioPreviewUrl?`, `spotifyUrl?`, `soundcloudUrl?`, `isVerified =false`, `sortOrder =0`. ix `(eventId, sortOrder)`, `artistId`.
 **Wishlist** (464): `userId → User (C)`, `eventId? → Event (C)`, `clubId? → Club (C)`. uq `(userId, eventId)`, `(userId, clubId)`, ix `userId`, `eventId`, `clubId`.
-**PromoCode** (763): `code uq`, `discountType`, `discountValue: Decimal`, `maxUses: Int?`, `usedCount =0`, `expiresAt?`, `isActive =true`, `eventId? → Event (C)`, `clubId? → Club (C)`, `createdByUserId? → User (SN)`. ix `(code, isActive)`, `eventId`, `clubId`, `createdByUserId`.
+**PromoCode** (763): `code uq`, `discountType`, `discountValue: Decimal`, `maxUses: Int?`, `usedCount =0`, `expiresAt?`, `isActive =true`, `eventId? → Event (C)`, `clubId? → Club (C)`, `createdByUserId? → User (SN)`. ix `(code, isActive)`, `eventId`, `clubId`, `createdByUserId`. No schema change in T-018. Application rules (T-018): a promo is managed by its creator, by the owner of its event or club, or (the legacy global code with no eventId, clubId or createdByUserId) by ADMIN only. Data note (T-001 baseline): 2 existing rows have neither eventId nor clubId and no createdByUserId; they are left as they are and are ADMIN-managed from now on.
 
 ### 4.5 Event extras
 
