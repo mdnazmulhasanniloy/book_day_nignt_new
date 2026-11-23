@@ -4,7 +4,7 @@
 |---|---|
 | Stack | release |
 | Depends on | HF-001, HF-002, HF-003, HF-004, HF-005 |
-| Status | not started |
+| Status | code complete on `release/hotfix` (5 commits, 28 tests); waiting for a staging environment and your approval. See `release-hotfix-readiness-2026-11-23.md` |
 
 Do not start the next milestone until every box below is checked or explicitly waived by the product owner.
 
