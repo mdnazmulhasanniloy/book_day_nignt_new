@@ -478,9 +478,9 @@ All come from raw SQL in `20260923111443_booking_payment_foundation`, `202609231
 
 **PostGIS `geog`**
 - Declared as `Unsupported` in the schema (lines 336 and 425) and created in migration `20260913073135_y` with GiST indexes.
-- No trigger fills it. The app writes it with raw `ST_MakePoint` in `server/src/app/modules/club/club.services.ts:49,189` and `event/event.services.ts:39,215`, and reads it with `ST_DWithin` in `explore/explore.services.ts:54,99`.
-- T-029 (migration `20261123140000_backfill_geog`, tested locally, not deployed) fills `geog` once for existing rows. It does NOT keep it in sync: events created by `POST /event/:id/duplicate` (`event.services.ts:645`) and any seed still get `geog` NULL until T-030 changes the code paths. `lat`/`lng` are NOT NULL in the schema, so the only unfillable rows are those with non-finite or out-of-range coordinates.
-- Rows created any other way (seeds, other code paths such as `event.services.ts:582`) have `geog` NULL. **⚠️ UNVERIFIED** whether every update path refreshes it.
+- No trigger fills it. T-030 (tested locally, not deployed) keeps it in step in code: one helper, `syncGeogFromLatLng` in `server/src/app/utils/geog.helpers.ts`, rebuilds `geog` from the lat/lng ALREADY STORED on the row, inside the caller's transaction, on event create, update and duplicate and on club create and update. An update that sends lat or lng (one or both) recomputes it; an update that sends neither leaves it as it is. Rows whose stored lat/lng are not finite or are out of range (-90..90, -180..180) are left untouched, so no bad geography is written. `server/scripts/seed-demo.ts` fills it for the demo rows. It is read with `ST_DWithin` in `explore/explore.services.ts:54,99`.
+- T-029 (migration `20261123140000_backfill_geog`, tested locally, not deployed) fills `geog` once for existing rows; T-030 keeps new and changed rows in step (above). `lat`/`lng` are NOT NULL in the schema, so the only unfillable rows are those with non-finite or out-of-range coordinates.
+- No DB trigger was added (the task makes it optional; a trigger would need its own migration and rehearsal). Rows written by raw SQL or by a tool outside the app (psql, ad-hoc scripts) still bypass the helper and would need the same `UPDATE`. The other write paths searched (`follow.services.ts`, `accountDeletion.utils.ts`, admin routes) do not write lat/lng.
 
 ## 6. Migration history
 
