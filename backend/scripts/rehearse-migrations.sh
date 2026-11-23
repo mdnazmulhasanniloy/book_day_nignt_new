@@ -85,6 +85,12 @@ geog_counts() {
 read -r CLUB_TOTAL_B CLUB_FILL_B CLUB_BAD_B <<< "$(geog_counts Club | tr '|' ' ')"
 read -r EVENT_TOTAL_B EVENT_FILL_B EVENT_BAD_B <<< "$(geog_counts Event | tr '|' ' ')"
 
+# 2d. T-043 baseline: count and checksum of existing Artist and EventLineup rows before migrations
+ART_Q="SELECT count(*) || '|' || COALESCE(md5(string_agg(concat_ws('~', id, name, \"nameKey\", avatar, \"audioPreviewUrl\", \"spotifyUrl\", \"soundcloudUrl\", \"isVerified\", \"followerCount\", \"createdAt\", \"updatedAt\"), '|' ORDER BY id)), '') FROM \"Artist\";"
+LIN_Q="SELECT count(*) || '|' || COALESCE(md5(string_agg(concat_ws('~', id, \"eventId\", \"artistId\", \"artistName\", \"artistAvatar\", \"audioPreviewUrl\", \"spotifyUrl\", \"soundcloudUrl\", \"isVerified\", \"sortOrder\"), '|' ORDER BY id)), '') FROM \"EventLineup\";"
+ART_B="$(psqlc -d "$REHEARSAL_DB" -At -c "$ART_Q" 2>/dev/null || echo "n/a|n/a")"
+LIN_B="$(psqlc -d "$REHEARSAL_DB" -At -c "$LIN_Q" 2>/dev/null || echo "n/a|n/a")"
+
 # 3. migrate deploy (never `migrate dev`)
 say; say "## 3. prisma migrate deploy"
 export DATABASE_URL="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$REHEARSAL_DB?schema=public"
@@ -202,6 +208,16 @@ say '```'
 echo "$ET" | grep -q "|FAIL" && fail "engagement_constraints.sql reported FAIL"
 echo "$ET" | grep -q "ERROR" && fail "engagement_constraints.sql raised an error"
 echo "$ET" | grep -q "ENGAGETEST" || fail "engagement_constraints.sql produced no result"
+
+say; say "## 10. Migration 12 (T-043): artist bio and socialLinks, existing artists and lineups untouched"
+say "- Artist before (count|checksum): $ART_B; EventLineup before: $LIN_B"
+AT="$( { echo "SET t043.artist_n = '${ART_B%%|*}'; SET t043.artist_sum = '${ART_B#*|}'; SET t043.lineup_n = '${LIN_B%%|*}'; SET t043.lineup_sum = '${LIN_B#*|}';"; cat "$ROOT/backend/prisma/tests/artist_profile_fields.sql"; } | psqlc -d "$REHEARSAL_DB" -At 2>&1)" || fail "artist_profile_fields.sql errored"
+say '```'
+echo "$AT" | grep -E "ARTISTTEST|ERROR" | tee -a "$OUT"
+say '```'
+echo "$AT" | grep -q "|FAIL" && fail "artist_profile_fields.sql reported FAIL"
+echo "$AT" | grep -q "ERROR" && fail "artist_profile_fields.sql raised an error"
+echo "$AT" | grep -q "ARTISTTEST" || fail "artist_profile_fields.sql produced no result"
 
 say; say "## Summary"
 if [[ ${#FAILS[@]} -eq 0 ]]; then
