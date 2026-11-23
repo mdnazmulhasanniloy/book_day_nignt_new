@@ -18,13 +18,15 @@ import {
 } from '@/app/modules/artists/artists.helpers';
 import { Prisma } from '@prisma/client';
 import { EXPLORE_DEFAULT_RADIUS_KM } from '@/app/modules/explore/explore.schema';
+import { groupItemsByDay } from '@/app/modules/explore/explore.grouping';
 
 /**
  * Service for fetching a paginated list of Clubs and Events based on filters.
  * Utilizes complex PostGIS Raw SQL queries.
  * @returns Promise<{ data: ILightweightExploreItem[], total: number }>
  */
-export const exploreListService = async ({ query, userId }: IExploreListService) => {
+export const exploreListService = async ({ query, userId, now: clockOverride }: IExploreListService) => {
+  const clock = clockOverride ?? new Date();
   const {
     type,
     lat,
@@ -45,24 +47,36 @@ export const exploreListService = async ({ query, userId }: IExploreListService)
     city,
     radiusKm,
     cityId,
+    group,
+    from,
+    to,
   } = query;
   const page = Number(query.page || 1);
   const limit = Number(query.limit || 10);
   const skip = (page - 1) * limit;
 
+  const dayGrouping = group === 'day';
+  const needsZone = dayGrouping || from !== undefined || to !== undefined || dateFilter === 'this_week';
+
   // Centre: lat/lng when both are given, otherwise the city centre when cityId is given.
+  // Time zone: the city zone when cityId is given, else each event's own zone (T-035).
   let centre: { lat: number; lng: number } | undefined;
-  if (lat !== undefined && lng !== undefined) {
-    centre = { lat, lng };
-  } else if (cityId !== undefined) {
+  let cityTimezone: string | undefined;
+  if (cityId !== undefined && (needsZone || lat === undefined || lng === undefined)) {
     const found = await prisma.city.findUnique({
       where: { id: cityId },
-      select: { lat: true, lng: true },
+      select: { lat: true, lng: true, timezone: true },
     });
     if (!found) {
       throw { statusCode: 404, message: 'City not found', errorType: 'NOT_FOUND' };
     }
-    centre = { lat: found.lat, lng: found.lng };
+    cityTimezone = found.timezone;
+    if (lat === undefined || lng === undefined) {
+      centre = { lat: found.lat, lng: found.lng };
+    }
+  }
+  if (lat !== undefined && lng !== undefined) {
+    centre = { lat, lng };
   }
   const radiusMetres = (radiusKm ?? EXPLORE_DEFAULT_RADIUS_KM) * 1000;
   const centrePoint = centre
@@ -121,7 +135,7 @@ export const exploreListService = async ({ query, userId }: IExploreListService)
   const eventConditions: Prisma.Sql[] = [
     Prisma.sql`e."deactivatedAt" IS NULL`,
     Prisma.sql`e."eventStatus" = 'UPCOMING'`,
-    Prisma.sql`e."endAt" > ${new Date()}`
+    Prisma.sql`e."endAt" > ${clock}`
   ];
   
   if (centrePoint) {
@@ -140,8 +154,8 @@ export const exploreListService = async ({ query, userId }: IExploreListService)
     const d = new Date(date);
     eventConditions.push(Prisma.sql`e."startAt" <= ${d} AND e."endAt" >= ${d}`);
   }
-  if (dateFilter) {
-    const now = new Date();
+  if (dateFilter && dateFilter !== 'this_week') {
+    const now = clock;
     let filterStart: Date;
     let filterEnd: Date;
 
@@ -169,6 +183,20 @@ export const exploreListService = async ({ query, userId }: IExploreListService)
     }
 
     eventConditions.push(Prisma.sql`e."startAt" <= ${filterEnd} AND e."endAt" >= ${filterStart}`);
+  }
+  // T-035: this_week, from and to compare the LOCAL calendar date of startAt (AT TIME ZONE, DST-safe).
+  // Zone = the city zone when cityId is given, else the event's own zone (default UTC).
+  const eventZone = cityTimezone !== undefined ? Prisma.sql`${cityTimezone}::text` : Prisma.sql`e."timezone"`;
+  const localStartDate = Prisma.sql`((e."startAt" AT TIME ZONE 'UTC') AT TIME ZONE ${eventZone})::date`;
+  if (dateFilter === 'this_week') {
+    const weekStart = Prisma.sql`date_trunc('week', (${clock.toISOString()}::timestamptz AT TIME ZONE ${eventZone}))::date`;
+    eventConditions.push(Prisma.sql`${localStartDate} >= ${weekStart} AND ${localStartDate} < ${weekStart} + 7`);
+  }
+  if (from !== undefined) {
+    eventConditions.push(Prisma.sql`${localStartDate} >= ${from}::date`);
+  }
+  if (to !== undefined) {
+    eventConditions.push(Prisma.sql`${localStartDate} <= ${to}::date`);
   }
   if (isFree === true) {
     eventConditions.push(Prisma.sql`e."eventPrice" = 0`);
@@ -210,6 +238,7 @@ export const exploreListService = async ({ query, userId }: IExploreListService)
     SELECT 
       c.id, c.name, c.lat, c.lng, c.location, 'CLUB' as "type",
       COALESCE(AVG(r.rating), 0) as review, c."createdAt",
+      NULL::timestamp(3) as "startAt", NULL::text as "timeZone",
       c."isVip", c.thumbnail, 
       COALESCE((SELECT MIN(price) FROM "ClubPackage" WHERE "clubId" = c.id AND "isActive" = true), 0) as "minPrice",
       COALESCE((SELECT MAX(price) FROM "ClubPackage" WHERE "clubId" = c.id AND "isActive" = true), 0) as "maxPrice",
@@ -226,7 +255,7 @@ export const exploreListService = async ({ query, userId }: IExploreListService)
   const eventQuery = Prisma.sql`
     SELECT 
       e.id, e."eventName" as name, e.lat, e.lng, e.location, 'EVENT' as "type",
-      0 as review, e."createdAt",
+      0 as review, e."createdAt", e."startAt" as "startAt", e."timezone" as "timeZone",
       false as "isVip", e.thumbnail, 
       e."eventPrice" as "minPrice", 
       e."eventPrice" as "maxPrice", 
@@ -240,7 +269,8 @@ export const exploreListService = async ({ query, userId }: IExploreListService)
   let combinedQuery: Prisma.Sql;
   if (type === 'CLUB') {
     combinedQuery = clubQuery;
-  } else if (type === 'EVENT') {
+  } else if (type === 'EVENT' || dayGrouping) {
+    // group=day applies to events only: clubs have no start date.
     combinedQuery = eventQuery;
   } else {
     combinedQuery = Prisma.sql`
@@ -250,7 +280,12 @@ export const exploreListService = async ({ query, userId }: IExploreListService)
     `;
   }
 
-  let orderBy = Prisma.sql`ORDER BY "createdAt" DESC`;
+  // Default order stays createdAt DESC for old clients. The chronological order by startAt (index
+  // (eventStatus, startAt)) applies when a date feature is used: group=day, from, to or this_week.
+  const chronological = dayGrouping || from !== undefined || to !== undefined || dateFilter === 'this_week';
+  let orderBy = chronological
+    ? Prisma.sql`ORDER BY "startAt" ASC NULLS LAST, "createdAt" DESC, id ASC`
+    : Prisma.sql`ORDER BY "createdAt" DESC`;
   if (isPopular) {
     // Only applies effectively when type=CLUB or mixed, orders by review DESC
     orderBy = Prisma.sql`ORDER BY review DESC NULLS LAST, "createdAt" DESC`;
@@ -271,16 +306,18 @@ export const exploreListService = async ({ query, userId }: IExploreListService)
 
   const selectWishlist = userId ? Prisma.sql`, "isWishlist"` : Prisma.empty;
 
+  const selectGroupColumns = dayGrouping ? Prisma.sql`, "startAt", "timeZone"` : Prisma.empty;
+
   // Data query
   const data = await prisma.$queryRaw<{ 
     id: string, name: string, lat: number, lng: number, location: string, type: "CLUB" | "EVENT",
     review: number, isVip: boolean, thumbnail: string, minPrice: number, maxPrice: number, currency: string,
-    isWishlist?: boolean, distanceKm?: string | number | null
+    isWishlist?: boolean, distanceKm?: string | number | null, startAt?: Date | null, timeZone?: string | null
   }[]>`
     WITH combined AS (
       ${combinedQuery}
     )
-    SELECT id, name, lat, lng, location, "type", review, "isVip", thumbnail, "minPrice", "maxPrice", currency${selectDistance}${selectWishlist} FROM combined
+    SELECT id, name, lat, lng, location, "type", review, "isVip", thumbnail, "minPrice", "maxPrice", currency${selectGroupColumns}${selectDistance}${selectWishlist} FROM combined
     ${orderBy}
     LIMIT ${limit} OFFSET ${skip}
   `;
@@ -322,6 +359,23 @@ export const exploreListService = async ({ query, userId }: IExploreListService)
       };
     }
   });
+
+  if (dayGrouping) {
+    // Each item is bucketed by the local day of its start in the city zone (cityId) or its own zone.
+    const wrapped = data.flatMap((row, i) => {
+      const item = formattedData[i];
+      if (!item || !row.startAt) return [];
+      const startAt = new Date(row.startAt);
+      return [{ startAt, timeZone: cityTimezone ?? row.timeZone ?? 'UTC', item: { ...item, startAt } }];
+    });
+    const groups = groupItemsByDay({ items: wrapped, now: clock }).map((g) => ({
+      label: g.label,
+      date: g.date,
+      items: g.items.map((w) => w.item),
+    }));
+    // `data` stays the flat list (stable return type); the controller sends `groups` when present.
+    return { data: formattedData, total, groups };
+  }
 
   return { data: formattedData, total };
 };

@@ -126,7 +126,7 @@ describe('explore day grouping, date range, this_week, total (T-035)', { skip: d
   });
 
   it('group=day buckets each event in its own zone; the UTC-default event is bucketed by UTC day', async () => {
-    const { data, total } = (await call({ group: 'day' })) as unknown as { data: Group[]; total: number };
+    const { groups: data, total } = (await call({ group: 'day' })) as unknown as { groups: Group[]; total: number };
     assert.deepEqual(
       data.map((g) => [g.label, g.date, names(g.items)]),
       [
@@ -140,7 +140,7 @@ describe('explore day grouping, date range, this_week, total (T-035)', { skip: d
   });
 
   it('group=day with cityId uses the city zone for every event', async () => {
-    const { data } = (await call({ group: 'day', cityId, radiusKm: 10 })) as unknown as { data: Group[] };
+    const { groups: data } = (await call({ group: 'day', cityId, radiusKm: 10 })) as unknown as { groups: Group[] };
     // utc event (23:30Z on the 24th) is the 25th in Rome.
     const tomorrow = data.find((g) => g.label === 'Tomorrow');
     assert.deepEqual(names(tomorrow?.items ?? []), ['utc', 'overnight']);

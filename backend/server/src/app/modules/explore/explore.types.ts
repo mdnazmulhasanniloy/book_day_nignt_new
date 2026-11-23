@@ -3,6 +3,8 @@ import { TExploreQuery, TExploreDetailQuery, TExploreFeedQuery } from './explore
 export interface IExploreListService {
   query: TExploreQuery;
   userId?: string;
+  /** Clock override for tests; defaults to the current time. */
+  now?: Date;
 }
 
 export interface IExploreDetailService {

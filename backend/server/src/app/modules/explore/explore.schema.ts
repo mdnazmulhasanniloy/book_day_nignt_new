@@ -10,10 +10,19 @@ const booleanQuery = z.preprocess((val) => {
 export const EXPLORE_RADIUS_KM_OPTIONS: readonly number[] = [10, 20, 30, 40, 50];
 export const EXPLORE_DEFAULT_RADIUS_KM = 20;
 
+/** ISO calendar date YYYY-MM-DD (a real date), interpreted in the explore time zone rule (T-035). */
+const isoDateQuery = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'must be an ISO date YYYY-MM-DD')
+  .refine((v) => {
+    const d = new Date(`${v}T00:00:00Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+  }, 'must be a real calendar date');
+
 export const exploreQuerySchema = z.object({
   type: z.enum(['CLUB', 'EVENT']).optional(),
   date: z.string().datetime().optional(),
-  dateFilter: z.enum(['today', 'tomorrow', 'this_weekend', 'next_weekend']).optional(),
+  dateFilter: z.enum(['today', 'tomorrow', 'this_weekend', 'next_weekend', 'this_week']).optional(),
   lat: z.coerce.number().min(-90).max(90).optional(),
   lng: z.coerce.number().min(-180).max(180).optional(),
   city: z.string().optional(),
@@ -37,7 +46,24 @@ export const exploreQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(10),
   sort: z.enum(['newest', 'oldest', 'trending']).optional(),
+  group: z.enum(['none', 'day']).optional(),
+  from: isoDateQuery.optional(),
+  to: isoDateQuery.optional(),
 }).superRefine((data, ctx) => {
+  if (data.from !== undefined && data.to !== undefined && data.from > data.to) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'from must not be after to',
+      path: ['from'],
+    });
+  }
+  if (data.group === 'day' && data.type === 'CLUB') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'group=day applies to events only and cannot be used with type=CLUB',
+      path: ['group'],
+    });
+  }
   if (data.type === 'EVENT') {
     if (data.isPopular !== undefined) {
       ctx.addIssue({

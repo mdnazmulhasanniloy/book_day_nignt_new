@@ -19,7 +19,7 @@ export const exploreListController = asyncHandler(
     const query = (req.validatedQuery || req.query) as unknown as TExploreQuery;
     const userId = req.user ? (req.user as JwtPayload).sub : undefined;
 
-    const { data, total } = await exploreListService({ query, userId });
+    const { data, total, groups } = await exploreListService({ query, userId });
 
     const totalPages = Math.ceil(total / query.limit);
     const links = buildPaginationLinks(req, query.page, totalPages);
@@ -32,7 +32,7 @@ export const exploreListController = asyncHandler(
         totalPages,
         links
       },
-      data,
+      data: groups ?? data,
       traceId,
     });
   }
