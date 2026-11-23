@@ -734,6 +734,8 @@ model Artist {
   audioPreviewUrl String?
   spotifyUrl      String?
   soundcloudUrl   String?
+  bio             String?
+  socialLinks     Json?
   isVerified      Boolean  @default(false)
   followerCount   Int      @default(0)
   createdAt       DateTime @default(now())

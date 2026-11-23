@@ -219,6 +219,15 @@ echo "$AT" | grep -q "|FAIL" && fail "artist_profile_fields.sql reported FAIL"
 echo "$AT" | grep -q "ERROR" && fail "artist_profile_fields.sql raised an error"
 echo "$AT" | grep -q "ARTISTTEST" || fail "artist_profile_fields.sql produced no result"
 
+AMIG="$ROOT/backend/prisma/migrations/20261123170000_add_artist_profile_fields/migration.sql"
+AS="$(cat "$ROOT/backend/prisma/tests/artist_profile_fields_synth_1.sql" "$AMIG" "$ROOT/backend/prisma/tests/artist_profile_fields_synth_3.sql" | psqlc -d "$REHEARSAL_DB" -At 2>&1)" || fail "artist_profile_fields synthetic sql errored"
+say '```'
+echo "$AS" | grep -E "ARTISTTEST|ERROR" | tee -a "$OUT"
+say '```'
+echo "$AS" | grep -q "|FAIL" && fail "artist_profile_fields synthetic sql reported FAIL"
+echo "$AS" | grep -q "ERROR" && fail "artist_profile_fields synthetic sql raised an error"
+echo "$AS" | grep -q "ARTISTTEST" || fail "artist_profile_fields synthetic sql produced no result"
+
 say; say "## Summary"
 if [[ ${#FAILS[@]} -eq 0 ]]; then
   say "RESULT: PASS"
