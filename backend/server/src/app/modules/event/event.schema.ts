@@ -15,6 +15,8 @@ export const eventCategoryTypeEnum = z.enum([
   'WAREHOUSE',
 ]);
 
+export const tierTypeEnum = z.enum(['TICKET', 'PASS']);
+
 const eventTicketTierBaseSchema = z.object({
   id: z.string().uuid().optional(),
   tierName: z.string().min(1),
@@ -26,6 +28,8 @@ const eventTicketTierBaseSchema = z.object({
   startAt: z.coerce.date().nullable().optional(),
   endAt: z.coerce.date().nullable().optional(),
   isActive: z.boolean().default(true),
+  // No default here: omitted on create = DB default TICKET; omitted on update = keep the stored value.
+  tierType: tierTypeEnum.optional(),
 });
 
 export const eventTicketTierSchema = eventTicketTierBaseSchema.extend({

@@ -7,6 +7,7 @@ import {
   retrieveEventsForAdminController,
   duplicateEventController,
   closeEventBookingsController,
+  getTicketTierPresetsController,
 } from '@/app/modules/event/event.controllers';
 import {
   createEventSchema,
@@ -103,6 +104,8 @@ router.put(
   validateReqBody(closeBookingsSchema),
   closeEventBookingsController
 );
+
+router.get('/ticket-tier-presets', getTicketTierPresetsController);
 
 router
   .route('/admin/event')

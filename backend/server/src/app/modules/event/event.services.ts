@@ -605,6 +605,7 @@ export const duplicateEventService = async ({
         data: {
           eventId: created.id,
           tierName: tier.tierName,
+          tierType: tier.tierType,
           groupName: tier.groupName,
           description: tier.description,
           price: tier.price,
@@ -628,6 +629,7 @@ export const duplicateEventService = async ({
           eventId: created.id,
           parentId,
           tierName: tier.tierName,
+          tierType: tier.tierType,
           groupName: tier.groupName,
           description: tier.description,
           price: tier.price,

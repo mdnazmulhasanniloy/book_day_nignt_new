@@ -1,4 +1,4 @@
-import { EventTicketTier, Prisma } from '@prisma/client';
+import { EventTicketTier, Prisma, TierType } from '@prisma/client';
 
 export const mapTicketTierTree = (
   tiers: EventTicketTier[]
@@ -26,6 +26,7 @@ export const mapTicketTierTree = (
     startAt: tier.startAt,
     endAt: tier.endAt,
     isActive: tier.isActive,
+    tierType: tier.tierType,
   });
 
   const roots = tiers
@@ -59,6 +60,8 @@ export type TierFieldsInput = {
   startAt?: Date | null;
   endAt?: Date | null;
   isActive: boolean;
+  /** Omitted: created as TICKET (DB default), kept as stored on update. */
+  tierType?: TierType;
 };
 
 export type TierInput = TierFieldsInput & { children?: TierFieldsInput[] };
@@ -159,6 +162,34 @@ const pairByKey = ({
           tierIds: [tier.id],
         });
       }
+    }
+  }
+};
+
+/**
+ * Section vs tier rule (T-016): a section is a parent tier (no sales of its
+ * own), a tier is a child or a top-level priced tier. Checked on write only;
+ * existing events are not re-validated on read.
+ * - a tier that has children cannot already have sales (422 TIER_SECTION_HAS_SALES);
+ * - the parent of a child must be a top-level tier of the same event (422 TIER_INVALID_PARENT).
+ */
+export const assertTierSectionRules = ({
+  eventId,
+  sections,
+}: {
+  eventId: string;
+  sections: Array<{
+    hasChildren: boolean;
+    existing: Pick<EventTicketTier, 'id' | 'eventId' | 'parentId' | 'soldCount'> | null;
+  }>;
+}): void => {
+  for (const { hasChildren, existing } of sections) {
+    if (!hasChildren || !existing) continue;
+    if (existing.eventId !== eventId || existing.parentId !== null) {
+      throw tierError(422, 'TIER_INVALID_PARENT', `Ticket tier ${existing.id} cannot be a section: a parent must be a top-level tier of the same event`);
+    }
+    if (existing.soldCount > 0) {
+      throw tierError(422, 'TIER_SECTION_HAS_SALES', `Ticket tier ${existing.id} already has ${existing.soldCount} tickets sold and cannot become a section with child tiers`);
     }
   }
 };
@@ -270,6 +301,14 @@ export const reconcileEventTicketTiers = async ({
     }
   }
 
+  assertTierSectionRules({
+    eventId,
+    sections: sections.map((section) => ({
+      hasChildren: section.children.length > 0,
+      existing: section.existing,
+    })),
+  });
+
   // ---- writes (all validation done) ----
   const fields = (input: TierFieldsInput) => ({
     tierName: input.tierName,
@@ -281,6 +320,7 @@ export const reconcileEventTicketTiers = async ({
     startAt: input.startAt ?? null,
     endAt: input.endAt ?? null,
     isActive: input.isActive,
+    ...(input.tierType ? { tierType: input.tierType } : {}),
   });
 
   const write = async (entry: Entry, parentId: string | null): Promise<string> => {
