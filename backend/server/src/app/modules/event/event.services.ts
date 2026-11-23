@@ -1,4 +1,5 @@
 import prisma from '@/app/configs/db.configs';
+import { syncGeogFromLatLng } from '@/app/utils/geog.helpers';
 import {
   ICreateEventService,
   IUpdateEventService,
@@ -54,11 +55,7 @@ export const createEventService = async ({
     });
 
     // 2. Set the PostGIS geography point using raw SQL
-    await tx.$executeRaw`
-      UPDATE "Event" 
-      SET geog = ST_SetSRID(ST_MakePoint(${payload.lng}, ${payload.lat}), 4326)::geography 
-      WHERE id = ${newEvent.id}
-    `;
+    await syncGeogFromLatLng({ tx, table: 'Event', id: newEvent.id });
 
     // 3. Create Ticket Tiers if provided (supports optional nested children)
     if (ticketTiers && ticketTiers.length > 0) {
@@ -269,12 +266,9 @@ export const updateEventService = async ({
       });
 
       // 2. Update PostGIS geography point if lat/lng changed
-      if (eventData.lat !== undefined && eventData.lng !== undefined) {
-        await tx.$executeRaw`
-          UPDATE "Event"
-          SET geog = ST_SetSRID(ST_MakePoint(${eventData.lng}, ${eventData.lat}), 4326)::geography
-          WHERE id = ${eventId}
-        `;
+      // (also when only one of them was sent: geog is rebuilt from the stored pair)
+      if (eventData.lat !== undefined || eventData.lng !== undefined) {
+        await syncGeogFromLatLng({ tx, table: 'Event', id: eventId });
       }
 
       // 3. Update ticket tiers if provided (supports nested children)
@@ -642,7 +636,8 @@ export const duplicateEventService = async ({
       },
     });
 
-    // PostGIS geog is maintained elsewhere on create; skip Unsupported field here.
+    // T-030: geog is an Unsupported column, so it is set from the copied lat/lng here.
+    await syncGeogFromLatLng({ tx, table: 'Event', id: created.id });
 
     const tierIdMap = new Map<string, string>();
     const rootTiers = source.ticketTiers.filter((tier) => !tier.parentId);

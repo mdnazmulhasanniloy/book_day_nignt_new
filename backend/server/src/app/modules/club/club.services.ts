@@ -1,4 +1,5 @@
 import prisma from '@/app/configs/db.configs';
+import { syncGeogFromLatLng } from '@/app/utils/geog.helpers';
 import {
   ICreateClubService,
   IUpdateClubService,
@@ -49,11 +50,7 @@ export const createClubService = async ({
     });
 
     // 2. Set the PostGIS geography point using raw SQL
-    await tx.$executeRaw`
-      UPDATE "Club" 
-      SET geog = ST_SetSRID(ST_MakePoint(${clubData.lng}, ${clubData.lat}), 4326)::geography 
-      WHERE id = ${newClub.id}
-    `;
+    await syncGeogFromLatLng({ tx, table: 'Club', id: newClub.id });
 
     // 3. Create Opening Hours
     if (openingHours && openingHours.length > 0) {
@@ -193,12 +190,9 @@ export const updateClubService = async ({
     });
 
     // 2. Update PostGIS geography point if lat/lng changed
-    if (clubData.lat !== undefined && clubData.lng !== undefined) {
-      await tx.$executeRaw`
-        UPDATE "Club" 
-        SET geog = ST_SetSRID(ST_MakePoint(${clubData.lng}, ${clubData.lat}), 4326)::geography 
-        WHERE id = ${clubId}
-      `;
+    // (also when only one of them was sent: geog is rebuilt from the stored pair)
+    if (clubData.lat !== undefined || clubData.lng !== undefined) {
+      await syncGeogFromLatLng({ tx, table: 'Club', id: clubId });
     }
 
     // 3. Upsert Opening Hours (id optional; fallback clubId + dayOfWeek)
