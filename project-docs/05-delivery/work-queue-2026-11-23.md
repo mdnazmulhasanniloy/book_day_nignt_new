@@ -11,7 +11,7 @@ Per task: failing test first, minimal change, `npm test`, `npm run test:db`, `ts
 | # | Task | What it fixes | Depends on | Status |
 |---|---|---|---|---|
 | W-01 | Hotfix release readiness note | Where the hotfix release stands and what blocks it | none | done (docs): `release-hotfix-readiness-2026-11-23.md` |
-| 1 | T-005 Migration: tier on purchase | Purchases record which ticket type was bought | T-002, T-003 | queued |
+| 1 | T-005 Migration: tier on purchase | Purchases record which ticket type was bought | T-002, T-003 | done in code (tested locally) |
 | 2 | T-006 Store the tier on each purchase | Fills it at checkout | T-005 | queued |
 | 3 | T-007 Release sold count when a payment fails or is cancelled | Stops the "sold" number growing for unpaid checkouts | T-006 | queued |
 | 4 | T-008 Release sold count when an unpaid order expires | Same for abandoned checkouts (15 min, confirmed by client) | T-007 | queued |
@@ -49,3 +49,4 @@ Each finished task is added here with its commit hashes and test results.
 
 | Task | Commits | Tests | Notes |
 |---|---|---|---|
+| T-005 | `dd40300`, `c3b5be2`, docs commit | npm test 27/27; test:db 27/27 (4 new); tsc clean; rehearsal RESULT: PASS | Migration `20261123120000_add_tier_on_purchase`. Tier delete on a referenced tier is refused by the trigger (open decision, data-model 8.6 item 8). Old-image check not run. |

@@ -35,7 +35,7 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 | [T-002](T-002.md) | Single-command migration rehearsal script | backend (database, scripts) | T-001 | done (verified locally) |
 | [T-003](T-003.md) | Backend test harness (unit and database-backed tests) | backend | T-001 | done (CI job added, first GitHub run pending) |
 | [T-004](T-004.md) | Update event ticket tiers in place (stable ids, soldCount preserved) | backend | T-003 | not started |
-| [T-005](T-005.md) | Migration 5: tier on purchase (add_tier_on_purchase) | backend (database) | T-002, T-003 | not started |
+| [T-005](T-005.md) | Migration 5: tier on purchase (add_tier_on_purchase) | backend (database) | T-002, T-003 | done in code (tested locally) |
 | [T-006](T-006.md) | Store the chosen tier on each event purchase | backend | T-005 | not started |
 | [T-007](T-007.md) | Release soldCount when a payment fails or is canceled | backend | T-006 | not started |
 | [T-008](T-008.md) | Release soldCount when an unpaid order expires (new job) | backend (server, worker) | T-007 | not started |
