@@ -8,7 +8,10 @@ import {
 import { ILightweightExploreItem } from '@/app/modules/explore/explore.types';
 import { Club, Prisma } from '@prisma/client';
 import { TAdminClubListQuery } from '@/app/modules/club/club.schema';
+import { mapPrismaError } from '@/app/utils/prismaError.utils';
 import { sendPushNotification, getUsersNearby } from '@/app/modules/notification/notification.helpers';
+
+const CLUB_NOT_FOUND = 'Club not found';
 
 /**
  * Service for creating a Club.
@@ -160,9 +163,13 @@ export const updateClubService = async ({
   }
 
   // Verify ownership and existence
-  await prisma.club.findUniqueOrThrow({
-    where: { id: clubId, userId },
-  });
+  await prisma.club
+    .findUniqueOrThrow({
+      where: { id: clubId, userId },
+    })
+    .catch((error: unknown) => {
+      throw mapPrismaError(error, { notFoundMessage: CLUB_NOT_FOUND });
+    });
 
   let deactivatedAt: Date | null | undefined = undefined;
   if (isActive === false) {
@@ -171,6 +178,7 @@ export const updateClubService = async ({
     deactivatedAt = null;
   }
 
+  try {
   return await prisma.$transaction(async (tx) => {
     // 1. Update the base Club record
     const updatedClub = await tx.club.update({
@@ -290,6 +298,10 @@ export const updateClubService = async ({
 
     return updatedClub;
   });
+  } catch (error) {
+    // P2025: club removed mid-request -> 404. P2003 -> 409 (see event update).
+    throw mapPrismaError(error, { notFoundMessage: CLUB_NOT_FOUND });
+  }
 };
 
 /**
@@ -377,15 +389,19 @@ export const getClubDetailService = async ({
   clubId,
   userId,
 }: IGetClubDetailService) => {
-  return await prisma.club.findUniqueOrThrow({
-    where: { id: clubId, userId },
-    include: {
-      clubOpeningHours: true,
-      clubPackages: {
-        orderBy: { sortOrder: 'asc' },
+  return await prisma.club
+    .findUniqueOrThrow({
+      where: { id: clubId, userId },
+      include: {
+        clubOpeningHours: true,
+        clubPackages: {
+          orderBy: { sortOrder: 'asc' },
+        },
       },
-    },
-  });
+    })
+    .catch((error: unknown) => {
+      throw mapPrismaError(error, { notFoundMessage: CLUB_NOT_FOUND });
+    });
 };
 
 /**

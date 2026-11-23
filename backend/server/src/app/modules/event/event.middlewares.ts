@@ -14,14 +14,14 @@ export const checkEventCancellationValidityMiddleware = asyncHandler(
       where: { id: eventId },
     });
 
-    if (!existingEvent) {
-      res.status(404).json({ success: false, message: 'Event not found' });
-      return;
-    }
-
-    if (existingEvent.userId !== userId) {
-      res.status(403).json({ success: false, message: 'Forbidden' });
-      return;
+    // Missing and not-owned are the same 404 (no ownership leak, T-012). The
+    // live Flutter app treats 403 like 401, so a business failure must not be 403.
+    if (!existingEvent || existingEvent.userId !== userId) {
+      throw {
+        statusCode: 404,
+        message: 'Event not found',
+        errorType: 'NOT_FOUND',
+      };
     }
 
     // 1. CANCELED events: only allow restore → UPCOMING + isActive:true

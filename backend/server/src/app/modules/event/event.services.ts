@@ -12,12 +12,15 @@ import { getSystemQueue } from '@/app/queues/system/system.queue';
 import { getEmailQueue } from '@/app/queues/email/email.queue';
 import { QUEUE_JOBS } from '@/const';
 import { sendPushNotification, getUsersNearby } from '@/app/modules/notification/notification.helpers';
+import { mapPrismaError } from '@/app/utils/prismaError.utils';
 import { ensureArtistForLineup } from '@/app/modules/artists/artists.helpers';
 import {
   mapTicketTierTree,
   reconcileEventTicketTiers,
   type TierReconcileWarning,
 } from '@/app/modules/event/event.ticketTier.helpers';
+
+const EVENT_NOT_FOUND = 'Event not found';
 
 /**
  * Service for creating an Event.
@@ -162,9 +165,13 @@ export const updateEventService = async ({
   // Ownership verification is handled by middleware fetching or we can double check, but middleware already checked it.
   if (!trustedCancellationContext) {
     // Fallback if somehow not populated (e.g. testing)
-    await prisma.event.findUniqueOrThrow({
-      where: { id: eventId, userId },
-    });
+    await prisma.event
+      .findUniqueOrThrow({
+        where: { id: eventId, userId },
+      })
+      .catch((error: unknown) => {
+        throw mapPrismaError(error, { notFoundMessage: EVENT_NOT_FOUND });
+      });
   }
 
   // Extract trusted context
@@ -374,7 +381,10 @@ export const updateEventService = async ({
 
     return updatedEvent;
   } catch (error) {
-    throw error;
+    // P2025: event removed mid-request -> 404. P2003 (a row this update touches is
+    // referenced elsewhere, or a bad clubId) -> 409: the source is ambiguous, so the
+    // conservative default is a conflict, never a raw 500.
+    throw mapPrismaError(error, { notFoundMessage: EVENT_NOT_FOUND });
   }
 };
 
@@ -441,17 +451,21 @@ export const getEventDetailService = async ({
   eventId,
   userId,
 }: IGetEventDetailService) => {
-  const event = await prisma.event.findUniqueOrThrow({
-    where: { id: eventId, userId },
-    include: {
-      ticketTiers: {
-        orderBy: { sortOrder: 'asc' },
+  const event = await prisma.event
+    .findUniqueOrThrow({
+      where: { id: eventId, userId },
+      include: {
+        ticketTiers: {
+          orderBy: { sortOrder: 'asc' },
+        },
+        lineup: {
+          orderBy: { sortOrder: 'asc' },
+        },
       },
-      lineup: {
-        orderBy: { sortOrder: 'asc' },
-      },
-    },
-  });
+    })
+    .catch((error: unknown) => {
+      throw mapPrismaError(error, { notFoundMessage: EVENT_NOT_FOUND });
+    });
 
   return {
     ...event,
