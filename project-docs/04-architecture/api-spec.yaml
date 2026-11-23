@@ -25134,11 +25134,10 @@ paths:
       tags:
       - explore
       summary: Filter vocabulary for a type
-      description: Single source for chips and pickers so the Events and Clubs modes show different options, and manager tags match customer filters. Lists are admin-editable.
+      description: "Single source for chips and pickers so the Events and Clubs modes show different options, and manager tags match customer filters. Lists are admin-editable. Implemented in T-037 (tested locally, not deployed). genres and moods are the ACTIVE FilterOption rows in sortOrder (then label, then id), as the English label (FilterOption has one label column; the Italian labels are not stored, open gap). categories is the EventCategoryType list for type=EVENT and an empty list for type=CLUB (club venue attributes are not defined yet). dateShortcuts, radiusSteps and incompatibleWhenSwitching are NOT returned yet. A missing or unknown type gives 422."
       x-auth: public (no auth middleware)
       security: *id017
       x-requirement: CR-10
-      x-status: planned
       x-change: added
       parameters:
       - name: type
@@ -25385,11 +25384,10 @@ paths:
       tags:
       - admin
       summary: List genre and mood vocabulary
-      description: 'Admin view of the editable vocabularies (Q6b: starter list that the owner edits).'
+      description: "Admin view of the editable vocabularies (Q6b: starter list that the owner edits). Implemented in T-037 (tested locally, not deployed). Returns active and inactive rows, ordered by kind, sortOrder, label, id; optional kind filter (anything else gives 422); no paging. Reads need no CSRF header, like GET /admin/cities."
       x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
       security: *id028
       x-requirement: CR-10
-      x-status: planned
       x-change: added
       parameters:
       - name: kind
@@ -25460,11 +25458,10 @@ paths:
       tags:
       - admin
       summary: Add a genre or mood
-      description: Labels are unique per kind (case-insensitive). Deactivating (PATCH) hides it from pickers without breaking existing events that use it.
+      description: "Labels are unique per kind (case-insensitive). Deactivating (PATCH) hides it from pickers without breaking existing events that use it. Implemented in T-037. labelKey is the trimmed, lower-cased label; a duplicate (kind, labelKey) gives 409. label is trimmed, 1 to 120 characters. sortOrder is an integer 0 to 1000000, default 0 when omitted. Unknown body fields give 422. The response is {id, kind, label, sortOrder, isActive}."
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
       security: *id020
       x-requirement: CR-10
-      x-status: planned
       x-change: added
       requestBody:
         required: true
@@ -25537,11 +25534,10 @@ paths:
       tags:
       - admin
       summary: Edit or deactivate a genre or mood
-      description: Rename, reorder or deactivate.
+      description: "Rename, reorder or deactivate. Implemented in T-037. At least one field is required (422 otherwise); kind cannot be changed. Renaming recomputes labelKey and gives 409 when another row of the same kind already has it. Only the FilterOption row changes: events keep their own musicGenres and moodTags text, so deactivating or renaming never edits an event. Unknown id gives 404."
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
       security: *id020
       x-requirement: CR-10
-      x-status: planned
       x-change: added
       parameters:
       - name: id

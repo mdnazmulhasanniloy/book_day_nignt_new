@@ -141,6 +141,8 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 | `GET /ticket-tier-presets` | - | - | New in T-016 (public). Not called by Flutter or Admin yet |
 | `GET /cities` | - | - | New in T-033 (public). Not called by Flutter or Admin yet |
 | `GET /admin/cities`, `POST /admin/cities`, `PATCH /admin/cities/{id}` | - | - | New in T-033 (admin cookie; POST and PATCH also need the CSRF header). The admin Cities page is T-071, not built |
+| `GET /explore/filters` | - | - | New in T-037 (public). Not called by Flutter or Admin yet |
+| `GET /admin/filter-options`, `POST /admin/filter-options`, `PATCH /admin/filter-options/{id}` | - | - | New in T-037 (admin cookie; POST and PATCH also need the CSRF header). The admin Filter options page is T-072, not built |
 | `GET /event/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:48` | - | Flutter only. T-012: missing or foreign id is now 404 NOT_FOUND (was 500) |
 | `POST /event/{id}/duplicate` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:448` | - | Flutter only |
 | `PUT /event/{id}/bookings/close` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:456` | - | Flutter only |
