@@ -9218,7 +9218,7 @@ paths:
       - event
       summary: Create an event
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + checkConnectReadinessMiddleware (Stripe Connect canCreateListings) + validateReqBody(createEventSchema)'
-      description: 'Creates Event + PostGIS geog + ticketTiers (with one level of children) + lineup (upserts global Artist by lowercased name) in one transaction, then enqueues BullMQ jobs MAKE_EVENT_ONGOING / MAKE_EVENT_COMPLETED and pushes NEW_EVENT notifications to users within 5 km. Response is the bare Event row (no tiers/lineup). `clubId` is stored without ownership validation. Request gains optional `timezone` and `pricingMode` (implemented in T-017, tested locally, not deployed; rules on the fields; the Event row in the response now includes both) and `tierType` on ticket tiers (T-016). `eventDescription` and tier `description` are optional and an empty string is stored as NULL (A2.15, A2.16). TO-BE (CR-02): optional `organizerId` (defaults keep current behaviour). TO-BE (CR-12): Lineup items accept optional `artistId` (and artistAvatar already exists as the photo).'
+      description: 'Creates Event + PostGIS geog + ticketTiers (with one level of children) + lineup (upserts global Artist by lowercased name) in one transaction, then enqueues BullMQ jobs MAKE_EVENT_ONGOING / MAKE_EVENT_COMPLETED and pushes NEW_EVENT notifications to users within 5 km. Response is the bare Event row (no tiers/lineup). `clubId` is stored without ownership validation. Request gains optional `timezone` and `pricingMode` (implemented in T-017, tested locally, not deployed; rules on the fields; the Event row in the response now includes both) and `tierType` on ticket tiers (T-016). `eventDescription` and tier `description` are optional and an empty string is stored as NULL (A2.15, A2.16). TO-BE (CR-02): optional `organizerId` (defaults keep current behaviour). T-044 (tested locally, not deployed): lineup items accept an optional `artistId` (uuid) that links that existing Artist as it is (the shared Artist row is never overwritten from a lineup item and `artistName` stays required and is stored on the lineup row); an unknown `artistId` returns 404 "Artist not found" and nothing is created; a value that is not a uuid returns 422. Items without `artistId` keep the old behaviour (upsert of the global Artist by lowercased name).'
       security:
       - userBearer: []
       requestBody:
@@ -9416,11 +9416,9 @@ paths:
                         type: integer
                         default: 0
                       artistId:
-                        type:
-                        - string
-                        - 'null'
+                        type: string
                         format: uuid
-                        description: Link an existing artist instead of matching by lowercased name. (CR-12)
+                        description: Optional. Links an existing artist instead of matching by lowercased name (CR-12, T-044, tested locally, not deployed). Unknown id 404 Artist not found; not a uuid 422; null is not accepted.
                     required:
                     - artistName
                 lat:
@@ -9894,7 +9892,7 @@ paths:
       - event
       summary: Update an owned event (partial) / cancel / restore
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + checkConnectReadinessMiddleware (Stripe Connect canCreateListings) + validateReqParams(eventIdParamsSchema) + validateReqBody(updateEventSchema) + checkEventCancellationValidityMiddleware'
-      description: 'All fields optional. checkEventCancellationValidityMiddleware loads the event and enforces ownership: an event that is missing OR owned by another user returns 404 {success:false, message:''Event not found'', errorType:''NOT_FOUND'', traceId} (T-012, tested locally, not deployed; was 403 ''Forbidden'' for a foreign event, which the live Flutter app treats like 401). Rules: (1) event already CANCELED -> only a restore is allowed (eventStatus=UPCOMING AND isActive=true) else 400; (2) eventStatus=CANCELED within 6h of startAt -> 400; otherwise formal cancellation: deactivatedAt set, a SCHEDULED Refund (grossAmount, +6 days) created per PAID EVENT order, refund jobs + cancellation emails + push enqueued after commit. WARNING: sending `ticketTiers` deletes ALL existing tiers and recreates them (soldCount resets to 0, ids change); sending `lineup` likewise replaces all lineup rows. Returns bare Event row. TO-BE (CR-04, BUG-B24): Ticket tiers are now updated in place. A tier object WITH `id` updates that tier (soldCount and id preserved); a tier WITHOUT `id` is created; an existing tier missing from the array is hard-deleted only if soldCount=0 AND no EventPurchase row references it (T-006), otherwise deactivated (isActive=false) and kept. capacity lower than soldCount returns 409 TIER_CAPACITY_BELOW_SOLD. Previously `id` was ignored and all tiers were deleted and recreated (soldCount reset to 0). Backward compatibility for the live app, which does not send ids: when no incoming tier carries an id, the server matches incoming tiers to existing ones by (parent groupName, tierName) and updates those in place; unmatched sold tiers are deactivated rather than deleted. T-016 section rule (tested locally, not deployed): a tier that already has sales (soldCount > 0) cannot be sent with `children` (422 TIER_SECTION_HAS_SALES), and the parent of a child must be a top-level tier of the same event (422 TIER_INVALID_PARENT; the request shape nests children, so this cannot be triggered through the API today and is a defensive check). Checked on write only; existing events are not re-validated on read. T-017 (tested locally, not deployed): optional `timezone` (validated IANA name, 422 otherwise) and `pricingMode` (checked against the price and active tiers after this request is applied, 422 PRICING_MODE_INVALID, nothing changes); a request without them keeps the stored values, except that a stored pricingMode that no longer fits the new price or tiers is re-derived. `eventDescription` and tier `description` accept an empty string, stored as NULL.'
+      description: 'All fields optional. checkEventCancellationValidityMiddleware loads the event and enforces ownership: an event that is missing OR owned by another user returns 404 {success:false, message:''Event not found'', errorType:''NOT_FOUND'', traceId} (T-012, tested locally, not deployed; was 403 ''Forbidden'' for a foreign event, which the live Flutter app treats like 401). Rules: (1) event already CANCELED -> only a restore is allowed (eventStatus=UPCOMING AND isActive=true) else 400; (2) eventStatus=CANCELED within 6h of startAt -> 400; otherwise formal cancellation: deactivatedAt set, a SCHEDULED Refund (grossAmount, +6 days) created per PAID EVENT order, refund jobs + cancellation emails + push enqueued after commit. WARNING: sending `ticketTiers` deletes ALL existing tiers and recreates them (soldCount resets to 0, ids change); sending `lineup` likewise replaces all lineup rows. T-044 (tested locally, not deployed): lineup items accept the optional `artistId` as on POST /event; the link survives the delete and recreate of the lineup rows, an unknown `artistId` returns 404 "Artist not found" and the whole update is rolled back (the old lineup stays). A legacy client that resends the same `artistName` without `artistId` is still matched to the same Artist by name. Returns bare Event row. TO-BE (CR-04, BUG-B24): Ticket tiers are now updated in place. A tier object WITH `id` updates that tier (soldCount and id preserved); a tier WITHOUT `id` is created; an existing tier missing from the array is hard-deleted only if soldCount=0 AND no EventPurchase row references it (T-006), otherwise deactivated (isActive=false) and kept. capacity lower than soldCount returns 409 TIER_CAPACITY_BELOW_SOLD. Previously `id` was ignored and all tiers were deleted and recreated (soldCount reset to 0). Backward compatibility for the live app, which does not send ids: when no incoming tier carries an id, the server matches incoming tiers to existing ones by (parent groupName, tierName) and updates those in place; unmatched sold tiers are deactivated rather than deleted. T-016 section rule (tested locally, not deployed): a tier that already has sales (soldCount > 0) cannot be sent with `children` (422 TIER_SECTION_HAS_SALES), and the parent of a child must be a top-level tier of the same event (422 TIER_INVALID_PARENT; the request shape nests children, so this cannot be triggered through the API today and is a defensive check). Checked on write only; existing events are not re-validated on read. T-017 (tested locally, not deployed): optional `timezone` (validated IANA name, 422 otherwise) and `pricingMode` (checked against the price and active tiers after this request is applied, 422 PRICING_MODE_INVALID, nothing changes); a request without them keeps the stored values, except that a stored pricingMode that no longer fits the new price or tiers is re-derived. `eventDescription` and tier `description` accept an empty string, stored as NULL.'
       security:
       - userBearer: []
       parameters:
@@ -9982,6 +9980,10 @@ paths:
                       sortOrder:
                         type: integer
                         default: 0
+                      artistId:
+                        type: string
+                        format: uuid
+                        description: Optional. Links an existing artist (CR-12, T-044, tested locally, not deployed). Unknown id 404 Artist not found (update rolled back); not a uuid 422.
                       startAt:
                         type:
                         - string
@@ -25895,11 +25897,10 @@ paths:
       tags:
       - artists
       summary: Discover artists
-      description: Artists linked to at least one upcoming event, with photo. Sorted by upcoming event count, then name.
+      description: 'T-044 (tested locally, not deployed). Artists linked (EventLineup.artistId) to at least one upcoming event: not deactivated, eventStatus UPCOMING and not yet ended, the same rule as GET /explore type=EVENT. Sorted by upcoming event count (desc), then name, then id. `search` is a case-insensitive substring match on the name (percent and underscore are literal). `cityId` keeps only artists with an upcoming event within the default explore radius (20 km) of that city centre (unknown city 404). Items use the ArtistProfile shape with `upcomingEventCount` instead of `upcomingEvents`. `isFollowing` is present only with a valid bearer token (and only about that user); an invalid token is 401. limit max 50, default 10. Message: Artists retrieved successfully.'
       x-auth: 'optional user bearer: optionalUserAccessToken'
       security: *id027
       x-requirement: CR-12
-      x-status: planned
       x-change: added
       parameters:
       - name: search
@@ -25957,11 +25958,10 @@ paths:
       tags:
       - artists
       summary: Artist profile
-      description: Profile with follower count, isFollowing (bearer) and upcoming linked events.
+      description: 'T-044 (tested locally, not deployed). Any existing artist. `upcomingEvents` (at most 20, soonest first) uses the GET /explore type=EVENT item shape (id, name, lat, lng, location, type, thumbnail, currency, price) plus `startAt`. `isFollowing` only with a valid bearer token. Unknown id 404 Artist not found. Message: Artist retrieved successfully.'
       x-auth: 'optional user bearer: optionalUserAccessToken'
       security: *id027
       x-requirement: CR-12
-      x-status: planned
       x-change: added
       parameters:
       - name: id
@@ -26013,11 +26013,10 @@ paths:
       tags:
       - artists
       summary: Edit an artist profile (owner)
-      description: Allowed for a club owner who has the artist in the lineup of one of their events (manager-maintained profile, Q6e default). No artist login exists.
+      description: 'T-044 (tested locally, not deployed). Client answer Q6e: clubs and organizers maintain artist profiles, there is no artist login. A CLUB_OWNER manages an artist when they own an active (not deactivated) event whose lineup links that artist (EventLineup.artistId). The rule "created the artist" is NOT implemented because Artist has no creator column (open question, see known-issues.md). An unrelated owner, an unknown artist or an artist only on deactivated events all return 404 Artist not found, never 403 (the live app logs out on 403). A caller who is not a CLUB_OWNER gets the usual role 403. Editable by an owner: photo (stored in Artist.avatar), bio, spotifyUrl, socialLinks; name and isVerified are admin only and a body containing them is 422. Omitted fields are kept, null clears, socialLinks replaces the whole object, an empty bio is stored as null. Returns the ArtistProfile. Message: Artist updated successfully.'
       x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER)'
       security: *id009
       x-requirement: CR-12
-      x-status: planned
       x-change: added
       parameters:
       - name: id
@@ -26053,13 +26052,13 @@ paths:
                   data:
                     $ref: '#/components/schemas/ArtistProfile'
         '403':
-          description: Artist is not linked to your events
+          description: Caller is not a CLUB_OWNER (role middleware)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Artist not found
+          description: Artist not found or not managed by the caller
           content:
             application/json:
               schema:
@@ -26071,7 +26070,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: Validation failed
+          description: Validation failed (unknown key, invalid URL, invalid socialLinks, empty body)
           content:
             application/json:
               schema:
@@ -26082,11 +26081,10 @@ paths:
       tags:
       - admin
       summary: List artists (admin)
-      description: All artists including those without upcoming events.
+      description: 'T-044 (tested locally, not deployed). Every artist, including those without upcoming events, sorted by name then id. `search` is a case-insensitive substring match on the name; `isVerified` filters. ArtistProfile items without `upcomingEvents` and without `isFollowing`. limit max 50, default 10. No CSRF header on reads. Message: Artists retrieved successfully.'
       x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
       security: *id028
       x-requirement: CR-12
-      x-status: planned
       x-change: added
       parameters:
       - name: search
@@ -26149,11 +26147,10 @@ paths:
       tags:
       - admin
       summary: Edit or verify an artist (admin)
-      description: Fix names, photo, bio, links; set isVerified.
+      description: 'T-044 (tested locally, not deployed). Admin may edit name, photo, bio, spotifyUrl, socialLinks and isVerified. A rename keeps nameKey (lowercased, whitespace collapsed) in sync and returns 409 ARTIST_NAME_EXISTS when another artist already has that name. Same omitted, null and socialLinks rules as PATCH /artists/{id}. Unknown id 404, no cookie 401, a customer token or a missing CSRF header 403. Returns the ArtistProfile (without upcomingEvents). Message: Artist updated successfully.'
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
       security: *id020
       x-requirement: CR-12
-      x-status: planned
       x-change: added
       parameters:
       - name: id
@@ -26196,6 +26193,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Artist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Another artist already has that name (ARTIST_NAME_EXISTS)
           content:
             application/json:
               schema:
@@ -28103,6 +28106,39 @@ components:
         createdAt:
           type: string
           format: date-time
+    ArtistSocialLinks:
+      type: object
+      description: OUR PROPOSAL (T-044), to be confirmed by the client. Only these keys are accepted, unknown keys are rejected (422). Each value is an https URL of at most 2048 characters. Spotify has its own column (spotifyUrl) and the photo is `photo`.
+      additionalProperties: false
+      properties:
+        instagram:
+          type: string
+          format: uri
+          maxLength: 2048
+        facebook:
+          type: string
+          format: uri
+          maxLength: 2048
+        x:
+          type: string
+          format: uri
+          maxLength: 2048
+        tiktok:
+          type: string
+          format: uri
+          maxLength: 2048
+        youtube:
+          type: string
+          format: uri
+          maxLength: 2048
+        soundcloud:
+          type: string
+          format: uri
+          maxLength: 2048
+        website:
+          type: string
+          format: uri
+          maxLength: 2048
     ArtistProfile:
       type: object
       required:
@@ -28118,49 +28154,79 @@ components:
           type:
           - string
           - 'null'
+          description: Artist.avatar
         bio:
           type:
           - string
           - 'null'
         socialLinks:
+          oneOf:
+          - $ref: '#/components/schemas/ArtistSocialLinks'
+          - type: 'null'
+        spotifyUrl:
           type:
-          - object
+          - string
           - 'null'
-          additionalProperties:
-            type: string
+        soundcloudUrl:
+          type:
+          - string
+          - 'null'
+        audioPreviewUrl:
+          type:
+          - string
+          - 'null'
         isVerified:
           type: boolean
         followerCount:
           type: integer
         isFollowing:
           type: boolean
-          description: only with bearer token
+          description: only with a valid bearer token, and only about that user
+        upcomingEventCount:
+          type: integer
+          description: only on GET /artists items
         upcomingEvents:
           type: array
+          description: only on GET /artists/{id} and PATCH /artists/{id}, at most 20, soonest first
           items:
             type: object
             additionalProperties: true
-            description: same item shape as GET /explore type=EVENT
+            description: same item shape as GET /explore type=EVENT plus startAt
     ArtistUpdate:
       type: object
+      description: At least one field. Unknown keys are rejected (422). Owner PATCH accepts photo, bio, spotifyUrl and socialLinks only; the admin PATCH also accepts name and isVerified.
+      additionalProperties: false
       properties:
         name:
           type: string
           minLength: 1
+          maxLength: 120
+          description: admin only
         photo:
           type:
           - string
           - 'null'
+          format: uri
+          maxLength: 2048
+          description: https URL, stored in Artist.avatar
         bio:
           type:
           - string
           - 'null'
-        socialLinks:
+          maxLength: 2000
+          description: trimmed, an empty string is stored as null
+        spotifyUrl:
           type:
-          - object
+          - string
           - 'null'
-          additionalProperties:
-            type: string
+          format: uri
+          maxLength: 2048
+          description: https URL
+        socialLinks:
+          oneOf:
+          - $ref: '#/components/schemas/ArtistSocialLinks'
+          - type: 'null'
+          description: replaces the whole stored object, null clears it
         isVerified:
           type: boolean
           description: admin only

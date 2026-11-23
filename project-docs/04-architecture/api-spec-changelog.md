@@ -38,11 +38,11 @@ Totals: 47 added, 33 changed, 6 deprecated. The spec grows from 151 to 198 opera
 | DELETE | `/events/{eventId}/interested` | CR-11 | additive (new endpoint) | Remove Interested. **T-040 (tested locally, not deployed): implemented; idempotent 200, count never negative.** |
 | GET | `/me/recently-viewed` | CR-11 | additive (new endpoint) | My recently viewed events. **Implemented in T-042** (tested locally, not deployed): user bearer (checkUserAccessToken, checkUserExistence, checkAccountStatus), own rows only, newest first, at most 20 in total, paged, items are explore event items plus `viewedAt` |
 | GET | `/explore/most-viewed` | CR-11 | additive (new endpoint) | Most viewed events in a city. **Implemented in T-042** (public, tested locally, not deployed): views over 30 UTC days, city radius via `cityId` or `lat`/`lng`, `limit` max 20, ranking rules documented in the spec and `data-model.md` |
-| GET | `/artists` | CR-12 | additive (new endpoint) | Discover artists |
-| GET | `/artists/{id}` | CR-12 | additive (new endpoint) | Artist profile |
-| PATCH | `/artists/{id}` | CR-12 | additive (new endpoint) | Edit an artist profile (owner) |
-| GET | `/admin/artists` | CR-12 | additive (new endpoint) | List artists (admin) |
-| PATCH | `/admin/artists/{id}` | CR-12 | additive (new endpoint) | Edit or verify an artist (admin) |
+| GET | `/artists` | CR-12 | additive (new endpoint) | Discover artists. **Implemented in T-044 (tested locally, not deployed):** public with optional bearer; artists with an upcoming linked event, sorted by upcoming event count then name; `search`, `cityId` (city radius), paging; `isFollowing` only with a token |
+| GET | `/artists/{id}` | CR-12 | additive (new endpoint) | Artist profile. **Implemented in T-044 (tested locally, not deployed):** `photo`, `bio`, `socialLinks`, `spotifyUrl`, follower count, upcoming events (at most 20), `isFollowing` only with a token |
+| PATCH | `/artists/{id}` | CR-12 | additive (new endpoint) | Edit an artist profile (owner). **Implemented in T-044 (tested locally, not deployed):** a CLUB_OWNER who owns an active event whose lineup links the artist; an unrelated owner gets 404 (never 403); the "created the artist" rule is NOT implemented (no creator column, open question); owners edit photo, bio, spotifyUrl, socialLinks only |
+| GET | `/admin/artists` | CR-12 | additive (new endpoint) | List artists (admin). **Implemented in T-044 (tested locally, not deployed):** cookie admin auth, `search`, `isVerified`, paging |
+| PATCH | `/admin/artists/{id}` | CR-12 | additive (new endpoint) | Edit or verify an artist (admin). **Implemented in T-044 (tested locally, not deployed):** CSRF double submit; rename keeps `nameKey` in sync, duplicate name 409 `ARTIST_NAME_EXISTS` |
 | POST | `/organizer/profile` | CR-02 | additive (new endpoint) | Create my organizer profile |
 | PUT | `/organizer/profile` | CR-02 | additive (new endpoint) | Update my organizer profile |
 | GET | `/organizers/{id}` | CR-02 | additive (new endpoint) | Public organizer profile |

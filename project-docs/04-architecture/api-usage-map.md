@@ -217,6 +217,12 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 | `POST /artists/{id}/follow` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:16` | - | Flutter only |
 | `DELETE /artists/{id}/follow` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:21` | - | Flutter only |
 | `GET /me/artists` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:31` | - | Flutter only |
+| `GET /artists` | - | - | New (CR-12, T-044, tested locally, not deployed); no client calls it yet. Public, optional bearer for `isFollowing` |
+| `GET /artists/{id}` | - | - | New (CR-12, T-044, tested locally, not deployed); no client calls it yet. Public, optional bearer for `isFollowing` |
+| `PATCH /artists/{id}` | - | - | New (CR-12, T-044, tested locally, not deployed); no client calls it yet. CLUB_OWNER whose event lineup links the artist |
+| `GET /admin/artists` | - | - | New (CR-12, T-044, tested locally, not deployed); the admin page is T-073, not started |
+| `PATCH /admin/artists/{id}` | - | - | New (CR-12, T-044, tested locally, not deployed); the admin page is T-073, not started |
+| `POST /event`, `PUT /event/{id}` (lineup `artistId`) | unchanged | - | Additive optional `artistId` on lineup items (T-044, tested locally); the live app does not send it and is unaffected |
 
 ### interested (T-040, tested locally, not deployed)
 

@@ -4,7 +4,7 @@
 |---|---|
 | Stack | release |
 | Depends on | T-029, T-030, T-031, T-032, T-033, T-034, T-035, T-036, T-037, T-038, T-039, T-040, T-041, T-042, T-043, T-044, T-045, T-046 |
-| Status | not started. T-029 to T-043 are done in code (tested locally, not deployed); T-044 to T-046 remain. No boxes ticked |
+| Status | not started. T-029 to T-044 are done in code (tested locally, not deployed); T-045 and T-046 remain. No boxes ticked |
 
 Do not start the next milestone until every box below is checked or explicitly waived by the product owner.
 
