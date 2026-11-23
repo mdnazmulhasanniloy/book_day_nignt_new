@@ -55,6 +55,16 @@ tags:
     description: City selector and city management
   - name: Artists
     description: Artist discovery, profile edit and follow endpoints
+  - name: Hosts
+    description: VIP host directory, event host assignment and host inquiries
+  - name: Event Module
+    description: Event VIP modules (tables and areas)
+  - name: Guest List
+    description: Event guest list configuration and requests
+  - name: Quotes
+    description: Quote requests for event modules
+  - name: Service Charge
+    description: Public service charge
 
 components:
   securitySchemes:
@@ -707,15 +717,24 @@ components:
         image: { type: string, format: uri }
     EventPurchaseRequest:
       type: object
-      required: [eventId]
+      required:
+        - eventId
       properties:
-        eventId: { type: string, format: uuid }
+        eventId:
+          type: string
+          format: uuid
         friends:
-          {
-            type: array,
-            maxItems: 4,
-            items: { $ref: '#/components/schemas/EventPurchaseFriend' },
-          }
+          type: array
+          maxItems: 4
+          items:
+            $ref: '#/components/schemas/EventPurchaseFriend'
+        ticketTierId:
+          type: string
+          format: uuid
+          description: Optional ticket tier (T-006). The price is the tier price when sent, otherwise the event price; the chosen tier is stored on the purchase.
+        promoCode:
+          type: string
+          description: Optional. An invalid code is silently ignored.
     UpdateServiceChargePayload:
       type: object
       additionalProperties: false
@@ -4432,8 +4451,7 @@ paths:
       tags:
         - Profile
       summary: Update User Profile
-      description: Updates the user's profile fields. Email modification is
-        ignored/rejected.
+      description: Updates the user's profile fields. Email modification is ignored/rejected.
       security:
         - bearerAuth: []
       requestBody:
@@ -4473,6 +4491,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      operationId: deleteProfile
+      tags:
+        - Profile
+      summary: Soft-delete own account
+      description: 'Soft delete: status DELETED, devices/notifications/wishlists/follows cleared, owner clubs/events hidden, access token blacklisted. 404 has no errorType.'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Account deleted successfully
+                  data:
+                    type: object
+                    properties:
+                      deleted:
+                        type: boolean
+                        enum:
+                          - true
+                    required:
+                      - deleted
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+        '401':
+          description: Token not found (TOKEN_INVALID); Token has been revoked (TOKEN_BLACKLISTED); Token has been expired (TOKEN_EXPIRED); Token is invalid (TOKEN_INVALID); Your account has been deleted (ACCOUNT_DELETED); Your account has been blocked (USER_BLOCKED); Your account has been deactivated (ACCOUNT_INACTIVE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: User not found (USER_NOT_FOUND); Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
   /api/v1/admin/change-password:
     patch:
       tags:
@@ -6651,14 +6719,14 @@ paths:
           schema:
             type: string
             format: date
-          description: Start of date range (CR-10), ISO date YYYY-MM-DD, inclusive, compared with the LOCAL date of the event start (zone rule on the operation). Implemented in T-035. Must not be after to (422).
+          description: Start of date range, ISO date YYYY-MM-DD, inclusive, compared with the LOCAL date of the event start (zone rule on the operation). Implemented in T-035. Must not be after to (422).
         - name: to
           in: query
           required: false
           schema:
             type: string
             format: date
-          description: End of date range (CR-10), ISO date YYYY-MM-DD, inclusive. Implemented in T-035.
+          description: End of date range, ISO date YYYY-MM-DD, inclusive. Implemented in T-035.
       responses:
         '200':
           description: Data retrieved successfully
@@ -7555,7 +7623,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '404':
-          description: '- USER_NOT_FOUND: ''User not found'' (JWT valid but user row no longer exists; checkUserExistenceMiddleware) | TO-BE: eventId/clubId not owned by caller'
+          description: '- USER_NOT_FOUND: ''User not found'' (JWT valid but user row no longer exists; checkUserExistenceMiddleware) | eventId/clubId unknown or not owned by the caller (errorType NOT_FOUND)'
           content:
             application/json:
               schema:
@@ -7793,130 +7861,119 @@ paths:
           }
   /api/v1/purchase/club:
     post:
-      tags: [Purchase]
+      tags:
+        - Purchase
       summary: Create a pending Club purchase hold
-      security: [{ bearerAuth: [] }]
+      security:
+        - bearerAuth: []
       parameters:
-        - {
-            in: header,
-            name: Idempotency-Key,
-            required: true,
-            schema: { type: string, maxLength: 255 },
-          }
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+            maxLength: 255
       requestBody:
-        {
-          required: true,
-          content:
-            {
-              application/json:
-                {
-                  schema: { $ref: '#/components/schemas/ClubPurchaseRequest' },
-                },
-            },
-        }
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClubPurchaseRequest'
       responses:
         '201':
-          {
-            description: Pending Club Order and 10-minute HOLD created,
-            content:
-              {
-                application/json:
-                  { schema: { $ref: '#/components/schemas/SuccessResponse' } },
-              },
-          }
+          description: Pending Club Order and 10-minute HOLD created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
         '200':
-          {
-            description: Idempotent replay returned the original pending purchase,
-            content:
-              {
-                application/json:
-                  { schema: { $ref: '#/components/schemas/SuccessResponse' } },
-              },
-          }
+          description: Idempotent replay returned the original pending purchase
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
         '409':
-          {
-            description: Idempotency or active booking conflict,
-            content:
-              {
-                application/json:
-                  { schema: { $ref: '#/components/schemas/ErrorResponse' } },
-              },
-          }
+          description: Idempotency or active booking conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '422':
-          {
-            description: Validation error or booking interval outside club opening hours (fixed CST). Overnight opening windows are supported; starting at opening and ending at closing are allowed.,
-            content:
-              {
-                application/json:
-                  {
-                    schema:
-                      { $ref: '#/components/schemas/ValidationErrorResponse' },
-                  },
-              },
-          }
+          description: Validation error or booking interval outside club opening hours (fixed CST). Overnight opening windows are supported; starting at opening and ending at closing are allowed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Token not found/invalid/expired/revoked (errorType TOKEN_INVALID|TOKEN_EXPIRED|TOKEN_BLACKLISTED) or account DELETED/BLOCKED/INACTIVE (errorType ACCOUNT_DELETED|USER_BLOCKED|ACCOUNT_INACTIVE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: User from token not found (errorType USER_NOT_FOUND) | Club package not found or unavailable (inactive package or deactivated club)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
   /api/v1/purchase/event:
     post:
-      tags: [Purchase]
+      tags:
+        - Purchase
       summary: Create a pending Event purchase
-      security: [{ bearerAuth: [] }]
+      security:
+        - bearerAuth: []
       parameters:
-        - {
-            in: header,
-            name: Idempotency-Key,
-            required: true,
-            schema: { type: string, maxLength: 255 },
-          }
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema:
+            type: string
+            maxLength: 255
       requestBody:
-        {
-          required: true,
-          content:
-            {
-              application/json:
-                {
-                  schema: { $ref: '#/components/schemas/EventPurchaseRequest' },
-                },
-            },
-        }
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventPurchaseRequest'
       responses:
         '201':
-          {
-            description: Pending Event Order and attendee snapshots created; buyer age is server-derived and never accepted from the client.,
-            content:
-              {
-                application/json:
-                  { schema: { $ref: '#/components/schemas/SuccessResponse' } },
-              },
-          }
+          description: Pending Event Order and attendee snapshots created; buyer age is server-derived and never accepted from the client.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
         '200':
-          {
-            description: Idempotent replay returned the original pending purchase,
-            content:
-              {
-                application/json:
-                  { schema: { $ref: '#/components/schemas/SuccessResponse' } },
-              },
-          }
+          description: Idempotent replay returned the original pending purchase
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
         '409':
-          {
-            description: Idempotency conflict,
-            content:
-              {
-                application/json:
-                  { schema: { $ref: '#/components/schemas/ErrorResponse' } },
-              },
-          }
+          description: Idempotency conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '422':
-          {
-            description: Validation error,
-            content:
-              {
-                application/json:
-                  {
-                    schema:
-                      { $ref: '#/components/schemas/ValidationErrorResponse' },
-                  },
-              },
-          }
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Token not found/invalid/expired/revoked (errorType TOKEN_INVALID|TOKEN_EXPIRED|TOKEN_BLACKLISTED) or account DELETED/BLOCKED/INACTIVE (errorType ACCOUNT_DELETED|USER_BLOCKED|ACCOUNT_INACTIVE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: User from token not found (errorType USER_NOT_FOUND) | Event not found or unavailable | Ticket tier not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      description: 'T-006: the chosen ticket tier is stored on the purchase (ticketTierId and ticketTierName snapshot, written in the same transaction as the soldCount increment) and returned on data.eventPurchase; both are null when no ticketTierId is sent. Errors: 404 Event not found or unavailable (missing, deactivated or not UPCOMING) or Ticket tier not found; 409 Ticket sales are closed for this event, or Ticket tier is sold out; 422 A buyer date of birth is required, or Buyer age is invalid.'
   /api/v1/payment/intent:
     post:
       tags: [Payment]
@@ -12521,3 +12578,3825 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
       deprecated: true
+
+  /api/v1/hosts:
+    post:
+      operationId: postHosts
+      tags:
+        - Hosts
+      summary: Create a VIP host (owner's host directory)
+      description: Creates a VipHost owned by the caller. Body .strict.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                role:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                isVerified:
+                  type: boolean
+                  default: false
+                photo:
+                  type: string
+                  format: uri
+                  nullable: true
+                whatsapp:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                  nullable: true
+                phone:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                  nullable: true
+                email:
+                  type: string
+                  format: email
+                  nullable: true
+                bio:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
+                officialPricesNote:
+                  type: string
+                  maxLength: 1000
+                  nullable: true
+                isActive:
+                  type: boolean
+                  default: true
+              required:
+                - name
+                - role
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Host created successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      role:
+                        type: string
+                      isVerified:
+                        type: boolean
+                      photo:
+                        type: string
+                        nullable: true
+                      whatsapp:
+                        type: string
+                        nullable: true
+                      phone:
+                        type: string
+                        nullable: true
+                      email:
+                        type: string
+                        nullable: true
+                      bio:
+                        type: string
+                        nullable: true
+                      officialPricesNote:
+                        type: string
+                        nullable: true
+                      isActive:
+                        type: boolean
+                    required:
+                      - id
+                      - name
+                      - role
+                      - isVerified
+                      - photo
+                      - whatsapp
+                      - phone
+                      - email
+                      - bio
+                      - officialPricesNote
+                      - isActive
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request body validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: '- ACCESS_DENIED: ''Access denied: Requires club owner privileges'' (accountRole must be CLUB_OWNER)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: '- USER_NOT_FOUND: ''User not found'' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    get:
+      operationId: getHosts
+      tags:
+        - Hosts
+      summary: List the owner's hosts
+      description: All VipHosts with ownerUserId = caller (incl. inactive), newest first. No pagination.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Hosts retrieved successfully
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        role:
+                          type: string
+                        isVerified:
+                          type: boolean
+                        photo:
+                          type: string
+                          nullable: true
+                        whatsapp:
+                          type: string
+                          nullable: true
+                        phone:
+                          type: string
+                          nullable: true
+                        email:
+                          type: string
+                          nullable: true
+                        bio:
+                          type: string
+                          nullable: true
+                        officialPricesNote:
+                          type: string
+                          nullable: true
+                        isActive:
+                          type: boolean
+                      required:
+                        - id
+                        - name
+                        - role
+                        - isVerified
+                        - photo
+                        - whatsapp
+                        - phone
+                        - email
+                        - bio
+                        - officialPricesNote
+                        - isActive
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: '- ACCESS_DENIED: ''Access denied: Requires club owner privileges'' (accountRole must be CLUB_OWNER)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: '- USER_NOT_FOUND: ''User not found'' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/hosts/{id}:
+    put:
+      operationId: putHostsId
+      tags:
+        - Hosts
+      summary: Update an owned host (partial)
+      description: 'Service assertOwnedHost: 404 if missing, 403 if ownerUserId != caller. At least one field required; body .strict.'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                role:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                isVerified:
+                  type: boolean
+                photo:
+                  type: string
+                  format: uri
+                  nullable: true
+                whatsapp:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                  nullable: true
+                phone:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                  nullable: true
+                email:
+                  type: string
+                  format: email
+                  nullable: true
+                bio:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
+                officialPricesNote:
+                  type: string
+                  maxLength: 1000
+                  nullable: true
+                isActive:
+                  type: boolean
+              minProperties: 1
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Host updated successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      role:
+                        type: string
+                      isVerified:
+                        type: boolean
+                      photo:
+                        type: string
+                        nullable: true
+                      whatsapp:
+                        type: string
+                        nullable: true
+                      phone:
+                        type: string
+                        nullable: true
+                      email:
+                        type: string
+                        nullable: true
+                      bio:
+                        type: string
+                        nullable: true
+                      officialPricesNote:
+                        type: string
+                        nullable: true
+                      isActive:
+                        type: boolean
+                    required:
+                      - id
+                      - name
+                      - role
+                      - isVerified
+                      - photo
+                      - whatsapp
+                      - phone
+                      - email
+                      - bio
+                      - officialPricesNote
+                      - isActive
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed; Request body validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this host' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Host not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    delete:
+      operationId: deleteHostsId
+      tags:
+        - Hosts
+      summary: Delete an owned host
+      description: Hard delete after assertOwnedHost (404/403). Event/club links and contacts cascade (relation onDelete behaviour of link tables not traced).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Host deleted successfully
+                  data:
+                    type: 'null'
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this host' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Host not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/hosts/{id}/contact:
+    post:
+      operationId: postHostsIdContact
+      tags:
+        - Hosts
+      summary: Send an inquiry to a VIP host (public)
+      description: 'Open to guests; a bearer token is optional but its identity is NOT used or stored (HostContact has no userId). Host must exist and be active (404 ''Host not found''). If eventId given: event must exist & be active (404 ''Event not found'') and the host must be assigned to that event (422 ''Host is not assigned to this event''); the inquiry then notifies that event''s owner, otherwise the host''s owner (push HOST_INQUIRY) and queues SEND_HOST_CONTACT_EMAIL. Body accepts `message` or PascalCase `Message` (normalised). Body is .strict. No rate limiting observed.'
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: host id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                message:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                  description: '`Message` also accepted'
+                eventId:
+                  type: string
+                  format: uuid
+              required:
+                - name
+                - email
+                - phone
+                - message
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Host contact submitted successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      hostId:
+                        type: string
+                        format: uuid
+                      eventId:
+                        type: string
+                        format: uuid
+                        nullable: true
+                      whatsapp:
+                        type: string
+                        nullable: true
+                    required:
+                      - id
+                      - hostId
+                      - eventId
+                      - whatsapp
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: '- ''Host is not assigned to this event'' (service-level)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - Only when an Authorization header IS sent: TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - Only when an Authorization header IS sent: TOKEN_EXPIRED: 'Token has been expired'
+            - Only when an Authorization header IS sent: TOKEN_BLACKLISTED: 'Token has been revoked'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - 'Host not found' (missing/inactive) (no errorType)
+            - 'Event not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/club/{clubId}/hosts:
+    post:
+      operationId: postClubClubIdHosts
+      tags:
+        - Hosts
+      summary: Assign an owned host to an owned club
+      description: Club must exist/active (404 'Club not found'), owned (403 'You do not own this club'); host assertOwnedHost (404/403); host active (409). Idempotent (201 even if already attached). Body .strict.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hostId:
+                  type: string
+                  format: uuid
+              required:
+                - hostId
+      responses:
+        '201':
+          description: Created (also returned when already attached)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Host attached to club successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      role:
+                        type: string
+                      isVerified:
+                        type: boolean
+                      photo:
+                        type: string
+                        nullable: true
+                      whatsapp:
+                        type: string
+                        nullable: true
+                      phone:
+                        type: string
+                        nullable: true
+                      email:
+                        type: string
+                        nullable: true
+                      bio:
+                        type: string
+                        nullable: true
+                      officialPricesNote:
+                        type: string
+                        nullable: true
+                    required:
+                      - id
+                      - name
+                      - role
+                      - isVerified
+                      - photo
+                      - whatsapp
+                      - phone
+                      - email
+                      - bio
+                      - officialPricesNote
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed; Request body validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this club' (no errorType)
+            - 'You do not own this host' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Club not found' (no errorType)
+            - 'Host not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: '- ''Host is inactive'' (no errorType)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/event/{eventId}/hosts:
+    post:
+      operationId: postEventEventIdHosts
+      tags:
+        - Hosts
+      summary: Assign an owned host to an owned event
+      description: 'Event must exist/active (404), owned (403); host via assertOwnedHost (404/403); host must be active (409 ''Host is inactive''). Idempotent: if already linked returns the host again with 201. Body .strict.'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hostId:
+                  type: string
+                  format: uuid
+              required:
+                - hostId
+      responses:
+        '201':
+          description: Created (also returned when already attached)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Host attached to event successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      role:
+                        type: string
+                      isVerified:
+                        type: boolean
+                      photo:
+                        type: string
+                        nullable: true
+                      whatsapp:
+                        type: string
+                        nullable: true
+                      phone:
+                        type: string
+                        nullable: true
+                      email:
+                        type: string
+                        nullable: true
+                      bio:
+                        type: string
+                        nullable: true
+                      officialPricesNote:
+                        type: string
+                        nullable: true
+                    required:
+                      - id
+                      - name
+                      - role
+                      - isVerified
+                      - photo
+                      - whatsapp
+                      - phone
+                      - email
+                      - bio
+                      - officialPricesNote
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed; Request body validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this event' (no errorType)
+            - 'You do not own this host' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Event not found' (missing or deactivated) (no errorType)
+            - 'Host not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: '- ''Host is inactive'' (no errorType)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    get:
+      operationId: getEventEventIdHosts
+      tags:
+        - Hosts
+      summary: List hosts assigned to an owned event
+      description: Event must exist/active (404) and be owned (403). Slim host shape, oldest assignment first.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Event hosts retrieved successfully
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        role:
+                          type: string
+                        email:
+                          type: string
+                          nullable: true
+                        phone:
+                          type: string
+                          nullable: true
+                      required:
+                        - id
+                        - name
+                        - role
+                        - email
+                        - phone
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this event' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Event not found' (missing or deactivated) (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/event/{eventId}/hosts/{hostId}:
+    delete:
+      operationId: deleteEventEventIdHostsHostId
+      tags:
+        - Hosts
+      summary: Unassign a host from an owned event
+      description: Event must exist/active (404), owned (403); link must exist (404 'Host is not assigned to this event').
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: hostId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Host unassigned from event successfully
+                  data:
+                    type: 'null'
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this event' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Event not found' (missing or deactivated) (no errorType)
+            - 'Host is not assigned to this event' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/event/{eventId}/host-inquiries:
+    get:
+      operationId: getEventEventIdHostInquiries
+      tags:
+        - Hosts
+      summary: List host inquiries for an owned event
+      description: Event must exist/active (404) and be owned (403). Newest first; no pagination.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Host inquiries retrieved successfully
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        hostId:
+                          type: string
+                          format: uuid
+                        hostName:
+                          type: string
+                        customerName:
+                          type: string
+                        customerEmail:
+                          type: string
+                        customerPhone:
+                          type: string
+                        message:
+                          type: string
+                        createdAt:
+                          type: string
+                          format: date-time
+                      required:
+                        - id
+                        - hostId
+                        - hostName
+                        - customerName
+                        - customerEmail
+                        - customerPhone
+                        - message
+                        - createdAt
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this event' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Event not found' (missing or deactivated) (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/event/{eventId}/modules:
+    get:
+      operationId: getEventEventIdModules
+      tags:
+        - Event Module
+      summary: List modules of an owned event
+      description: 'Service assertOwnedEvent: event must exist and not be deactivated (404 ''Event not found''), and event.userId must equal caller (403 ''You do not own this event''). Returns all modules (including inactive) ordered by sortOrder. No pagination.'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Modules retrieved successfully
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        eventId:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        image:
+                          type: string
+                          nullable: true
+                        description:
+                          type: string
+                          nullable: true
+                        maxGuests:
+                          type: integer
+                        startingPrice:
+                          type: string
+                          description: fixed 2dp string
+                        minSpend:
+                          type: string
+                        deposit:
+                          type: string
+                        currency:
+                          type: string
+                        quantity:
+                          type: integer
+                        remaining:
+                          type: integer
+                        venueArea:
+                          type: string
+                          nullable: true
+                        includedExtras:
+                          type: array
+                          items:
+                            type: string
+                        optionalExtras:
+                          type: array
+                          items:
+                            type: string
+                        status:
+                          type: string
+                          enum:
+                            - AVAILABLE
+                            - LIMITED
+                            - SOLD_OUT
+                            - UNAVAILABLE
+                          description: 'Resolved: UNAVAILABLE stays; remaining<=0 or SOLD_OUT -> SOLD_OUT; LIMITED or remaining<quantity -> LIMITED'
+                        sortOrder:
+                          type: integer
+                        isActive:
+                          type: boolean
+                      required:
+                        - id
+                        - eventId
+                        - name
+                        - image
+                        - description
+                        - maxGuests
+                        - startingPrice
+                        - minSpend
+                        - deposit
+                        - currency
+                        - quantity
+                        - remaining
+                        - venueArea
+                        - includedExtras
+                        - optionalExtras
+                        - status
+                        - sortOrder
+                        - isActive
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this event' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Event not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    post:
+      operationId: postEventEventIdModules
+      tags:
+        - Event Module
+      summary: Create a VIP module (table/area) on an owned event
+      description: 'Service assertOwnedEvent: event must exist and not be deactivated (404 ''Event not found''), and event.userId must equal caller (403 ''You do not own this event''). remaining is set = quantity; sortOrder defaults to max+1; currency defaults to ''EUR'' via schema (the event-currency fallback in the service is effectively dead because schema supplies a default). Body is .strict.'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                image:
+                  type: string
+                  format: uri
+                  nullable: true
+                description:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
+                maxGuests:
+                  type: integer
+                  minimum: 0
+                  exclusiveMinimum: true
+                startingPrice:
+                  type: string
+                  pattern: ^\d+(\.\d{1,2})?$
+                  description: Decimal string, up to 2dp (a number is also accepted and stringified)
+                minSpend:
+                  type: string
+                  pattern: ^\d+(\.\d{1,2})?$
+                  description: Decimal string, up to 2dp (a number is also accepted and stringified)
+                  default: '0.00'
+                deposit:
+                  type: string
+                  pattern: ^\d+(\.\d{1,2})?$
+                  description: Decimal string, up to 2dp (a number is also accepted and stringified)
+                  default: '0.00'
+                currency:
+                  type: string
+                  minLength: 3
+                  maxLength: 3
+                  default: EUR
+                quantity:
+                  type: integer
+                  minimum: 0
+                  exclusiveMinimum: true
+                venueArea:
+                  type: string
+                  maxLength: 120
+                  nullable: true
+                includedExtras:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                  default: []
+                optionalExtras:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                  default: []
+                status:
+                  type: string
+                  enum:
+                    - AVAILABLE
+                    - LIMITED
+                    - SOLD_OUT
+                    - UNAVAILABLE
+                  default: AVAILABLE
+                sortOrder:
+                  type: integer
+                  minimum: 0
+                isActive:
+                  type: boolean
+                  default: true
+              required:
+                - name
+                - maxGuests
+                - startingPrice
+                - quantity
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Module created successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      eventId:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      image:
+                        type: string
+                        nullable: true
+                      description:
+                        type: string
+                        nullable: true
+                      maxGuests:
+                        type: integer
+                      startingPrice:
+                        type: string
+                        description: fixed 2dp string
+                      minSpend:
+                        type: string
+                      deposit:
+                        type: string
+                      currency:
+                        type: string
+                      quantity:
+                        type: integer
+                      remaining:
+                        type: integer
+                      venueArea:
+                        type: string
+                        nullable: true
+                      includedExtras:
+                        type: array
+                        items:
+                          type: string
+                      optionalExtras:
+                        type: array
+                        items:
+                          type: string
+                      status:
+                        type: string
+                        enum:
+                          - AVAILABLE
+                          - LIMITED
+                          - SOLD_OUT
+                          - UNAVAILABLE
+                        description: 'Resolved: UNAVAILABLE stays; remaining<=0 or SOLD_OUT -> SOLD_OUT; LIMITED or remaining<quantity -> LIMITED'
+                      sortOrder:
+                        type: integer
+                      isActive:
+                        type: boolean
+                    required:
+                      - id
+                      - eventId
+                      - name
+                      - image
+                      - description
+                      - maxGuests
+                      - startingPrice
+                      - minSpend
+                      - deposit
+                      - currency
+                      - quantity
+                      - remaining
+                      - venueArea
+                      - includedExtras
+                      - optionalExtras
+                      - status
+                      - sortOrder
+                      - isActive
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed; Request body validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this event' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Event not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/event/{eventId}/modules/{id}:
+    put:
+      operationId: putEventEventIdModulesId
+      tags:
+        - Event Module
+      summary: Update a module (partial)
+      description: 'Service assertOwnedEvent: event must exist and not be deactivated (404 ''Event not found''), and event.userId must equal caller (403 ''You do not own this event''). At least one field required (422), body .strict. If `quantity` changes without `remaining`, remaining is recomputed as max(0, newQuantity - sold) where sold = oldQuantity - oldRemaining. If resulting remaining > quantity -> 422 ''remaining cannot exceed quantity'' (statusCode 422; `errors` array dropped by global handler).'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: module id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                image:
+                  type: string
+                  format: uri
+                  nullable: true
+                description:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
+                maxGuests:
+                  type: integer
+                  minimum: 0
+                  exclusiveMinimum: true
+                startingPrice:
+                  type: string
+                  pattern: ^\d+(\.\d{1,2})?$
+                  description: Decimal string, up to 2dp (a number is also accepted and stringified)
+                minSpend:
+                  type: string
+                  pattern: ^\d+(\.\d{1,2})?$
+                  description: Decimal string, up to 2dp (a number is also accepted and stringified)
+                deposit:
+                  type: string
+                  pattern: ^\d+(\.\d{1,2})?$
+                  description: Decimal string, up to 2dp (a number is also accepted and stringified)
+                currency:
+                  type: string
+                  minLength: 3
+                  maxLength: 3
+                quantity:
+                  type: integer
+                  minimum: 0
+                  exclusiveMinimum: true
+                venueArea:
+                  type: string
+                  maxLength: 120
+                  nullable: true
+                includedExtras:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                optionalExtras:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                status:
+                  type: string
+                  enum:
+                    - AVAILABLE
+                    - LIMITED
+                    - SOLD_OUT
+                    - UNAVAILABLE
+                sortOrder:
+                  type: integer
+                  minimum: 0
+                isActive:
+                  type: boolean
+                remaining:
+                  type: integer
+                  minimum: 0
+                  description: Must be <= quantity (else 422)
+              minProperties: 1
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Module updated successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      eventId:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      image:
+                        type: string
+                        nullable: true
+                      description:
+                        type: string
+                        nullable: true
+                      maxGuests:
+                        type: integer
+                      startingPrice:
+                        type: string
+                        description: fixed 2dp string
+                      minSpend:
+                        type: string
+                      deposit:
+                        type: string
+                      currency:
+                        type: string
+                      quantity:
+                        type: integer
+                      remaining:
+                        type: integer
+                      venueArea:
+                        type: string
+                        nullable: true
+                      includedExtras:
+                        type: array
+                        items:
+                          type: string
+                      optionalExtras:
+                        type: array
+                        items:
+                          type: string
+                      status:
+                        type: string
+                        enum:
+                          - AVAILABLE
+                          - LIMITED
+                          - SOLD_OUT
+                          - UNAVAILABLE
+                        description: 'Resolved: UNAVAILABLE stays; remaining<=0 or SOLD_OUT -> SOLD_OUT; LIMITED or remaining<quantity -> LIMITED'
+                      sortOrder:
+                        type: integer
+                      isActive:
+                        type: boolean
+                    required:
+                      - id
+                      - eventId
+                      - name
+                      - image
+                      - description
+                      - maxGuests
+                      - startingPrice
+                      - minSpend
+                      - deposit
+                      - currency
+                      - quantity
+                      - remaining
+                      - venueArea
+                      - includedExtras
+                      - optionalExtras
+                      - status
+                      - sortOrder
+                      - isActive
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: '- ''remaining cannot exceed quantity'' (service-level)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this event' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Event not found' (no errorType)
+            - 'Module not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    delete:
+      operationId: deleteEventEventIdModulesId
+      tags:
+        - Event Module
+      summary: Delete a module
+      description: 'Service assertOwnedEvent: event must exist and not be deactivated (404 ''Event not found''), and event.userId must equal caller (403 ''You do not own this event''). Hard delete (prisma.eventModule.delete). Quote rows cascade-delete, but EventModulePurchase.module is onDelete: Restrict, so deleting a module that has purchases returns 409 {success:false, message:''Module has purchases and cannot be deleted; deactivate it instead'', errorType:''FOREIGN_KEY_CONFLICT'', traceId} via mapPrismaError (T-013; was an unmapped Prisma FK error -> 500). The module is not deleted. A module that disappears between the lookup and the delete returns 404 ''Module not found'' (NOT_FOUND).'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: module id
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Module deleted successfully
+                  data:
+                    type: 'null'
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this event' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Event not found' (no errorType)
+            - 'Module not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: 'FOREIGN_KEY_CONFLICT: ''Module has purchases and cannot be deleted; deactivate it instead'' (was 500; implemented in T-013)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/event/{eventId}/modules/reorder:
+    post:
+      operationId: postEventEventIdModulesReorder
+      tags:
+        - Event Module
+      summary: Reorder all modules of an owned event
+      description: 'Service assertOwnedEvent: event must exist and not be deactivated (404 ''Event not found''), and event.userId must equal caller (403 ''You do not own this event''). `ids` must contain every module id of the event exactly once, else 422 (service throws statusCode 422 with an `errors` array that the global handler DROPS; response is {success,message,traceId}). sortOrder is rewritten 1..n.'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: string
+                    format: uuid
+              required:
+                - ids
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Modules reordered successfully
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        eventId:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        image:
+                          type: string
+                          nullable: true
+                        description:
+                          type: string
+                          nullable: true
+                        maxGuests:
+                          type: integer
+                        startingPrice:
+                          type: string
+                          description: fixed 2dp string
+                        minSpend:
+                          type: string
+                        deposit:
+                          type: string
+                        currency:
+                          type: string
+                        quantity:
+                          type: integer
+                        remaining:
+                          type: integer
+                        venueArea:
+                          type: string
+                          nullable: true
+                        includedExtras:
+                          type: array
+                          items:
+                            type: string
+                        optionalExtras:
+                          type: array
+                          items:
+                            type: string
+                        status:
+                          type: string
+                          enum:
+                            - AVAILABLE
+                            - LIMITED
+                            - SOLD_OUT
+                            - UNAVAILABLE
+                          description: 'Resolved: UNAVAILABLE stays; remaining<=0 or SOLD_OUT -> SOLD_OUT; LIMITED or remaining<quantity -> LIMITED'
+                        sortOrder:
+                          type: integer
+                        isActive:
+                          type: boolean
+                      required:
+                        - id
+                        - eventId
+                        - name
+                        - image
+                        - description
+                        - maxGuests
+                        - startingPrice
+                        - minSpend
+                        - deposit
+                        - currency
+                        - quantity
+                        - remaining
+                        - venueArea
+                        - includedExtras
+                        - optionalExtras
+                        - status
+                        - sortOrder
+                        - isActive
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: '- ''ids must include every module for this event exactly once'' (service-level; no errorType, no `errors` array in response)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this event' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Event not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/event/{eventId}/modules/{id}/duplicate:
+    post:
+      operationId: postEventEventIdModulesIdDuplicate
+      tags:
+        - Event Module
+      summary: Duplicate a module
+      description: 'Service assertOwnedEvent: event must exist and not be deactivated (404 ''Event not found''), and event.userId must equal caller (403 ''You do not own this event''). Module must belong to event (404 ''Module not found''). Copy: name ''<name> (Copy)'', remaining=quantity, status AVAILABLE, isActive true, sortOrder max+1.'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: module id
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Module duplicated successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      eventId:
+                        type: string
+                        format: uuid
+                      name:
+                        type: string
+                      image:
+                        type: string
+                        nullable: true
+                      description:
+                        type: string
+                        nullable: true
+                      maxGuests:
+                        type: integer
+                      startingPrice:
+                        type: string
+                        description: fixed 2dp string
+                      minSpend:
+                        type: string
+                      deposit:
+                        type: string
+                      currency:
+                        type: string
+                      quantity:
+                        type: integer
+                      remaining:
+                        type: integer
+                      venueArea:
+                        type: string
+                        nullable: true
+                      includedExtras:
+                        type: array
+                        items:
+                          type: string
+                      optionalExtras:
+                        type: array
+                        items:
+                          type: string
+                      status:
+                        type: string
+                        enum:
+                          - AVAILABLE
+                          - LIMITED
+                          - SOLD_OUT
+                          - UNAVAILABLE
+                        description: 'Resolved: UNAVAILABLE stays; remaining<=0 or SOLD_OUT -> SOLD_OUT; LIMITED or remaining<quantity -> LIMITED'
+                      sortOrder:
+                        type: integer
+                      isActive:
+                        type: boolean
+                    required:
+                      - id
+                      - eventId
+                      - name
+                      - image
+                      - description
+                      - maxGuests
+                      - startingPrice
+                      - minSpend
+                      - deposit
+                      - currency
+                      - quantity
+                      - remaining
+                      - venueArea
+                      - includedExtras
+                      - optionalExtras
+                      - status
+                      - sortOrder
+                      - isActive
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this event' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Event not found' (no errorType)
+            - 'Module not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/event/{eventId}/guest-list:
+    get:
+      operationId: getEventEventIdGuestList
+      tags:
+        - Guest List
+      summary: Get the guest-list configuration of an owned event
+      description: 'Service assertOwnedEvent: event must exist and not be deactivated (404 ''Event not found''), and event.userId must equal caller (403 ''You do not own this event''). 404 ''Guest list not configured'' if none has been PUT yet.'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Guest list retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      eventId:
+                        type: string
+                        format: uuid
+                      isEnabled:
+                        type: boolean
+                      daysBefore:
+                        type: integer
+                        nullable: true
+                      cutoffAt:
+                        type: string
+                        format: date-time
+                        nullable: true
+                      arrivalTimes:
+                        type: array
+                        items:
+                          type: string
+                      maleCap:
+                        type: integer
+                        nullable: true
+                      femaleCap:
+                        type: integer
+                        nullable: true
+                      freeSpots:
+                        type: integer
+                        nullable: true
+                      dressCode:
+                        type: string
+                        nullable: true
+                      idRequired:
+                        type: boolean
+                      notes:
+                        type: string
+                        nullable: true
+                      used:
+                        type: object
+                        properties:
+                          men:
+                            type: integer
+                          women:
+                            type: integer
+                          other:
+                            type: integer
+                          total:
+                            type: integer
+                        required:
+                          - men
+                          - women
+                          - other
+                          - total
+                        description: Sum of PENDING+CONFIRMED entries
+                      fallbacks:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            type:
+                              type: string
+                              enum:
+                                - TICKET_TIER
+                                - MODULE
+                                - CLUB_PACKAGE
+                                - WAITING_LIST
+                            id:
+                              type: string
+                              description: target id
+                            label:
+                              type: string
+                              description: Resolved display name; falls back to the id when the target no longer exists
+                          required:
+                            - type
+                            - id
+                            - label
+                    required:
+                      - id
+                      - eventId
+                      - isEnabled
+                      - daysBefore
+                      - cutoffAt
+                      - arrivalTimes
+                      - maleCap
+                      - femaleCap
+                      - freeSpots
+                      - dressCode
+                      - idRequired
+                      - notes
+                      - used
+                      - fallbacks
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this event' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Event not found' (no errorType)
+            - 'Guest list not configured' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    put:
+      operationId: putEventEventIdGuestList
+      tags:
+        - Guest List
+      summary: Create or replace the guest-list configuration
+      description: 'Service assertOwnedEvent: event must exist and not be deactivated (404 ''Event not found''), and event.userId must equal caller (403 ''You do not own this event''). Upsert (one list per event). Fallbacks are fully replaced; each fallback target is validated: TICKET_TIER/MODULE must belong to this event, CLUB_PACKAGE must exist (any club - not checked for ownership), WAITING_LIST id must be an active club (any club). Failures -> 422 ''fallbacks[i]: ...''. Body .strict. Response `used` counts PENDING+CONFIRMED entries.'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isEnabled:
+                  type: boolean
+                daysBefore:
+                  type: integer
+                  minimum: 0
+                  nullable: true
+                cutoffAt:
+                  type: string
+                  format: date-time
+                  description: ISO datetime WITH offset required
+                  nullable: true
+                arrivalTimes:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                  default: []
+                  description: Empty = any time allowed
+                maleCap:
+                  type: integer
+                  minimum: 0
+                  nullable: true
+                femaleCap:
+                  type: integer
+                  minimum: 0
+                  nullable: true
+                freeSpots:
+                  type: integer
+                  minimum: 0
+                  nullable: true
+                dressCode:
+                  type: string
+                  maxLength: 500
+                  nullable: true
+                idRequired:
+                  type: boolean
+                  default: false
+                notes:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
+                fallbacks:
+                  type: array
+                  default: []
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        enum:
+                          - TICKET_TIER
+                          - MODULE
+                          - CLUB_PACKAGE
+                          - WAITING_LIST
+                      id:
+                        type: string
+                        format: uuid
+                    required:
+                      - type
+                      - id
+                  description: Order defines sortOrder
+              required:
+                - isEnabled
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Guest list updated successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      eventId:
+                        type: string
+                        format: uuid
+                      isEnabled:
+                        type: boolean
+                      daysBefore:
+                        type: integer
+                        nullable: true
+                      cutoffAt:
+                        type: string
+                        format: date-time
+                        nullable: true
+                      arrivalTimes:
+                        type: array
+                        items:
+                          type: string
+                      maleCap:
+                        type: integer
+                        nullable: true
+                      femaleCap:
+                        type: integer
+                        nullable: true
+                      freeSpots:
+                        type: integer
+                        nullable: true
+                      dressCode:
+                        type: string
+                        nullable: true
+                      idRequired:
+                        type: boolean
+                      notes:
+                        type: string
+                        nullable: true
+                      used:
+                        type: object
+                        properties:
+                          men:
+                            type: integer
+                          women:
+                            type: integer
+                          other:
+                            type: integer
+                          total:
+                            type: integer
+                        required:
+                          - men
+                          - women
+                          - other
+                          - total
+                        description: Sum of PENDING+CONFIRMED entries
+                      fallbacks:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            type:
+                              type: string
+                              enum:
+                                - TICKET_TIER
+                                - MODULE
+                                - CLUB_PACKAGE
+                                - WAITING_LIST
+                            id:
+                              type: string
+                              description: target id
+                            label:
+                              type: string
+                              description: Resolved display name; falls back to the id when the target no longer exists
+                          required:
+                            - type
+                            - id
+                            - label
+                    required:
+                      - id
+                      - eventId
+                      - isEnabled
+                      - daysBefore
+                      - cutoffAt
+                      - arrivalTimes
+                      - maleCap
+                      - femaleCap
+                      - freeSpots
+                      - dressCode
+                      - idRequired
+                      - notes
+                      - used
+                      - fallbacks
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: '- ''fallbacks[i]: ticket tier not found on this event'' / ''module not found on this event'' / ''club package not found'' / ''club not found for waiting list'' (no errorType)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this event' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Event not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/event/{eventId}/guest-list/entries:
+    get:
+      operationId: getEventEventIdGuestListEntries
+      tags:
+        - Guest List
+      summary: List guest-list entries (owner)
+      description: 'Service assertOwnedEvent: event must exist and not be deactivated (404 ''Event not found''), and event.userId must equal caller (403 ''You do not own this event''). Oldest first. If no guest list exists returns empty data with meta totalPages 1. Meta has no `links`.'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Guest list entries retrieved successfully
+                  meta:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      total:
+                        type: integer
+                      totalPages:
+                        type: integer
+                    required:
+                      - page
+                      - limit
+                      - total
+                      - totalPages
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        guestListId:
+                          type: string
+                          format: uuid
+                        userId:
+                          type: string
+                          format: uuid
+                          nullable: true
+                        name:
+                          type: string
+                        email:
+                          type: string
+                        phone:
+                          type: string
+                        menCount:
+                          type: integer
+                        womenCount:
+                          type: integer
+                        otherCount:
+                          type: integer
+                        arrivalTime:
+                          type: string
+                          description: '''Anytime'' when blank'
+                        status:
+                          type: string
+                          enum:
+                            - PENDING
+                            - CONFIRMED
+                            - REJECTED
+                        acceptedTerms:
+                          type: boolean
+                        createdAt:
+                          type: string
+                          format: date-time
+                      required:
+                        - id
+                        - guestListId
+                        - userId
+                        - name
+                        - email
+                        - phone
+                        - menCount
+                        - womenCount
+                        - otherCount
+                        - arrivalTime
+                        - status
+                        - acceptedTerms
+                        - createdAt
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - meta
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed; Request query validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this event' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Event not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/event/{eventId}/guest-list/entries/{id}:
+    put:
+      operationId: putEventEventIdGuestListEntriesId
+      tags:
+        - Guest List
+      summary: Confirm or reject a guest-list entry (owner)
+      description: 'Service assertOwnedEvent: event must exist and not be deactivated (404 ''Event not found''), and event.userId must equal caller (403 ''You do not own this event''). Entry must belong to this event''s guest list (404 ''Guest list entry not found''). Sends GUEST_LIST_CONFIRMED / GUEST_LIST_REJECTED push to entry.userId when set. Can flip status repeatedly (no state-machine check). Body .strict.'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: entry id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - CONFIRMED
+                    - REJECTED
+              required:
+                - status
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Guest list entry updated successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      guestListId:
+                        type: string
+                        format: uuid
+                      userId:
+                        type: string
+                        format: uuid
+                        nullable: true
+                      name:
+                        type: string
+                      email:
+                        type: string
+                      phone:
+                        type: string
+                      menCount:
+                        type: integer
+                      womenCount:
+                        type: integer
+                      otherCount:
+                        type: integer
+                      arrivalTime:
+                        type: string
+                        description: '''Anytime'' when blank'
+                      status:
+                        type: string
+                        enum:
+                          - PENDING
+                          - CONFIRMED
+                          - REJECTED
+                      acceptedTerms:
+                        type: boolean
+                      createdAt:
+                        type: string
+                        format: date-time
+                    required:
+                      - id
+                      - guestListId
+                      - userId
+                      - name
+                      - email
+                      - phone
+                      - menCount
+                      - womenCount
+                      - otherCount
+                      - arrivalTime
+                      - status
+                      - acceptedTerms
+                      - createdAt
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed; Request body validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this event' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Event not found' (no errorType)
+            - 'Guest list entry not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/event/{eventId}/guest-list/join:
+    post:
+      operationId: postEventEventIdGuestListJoin
+      tags:
+        - Guest List
+      summary: Join an event's guest list
+      description: 'Any authenticated user (the controller tolerates a missing user, but the route requires a token). Entry is created PENDING with userId = caller. Service checks: event exists & active (404); guestList enabled (409 ''Guest list is closed''); computeIsOpen = enabled, before cutoffAt, after (startAt - daysBefore days), and freeSpots not exhausted (409 ''Guest list is closed or full''); arrivalTime must be in arrivalTimes when owner configured any (422); party size <= remaining total (409), men <= remaining male cap (409), women <= remaining female cap (409). Duplicate check (T-020, BUG-B29): a user with a PENDING or CONFIRMED entry (CONFIRMED is the approved state in the schema) for the same event gets 409 GUEST_LIST_DUPLICATE; a REJECTED entry does not block a new request. Check and insert run in one transaction under a pg_advisory_xact_lock on user and event, so parallel identical joins create one row. Body .strict; at least one guest required (422 on menCount).'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                menCount:
+                  type: integer
+                  minimum: 0
+                  default: 0
+                womenCount:
+                  type: integer
+                  minimum: 0
+                  default: 0
+                otherCount:
+                  type: integer
+                  minimum: 0
+                  default: 0
+                arrivalTime:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                  default: Anytime
+                  description: null/''/omitted -> 'Anytime'
+                acceptedTerms:
+                  type: boolean
+                  enum:
+                    - true
+              required:
+                - name
+                - email
+                - phone
+                - acceptedTerms
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Joined guest list successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        enum:
+                          - PENDING
+                      menCount:
+                        type: integer
+                      womenCount:
+                        type: integer
+                      otherCount:
+                        type: integer
+                    required:
+                      - id
+                      - status
+                      - menCount
+                      - womenCount
+                      - otherCount
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: '- ''arrivalTime is not available for this guest list'' (service-level)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Event not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: '- ''Guest list is closed'' / ''Guest list is closed or full'' / ''Guest list does not have enough spots'' / ''Male guest list capacity reached'' / ''Female guest list capacity reached'' (no errorType) | GUEST_LIST_DUPLICATE: ''You already have an active request for this guest list'' (T-020)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/quotes:
+    get:
+      operationId: getQuotes
+      tags:
+        - Quotes
+      summary: List quote requests across the owner's events
+      description: Scoped in the service to quotes whose event.userId = caller and event not deactivated. Newest first. Meta has no `links`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Quotes retrieved successfully
+                  meta:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      total:
+                        type: integer
+                      totalPages:
+                        type: integer
+                    required:
+                      - page
+                      - limit
+                      - total
+                      - totalPages
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        eventId:
+                          type: string
+                          format: uuid
+                        moduleId:
+                          type: string
+                          format: uuid
+                        eventName:
+                          type: string
+                        moduleName:
+                          type: string
+                        tableName:
+                          type: string
+                          description: Duplicate of moduleName
+                        name:
+                          type: string
+                        email:
+                          type: string
+                        phone:
+                          type: string
+                        guestCount:
+                          type: integer
+                        message:
+                          type: string
+                        date:
+                          type: string
+                          format: date-time
+                          nullable: true
+                        status:
+                          type: string
+                          enum:
+                            - NEW
+                            - REPLIED
+                            - CLOSED
+                        createdAt:
+                          type: string
+                          format: date-time
+                        updatedAt:
+                          type: string
+                          format: date-time
+                        event:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                            name:
+                              type: string
+                          required:
+                            - id
+                            - name
+                        module:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                            name:
+                              type: string
+                            venueArea:
+                              type: string
+                              nullable: true
+                          required:
+                            - id
+                            - name
+                            - venueArea
+                      required:
+                        - id
+                        - eventId
+                        - moduleId
+                        - eventName
+                        - moduleName
+                        - tableName
+                        - name
+                        - email
+                        - phone
+                        - guestCount
+                        - message
+                        - date
+                        - status
+                        - createdAt
+                        - updatedAt
+                        - event
+                        - module
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - meta
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request query validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: '- ACCESS_DENIED: ''Access denied: Requires club owner privileges'' (accountRole must be CLUB_OWNER)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: '- USER_NOT_FOUND: ''User not found'' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    post:
+      operationId: postQuotes
+      tags:
+        - Quotes
+      summary: Request a quote for a VIP module (public)
+      description: No authentication (not even optional); no rate limiting observed. Event must exist & be active (404 'Event not found'); module must belong to the event, be isActive and not UNAVAILABLE (404 'Module not found'). Body accepts `message` or PascalCase `Message`; .strict. No notification is sent to the owner (not traced in this service).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                eventId:
+                  type: string
+                  format: uuid
+                moduleId:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                guestCount:
+                  type: integer
+                  minimum: 0
+                  exclusiveMinimum: true
+                message:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                  description: '`Message` also accepted'
+                date:
+                  type: string
+                  format: date-time
+                  description: ISO datetime with offset
+                  nullable: true
+              required:
+                - eventId
+                - moduleId
+                - name
+                - email
+                - phone
+                - guestCount
+                - message
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Quote submitted successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        enum:
+                          - NEW
+                    required:
+                      - id
+                      - status
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request body validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - 'Event not found' (no errorType)
+            - 'Module not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      deprecated: true
+
+  /api/v1/quotes/{id}:
+    put:
+      operationId: putQuotesId
+      tags:
+        - Quotes
+      summary: Update quote status (owner)
+      description: 'Service: quote must exist and its event be active (404 ''Quote not found''); event.userId must equal caller (403 ''You do not own this quote''). Body .strict; any QuoteStatus allowed (no transition rules).'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: quote id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - NEW
+                    - REPLIED
+                    - CLOSED
+              required:
+                - status
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Quote updated successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      eventId:
+                        type: string
+                        format: uuid
+                      moduleId:
+                        type: string
+                        format: uuid
+                      eventName:
+                        type: string
+                      moduleName:
+                        type: string
+                      tableName:
+                        type: string
+                        description: Duplicate of moduleName
+                      name:
+                        type: string
+                      email:
+                        type: string
+                      phone:
+                        type: string
+                      guestCount:
+                        type: integer
+                      message:
+                        type: string
+                      date:
+                        type: string
+                        format: date-time
+                        nullable: true
+                      status:
+                        type: string
+                        enum:
+                          - NEW
+                          - REPLIED
+                          - CLOSED
+                      createdAt:
+                        type: string
+                        format: date-time
+                      updatedAt:
+                        type: string
+                        format: date-time
+                      event:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          name:
+                            type: string
+                        required:
+                          - id
+                          - name
+                      module:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          name:
+                            type: string
+                          venueArea:
+                            type: string
+                            nullable: true
+                        required:
+                          - id
+                          - name
+                          - venueArea
+                    required:
+                      - id
+                      - eventId
+                      - moduleId
+                      - eventName
+                      - moduleName
+                      - tableName
+                      - name
+                      - email
+                      - phone
+                      - guestCount
+                      - message
+                      - date
+                      - status
+                      - createdAt
+                      - updatedAt
+                      - event
+                      - module
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed; Request body validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '403':
+          description: |-
+            - ACCESS_DENIED: 'Access denied: Requires club owner privileges' (accountRole must be CLUB_OWNER)
+            - 'You do not own this quote' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Quote not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/purchase/module:
+    post:
+      operationId: postPurchaseModule
+      tags:
+        - Purchase
+      summary: Create an event VIP-module purchase (Order + 10-minute HOLD)
+      description: Creates a PENDING_PAYMENT Order and an EventModulePurchase in HOLD (10 min). module.remaining is decremented immediately (status SOLD_OUT at 0; an expiry job restores it). No extra pre-check middleware; the service throws {statusCode,message}. Replay by Idempotency-Key returns 200 (no body-equivalence check exists for module replays).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+          description: Required, max 255 chars. A missing or too long key returns 422.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - eventId
+                - moduleId
+                - guestCount
+              properties:
+                eventId:
+                  type: string
+                  format: uuid
+                moduleId:
+                  type: string
+                  format: uuid
+                quantity:
+                  type: integer
+                  minimum: 1
+                  default: 1
+                guestCount:
+                  type: integer
+                  minimum: 1
+                dateTime:
+                  type: string
+                  format: date-time
+                  description: ISO datetime with offset (any offset)
+                  nullable: true
+                promoCode:
+                  type: string
+      responses:
+        '201':
+          description: Created (200 when replayed)
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      order:
+                        type: object
+                        description: Prisma Order row (all columns; Prisma Decimals serialize as strings)
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          buyerUserId:
+                            type: string
+                            format: uuid
+                          sellerUserId:
+                            type: string
+                            format: uuid
+                          serviceType:
+                            type: string
+                            enum:
+                              - EVENT
+                              - CLUB
+                          status:
+                            type: string
+                            enum:
+                              - PENDING_PAYMENT
+                              - PAID
+                              - PAYMENT_FAILED
+                          idempotencyKey:
+                            type: string
+                          buyerName:
+                            type: string
+                          buyerPhoneNumber:
+                            type: string
+                          buyerDateOfBirth:
+                            type: string
+                            format: date-time
+                            nullable: true
+                          buyerGender:
+                            type: string
+                            enum:
+                              - MALE
+                              - FEMALE
+                              - OTHER
+                              - null
+                            nullable: true
+                          buyerImage:
+                            type: string
+                            nullable: true
+                          grossAmount:
+                            type: string
+                            description: Decimal as string
+                            example: '120.00'
+                          serviceChargeAmount:
+                            type: string
+                            description: Decimal as string
+                          buyerTotal:
+                            type: string
+                            description: Decimal as string - amount charged to the buyer
+                          commissionRate:
+                            type: string
+                            description: Decimal as string
+                          commissionAmount:
+                            type: string
+                            description: Decimal as string
+                          sellerEarnings:
+                            type: string
+                            description: Decimal as string
+                          currency:
+                            type: string
+                          checkedInAt:
+                            type: string
+                            format: date-time
+                            nullable: true
+                          createdAt:
+                            type: string
+                            format: date-time
+                          updatedAt:
+                            type: string
+                            format: date-time
+                      booking:
+                        type: object
+                        description: Prisma EventModulePurchase row
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          orderId:
+                            type: string
+                            format: uuid
+                          eventId:
+                            type: string
+                            format: uuid
+                          moduleId:
+                            type: string
+                            format: uuid
+                          status:
+                            type: string
+                            enum:
+                              - HOLD
+                              - BOOKED
+                              - EXPIRED
+                          quantity:
+                            type: integer
+                          guestCount:
+                            type: integer
+                          dateTime:
+                            type: string
+                            format: date-time
+                            nullable: true
+                          holdExpiresAt:
+                            type: string
+                            format: date-time
+                          moduleName:
+                            type: string
+                          venueArea:
+                            type: string
+                            nullable: true
+                          unitPrice:
+                            type: string
+                            description: Decimal as string
+                          createdAt:
+                            type: string
+                            format: date-time
+                          updatedAt:
+                            type: string
+                            format: date-time
+                      orderId:
+                        type: string
+                        format: uuid
+                      bookingId:
+                        type: string
+                        format: uuid
+        '401':
+          description: Token not found/invalid/expired/revoked (errorType TOKEN_INVALID|TOKEN_EXPIRED|TOKEN_BLACKLISTED) or account DELETED/BLOCKED/INACTIVE (errorType ACCOUNT_DELETED|USER_BLOCKED|ACCOUNT_INACTIVE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: User from token not found (errorType USER_NOT_FOUND) | Event not found | Module not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Idempotency-Key already used for a different purchase (see description for other 409s) | Ticket sales are closed for this event | Module is sold out or unavailable | Only N remaining for this module
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Idempotency-Key header missing or >255 chars ({success,message,traceId}, no errorType) or body validation failed ({success,message:'Request body validation failed',errors:[{field,code,message}],traceId}) | guestCount cannot exceed maxGuests (N)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/profile/deletion-preview:
+    get:
+      operationId: getProfileDeletionPreview
+      tags:
+        - Profile
+      summary: Preview effects of account deletion
+      description: 404 has no errorType.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Deletion preview retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      mode:
+                        type: string
+                        enum:
+                          - SOFT_DELETE
+                      canRestoreByAdmin:
+                        type: boolean
+                        enum:
+                          - true
+                      removed:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            key:
+                              type: string
+                            label:
+                              type: string
+                            count:
+                              type: integer
+                          required:
+                            - key
+                            - label
+                            - count
+                        description: 'keys: appAccess, sessionsAndPush, notifications, wishlists, follows, waitingLists'
+                      hiddenOrDeactivated:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            key:
+                              type: string
+                            label:
+                              type: string
+                            count:
+                              type: integer
+                          required:
+                            - key
+                            - label
+                            - count
+                        description: 'keys: ownedClubs, ownedEvents, vipHosts'
+                      retained:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            key:
+                              type: string
+                            label:
+                              type: string
+                            count:
+                              type: integer
+                          required:
+                            - key
+                            - label
+                            - count
+                        description: 'keys: profileIdentity, buyerOrders, sellerOrders, reviews'
+                      notes:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - mode
+                      - canRestoreByAdmin
+                      - removed
+                      - hiddenOrDeactivated
+                      - retained
+                      - notes
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+        '401':
+          description: Token not found (TOKEN_INVALID); Token has been revoked (TOKEN_BLACKLISTED); Token has been expired (TOKEN_EXPIRED); Token is invalid (TOKEN_INVALID); Your account has been deleted (ACCOUNT_DELETED); Your account has been blocked (USER_BLOCKED); Your account has been deactivated (ACCOUNT_INACTIVE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: User not found (USER_NOT_FOUND); Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
