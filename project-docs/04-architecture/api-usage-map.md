@@ -161,7 +161,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 |---|---|---|---|
 | `GET /event/{eventId}/guest-list` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:249` | - | Flutter only |
 | `PUT /event/{eventId}/guest-list` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:298` | - | Flutter only |
-| `POST /event/{eventId}/guest-list/join` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:59` | - | Flutter only |
+| `POST /event/{eventId}/guest-list/join` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:59` | - | Flutter only. T-020: a repeat join while a PENDING or CONFIRMED entry exists returns 409 GUEST_LIST_DUPLICATE (shown as a message; not tested in the app). |
 | `GET /event/{eventId}/guest-list/entries` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:278` | - | Flutter only |
 | `PUT /event/{eventId}/guest-list/entries/{id}` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:329` | - | Flutter only |
 

@@ -13297,7 +13297,7 @@ paths:
       - guestList
       summary: Join an event's guest list
       x-auth: 'user bearer: checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus (any role; no owner check) + validateReqParams + validateReqBody(joinGuestListSchema)'
-      description: 'Any authenticated user (the controller tolerates a missing user, but the route requires a token). Entry is created PENDING with userId = caller. Service checks: event exists & active (404); guestList enabled (409 ''Guest list is closed''); computeIsOpen = enabled, before cutoffAt, after (startAt - daysBefore days), and freeSpots not exhausted (409 ''Guest list is closed or full''); arrivalTime must be in arrivalTimes when owner configured any (422); party size <= remaining total (409), men <= remaining male cap (409), women <= remaining female cap (409). No duplicate-entry check (same user can join repeatedly). Body .strict(); at least one guest required (422 on menCount). TO-BE (CR-06, BUG-B29): A user with an existing PENDING or APPROVED entry for the same event gets 409 GUEST_LIST_DUPLICATE instead of a second entry.'
+      description: 'Any authenticated user (the controller tolerates a missing user, but the route requires a token). Entry is created PENDING with userId = caller. Service checks: event exists & active (404); guestList enabled (409 ''Guest list is closed''); computeIsOpen = enabled, before cutoffAt, after (startAt - daysBefore days), and freeSpots not exhausted (409 ''Guest list is closed or full''); arrivalTime must be in arrivalTimes when owner configured any (422); party size <= remaining total (409), men <= remaining male cap (409), women <= remaining female cap (409). Duplicate check (T-020, BUG-B29, tested locally, not deployed): a user with a PENDING or CONFIRMED entry (CONFIRMED is the approved state in the schema) for the same event gets 409 GUEST_LIST_DUPLICATE; a REJECTED entry does not block a new request. Check and insert run in one transaction under a pg_advisory_xact_lock on user and event, so parallel identical joins create one row. Body .strict(); at least one guest required (422 on menCount).'
       security:
       - userBearer: []
       parameters:
@@ -13426,7 +13426,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: '- ''Guest list is closed'' / ''Guest list is closed or full'' / ''Guest list does not have enough spots'' / ''Male guest list capacity reached'' / ''Female guest list capacity reached'' (no errorType) | TO-BE: GUEST_LIST_DUPLICATE'
+          description: '- ''Guest list is closed'' / ''Guest list is closed or full'' / ''Guest list does not have enough spots'' / ''Male guest list capacity reached'' / ''Female guest list capacity reached'' (no errorType) | GUEST_LIST_DUPLICATE: ''You already have an active request for this guest list'' (T-020)'
           content:
             application/json:
               schema:

@@ -431,7 +431,7 @@ Indexes: `accountRole`, `accountStatus`. Back-relations: Profile, OAuthIdentity,
 **Quote** (862): `eventId → Event (C)`, `moduleId → EventModule (C)`, `name`, `email`, `phone`, `guestCount`, `message`, `date?`, `status: QuoteStatus =NEW`. ix `(eventId, status, createdAt)`, `moduleId`.
 **EventGuestList** (882): `eventId → Event (C) uq` (1:1), `isEnabled =false`, `daysBefore?`, `cutoffAt?`, `arrivalTimes: String[] =[]`, `maleCap?`, `femaleCap?`, `freeSpots?`, `dressCode?`, `idRequired =false`, `notes?`.
 **EventGuestListFallback** (903): `guestListId → EventGuestList (C)`, `type: GuestListFallbackType`, `targetId: String` (polymorphic, no FK), `sortOrder =0`. ix `(guestListId, sortOrder)`.
-**EventGuestListEntry** (916): `guestListId → EventGuestList (C)`, `userId: String?` (no relation), `name`, `email`, `phone`, `menCount`, `womenCount`, `otherCount` (all `=0`), `arrivalTime: String`, `status: GuestListEntryStatus =PENDING`, `acceptedTerms: Boolean`. ix `(guestListId, status, createdAt)`, `email`.
+**EventGuestListEntry** (916): `guestListId → EventGuestList (C)`, `userId: String?` (no relation), `name`, `email`, `phone`, `menCount`, `womenCount`, `otherCount` (all `=0`), `arrivalTime: String`, `status: GuestListEntryStatus =PENDING`, `acceptedTerms: Boolean`. ix `(guestListId, status, createdAt)`, `email`. No unique constraint: since T-020 the service allows at most one PENDING or CONFIRMED entry per (user, list) under an advisory lock; no schema change.
 
 ### 4.6 VIP hosts
 
