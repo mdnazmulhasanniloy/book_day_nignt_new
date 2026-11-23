@@ -75,6 +75,14 @@ describe('trending, most viewed, recently viewed (T-042)', { skip: dbTestSkipRea
     await db().event.updateMany({ where: { id: { in: ids } }, data: { viewCount: 0 } });
   };
 
+  // Interested taps. Window start for NOW is 2026-11-25T00:00:00Z.
+  const seedTaps = async () => {
+    for (let u = 1; u <= 5; u++) await tap('B', u, u === 1 ? '2026-11-25T00:00:00Z' : '2026-11-30T10:00:00Z'); // 5 in window
+    for (let u = 1; u <= 2; u++) await tap('C', u, '2026-11-24T23:59:59Z'); // 2 just OUTSIDE
+    for (let u = 1; u <= 5; u++) await tap('D', u, '2026-12-01T09:00:00Z'); // 5 in window
+    await tap('CANCELED', 1, '2026-12-01T09:00:00Z');
+  };
+
   before(async () => {
     process.env.DATABASE_URL = assertSafeTestDatabaseUrl(process.env.TEST_DATABASE_URL);
     installFakeRedis();
@@ -161,11 +169,7 @@ describe('trending, most viewed, recently viewed (T-042)', { skip: dbTestSkipRea
     app.use(globalErrorMiddleware);
     srv = await startTestServer(app);
 
-    // Interested taps (same in every phase). Window start for NOW is 2026-11-25T00:00:00Z.
-    for (let u = 1; u <= 5; u++) await tap('B', u, u === 1 ? '2026-11-25T00:00:00Z' : '2026-11-30T10:00:00Z'); // 5 in window
-    for (let u = 1; u <= 2; u++) await tap('C', u, '2026-11-24T23:59:59Z'); // 2 just OUTSIDE
-    for (let u = 1; u <= 5; u++) await tap('D', u, '2026-12-01T09:00:00Z'); // 5 in window
-    await tap('CANCELED', 1, '2026-12-01T09:00:00Z');
+    await seedTaps();
   });
 
   after(async () => {
@@ -196,6 +200,7 @@ describe('trending, most viewed, recently viewed (T-042)', { skip: dbTestSkipRea
   describe('windows (history exists)', () => {
     before(async () => {
       await clearSignals();
+      await seedTaps();
       // anchor: history older than the 30 day window exists, so no fallback anywhere
       await views('FAR', '2026-10-20', 1);
       // lifetime counters must be ignored once history exists

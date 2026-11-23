@@ -2,6 +2,8 @@ import { env } from '@/env';
 import prisma from '@/app/configs/db.configs';
 import {
   IExploreListService,
+  IExploreMostViewedService,
+  IExploreRecentlyViewedService,
   IExploreDetailService,
   ILightweightExploreItem,
   IExploreFeedService,
@@ -22,7 +24,14 @@ import { Prisma } from '@prisma/client';
 import { EXPLORE_DEFAULT_RADIUS_KM, EXPLORE_MAP_MAX_PINS } from '@/app/modules/explore/explore.schema';
 import { buildExploreFilters, exploreNeedsZone } from '@/app/modules/explore/explore.filters';
 import { groupItemsByDay } from '@/app/modules/explore/explore.grouping';
-import { trackEventView } from '@/app/modules/explore/explore.viewTracking';
+import { trackEventView, RECENT_EVENT_VIEWS_LIMIT } from '@/app/modules/explore/explore.viewTracking';
+import {
+  MOST_VIEWED_WINDOW_DAYS,
+  TRENDING_WINDOW_DAYS,
+  interestedExpr,
+  resolveViewsWindow,
+  viewsExpr,
+} from '@/app/modules/explore/explore.ranking';
 
 /**
  * Shared by GET /explore and GET /explore/feed (T-034, T-036).
@@ -118,6 +127,17 @@ export const exploreListService = async ({ query, userId, now: clockOverride }: 
     cityTimezone,
   });
 
+  // T-042: sort=trending ranks events by views + Interested taps over 7 days (explore.ranking.ts).
+  // isPopular still wins over sort (as it always did). Clubs have no score (0) and follow the events.
+  const trending = sort === 'trending' && !isPopular;
+  const trendWindow = trending
+    ? await resolveViewsWindow({ now: clock, days: TRENDING_WINDOW_DAYS })
+    : undefined;
+  const clubTrendScore = trendWindow ? Prisma.sql`, 0::bigint as "trendScore"` : Prisma.empty;
+  const eventTrendScore = trendWindow
+    ? Prisma.sql`, (${viewsExpr({ window: trendWindow })} + ${interestedExpr({ window: trendWindow })}) as "trendScore"`
+    : Prisma.empty;
+
   const wishlistSubqueryClub = userId
     ? Prisma.sql`, EXISTS(SELECT 1 FROM "Wishlist" w WHERE w."clubId" = c.id AND w."userId" = ${userId}) as "isWishlist"`
     : Prisma.empty;
@@ -137,6 +157,7 @@ export const exploreListService = async ({ query, userId, now: clockOverride }: 
       (SELECT currency FROM "ClubPackage" WHERE "clubId" = c.id AND "isActive" = true LIMIT 1) as currency
       ${clubDistance}
       ${wishlistSubqueryClub}
+      ${clubTrendScore}
     FROM "Club" c
     LEFT JOIN "ClubReview" r ON c.id = r."clubId"
     ${clubWhere}
@@ -154,6 +175,7 @@ export const exploreListService = async ({ query, userId, now: clockOverride }: 
       e.currency
       ${eventDistance}
       ${wishlistSubqueryEvent}
+      ${eventTrendScore}
     FROM "Event" e
     ${eventWhere}
   `;
@@ -185,6 +207,8 @@ export const exploreListService = async ({ query, userId, now: clockOverride }: 
     orderBy = Prisma.sql`ORDER BY "createdAt" ASC`;
   } else if (sort === 'newest') {
     orderBy = Prisma.sql`ORDER BY "createdAt" DESC`;
+  } else if (trending) {
+    orderBy = Prisma.sql`ORDER BY "trendScore" DESC, "startAt" ASC NULLS LAST, id ASC`;
   }
 
   // Count query
@@ -1091,4 +1115,134 @@ export const getSharePreviewHtmlService = async ({ id, type }: { id: string, typ
   </script>
 </body>
 </html>`;
+};
+
+type TEventRankRow = {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  location: string;
+  thumbnail: string;
+  currency: string | null;
+  price: string | number;
+  distanceKm?: string | number | null;
+};
+
+/**
+ * GET /explore/most-viewed (T-042, CR-11): events ranked by views over the last 30 UTC days
+ * (explore.ranking.ts). Same row set as GET /explore type=EVENT (shared buildExploreFilters, so
+ * canceled, deactivated, ended and out-of-radius events are excluded). Centre: lat+lng or the City
+ * centre for cityId (any City row); without either there is no radius limit. Events with no views
+ * in the window are left out. Order: views DESC, startAt ASC, id ASC. The item shape is the
+ * GET /explore event item; nothing about WHO viewed is exposed.
+ */
+export const exploreMostViewedService = async ({ query, now: clockOverride }: IExploreMostViewedService) => {
+  const clock = clockOverride ?? new Date();
+  const { lat, lng, radiusKm, cityId, limit } = query;
+  const { centre, radiusMetres } = await resolveExploreCentre({ lat, lng, cityId, radiusKm, needsZone: false });
+  const centrePoint = centre
+    ? Prisma.sql`ST_SetSRID(ST_MakePoint(${centre.lng}, ${centre.lat}), 4326)`
+    : undefined;
+  const eventDistance = centrePoint
+    ? Prisma.sql`, ROUND((ST_Distance(e.geog, ${centrePoint}::geography) / 1000)::numeric, 1) as "distanceKm"`
+    : Prisma.empty;
+  const selectDistance = centrePoint ? Prisma.sql`, "distanceKm"` : Prisma.empty;
+  const { eventWhere } = buildExploreFilters({ query: {}, clock, centrePoint, radiusMetres });
+  const window = await resolveViewsWindow({ now: clock, days: MOST_VIEWED_WINDOW_DAYS });
+
+  const rows = await prisma.$queryRaw<TEventRankRow[]>`
+    WITH ranked AS (
+      SELECT
+        e.id, e."eventName" as name, e.lat, e.lng, e.location, e.thumbnail, e.currency,
+        e."eventPrice" as price, e."startAt" as "startAt",
+        ${viewsExpr({ window })} as views
+        ${eventDistance}
+      FROM "Event" e
+      ${eventWhere}
+    )
+    SELECT id, name, lat, lng, location, thumbnail, currency, price${selectDistance} FROM ranked
+    WHERE views > 0
+    ORDER BY views DESC, "startAt" ASC, id ASC
+    LIMIT ${limit}
+  `;
+
+  const data: ILightweightExploreItem[] = rows.map((row) => {
+    const item: ILightweightExploreItem = {
+      id: row.id,
+      name: row.name,
+      lat: Number(row.lat),
+      lng: Number(row.lng),
+      location: row.location,
+      type: 'EVENT',
+      thumbnail: row.thumbnail,
+      currency: row.currency || '',
+      price: Number(row.price),
+    };
+    if (centre !== undefined && row.distanceKm !== undefined && row.distanceKm !== null) {
+      item.distanceKm = Number(row.distanceKm);
+    }
+    return item;
+  });
+  return { data };
+};
+
+/**
+ * GET /me/recently-viewed (T-042): the OWN UserRecentEventView rows of the caller (userId comes
+ * from the token only), newest first, at most RECENT_EVENT_VIEWS_LIMIT (20) in total, then paged.
+ * Deactivated events are skipped. Item = GET /explore event item + viewedAt.
+ */
+export const exploreRecentlyViewedService = async ({ userId, page, limit }: IExploreRecentlyViewedService) => {
+  // Defence in depth: an undefined userId would make Prisma drop the filter and return every user's rows.
+  if (!userId) {
+    throw { statusCode: 401, message: 'User not found', errorType: 'UNAUTHORIZED' };
+  }
+  const where = { userId, event: { deactivatedAt: null } };
+  const total = Math.min(await prisma.userRecentEventView.count({ where }), RECENT_EVENT_VIEWS_LIMIT);
+  const skip = (page - 1) * limit;
+  const take = Math.max(0, Math.min(limit, total - skip));
+  const rows = take === 0
+    ? []
+    : await prisma.userRecentEventView.findMany({
+        where,
+        orderBy: [{ lastViewedAt: 'desc' }, { id: 'desc' }],
+        skip,
+        take,
+        select: {
+          lastViewedAt: true,
+          event: {
+            select: {
+              id: true,
+              eventName: true,
+              lat: true,
+              lng: true,
+              location: true,
+              thumbnail: true,
+              currency: true,
+              eventPrice: true,
+            },
+          },
+        },
+      });
+  const wished = rows.length
+    ? await prisma.wishlist.findMany({
+        where: { userId, eventId: { in: rows.map((r) => r.event.id) } },
+        select: { eventId: true },
+      })
+    : [];
+  const wishedIds = new Set(wished.map((w) => w.eventId));
+  const data = rows.map((r) => ({
+    id: r.event.id,
+    name: r.event.eventName,
+    lat: Number(r.event.lat),
+    lng: Number(r.event.lng),
+    location: r.event.location,
+    type: 'EVENT' as const,
+    thumbnail: r.event.thumbnail,
+    currency: r.event.currency || '',
+    price: Number(r.event.eventPrice),
+    isWishlist: wishedIds.has(r.event.id),
+    viewedAt: r.lastViewedAt.toISOString(),
+  }));
+  return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
 };

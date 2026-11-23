@@ -121,6 +121,15 @@ export const exploreFeedQuerySchema = z.object({
   cityId: z.string().uuid().optional(),
 });
 
+/** GET /explore/most-viewed (T-042): city or point plus radius, at most 20 items. */
+export const exploreMostViewedQuerySchema = z.object({
+  cityId: z.string().uuid().optional(),
+  lat: z.coerce.number().min(-90).max(90).optional(),
+  lng: z.coerce.number().min(-180).max(180).optional(),
+  radiusKm: radiusKmQuery,
+  limit: z.coerce.number().int().min(1).max(20).default(10),
+});
+
 export const explorePaginationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(10),
@@ -130,6 +139,7 @@ export type TExploreQuery = z.infer<typeof exploreQuerySchema>;
 export type TExploreMapQuery = z.infer<typeof exploreMapQuerySchema>;
 export type TExploreDetailQuery = z.infer<typeof exploreDetailQuerySchema>;
 export type TExploreFeedQuery = z.infer<typeof exploreFeedQuerySchema>;
+export type TExploreMostViewedQuery = z.infer<typeof exploreMostViewedQuerySchema>;
 export type TExplorePaginationQuery = z.infer<typeof explorePaginationQuerySchema>;
 
 export const exploreIdParamsSchema = z.object({

@@ -1,4 +1,4 @@
-import { TExploreQuery, TExploreDetailQuery, TExploreFeedQuery, TExploreMapQuery } from './explore.schema';
+import { TExploreQuery, TExploreDetailQuery, TExploreFeedQuery, TExploreMapQuery, TExploreMostViewedQuery } from './explore.schema';
 
 export interface IExploreListService {
   query: TExploreQuery;
@@ -80,4 +80,17 @@ export interface ILightweightExploreItem {
   followerCount?: number;
   startAt?: Date;
   endAt?: Date;
+}
+
+export interface IExploreMostViewedService {
+  query: TExploreMostViewedQuery;
+  /** Clock override for tests; defaults to the current time. */
+  now?: Date;
+}
+
+export interface IExploreRecentlyViewedService {
+  /** Always the token user id. */
+  userId: string;
+  page: number;
+  limit: number;
 }
