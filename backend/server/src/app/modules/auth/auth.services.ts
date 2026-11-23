@@ -519,6 +519,10 @@ const socialFallbackEmail = (provider: string, sub: string) => {
   return `social.${provider.toLowerCase()}.${safeSub}@users.bookdianight.invalid`;
 };
 
+const isUniqueViolation = (error: unknown) =>
+  error instanceof Prisma.PrismaClientKnownRequestError &&
+  error.code === 'P2002';
+
 const socialPhoneNumber = async ({
   phoneNumber,
   provider,
@@ -543,6 +547,7 @@ const socialPhoneNumber = async ({
 
 export const oAuthLoginService = async ({
   payload,
+  verifyIdentity = verifyOAuthIdToken,
 }: IOAuthLoginService): Promise<Record<string, unknown>> => {
   const {
     deviceIdentifier,
@@ -554,7 +559,23 @@ export const oAuthLoginService = async ({
     phoneNumber,
     name,
   } = payload;
-  const identity = await verifyOAuthIdToken({
+
+  // Validate before any provider call or write: an invalid DOB must create nothing.
+  let dateOfBirth: Date | undefined;
+  if (payload.dateOfBirth !== undefined) {
+    try {
+      dateOfBirth = assertSignupDob(payload.dateOfBirth);
+    } catch (error) {
+      throw {
+        statusCode: 422,
+        message:
+          error instanceof Error ? error.message : 'Invalid date of birth',
+        errorType: 'VALIDATION_ERROR',
+      };
+    }
+  }
+
+  const identity = await verifyIdentity({
     provider,
     idToken: payload.idToken,
     nonce: payload.nonce,
@@ -589,23 +610,52 @@ export const oAuthLoginService = async ({
       provider,
       sub: identity.sub,
     });
-    try {
-      user = await prisma.user.create({
+    const fallbackPhone = await socialPhoneNumber({
+      provider,
+      sub: identity.sub,
+    });
+    // User, profile and identity are created in ONE statement (one
+    // transaction), so a failure never leaves a half-created account.
+    const createAccount = (phone: string) =>
+      prisma.user.create({
         data: {
           email,
           name: identity.name || name || 'Guest',
-          phoneNumber: resolvedPhone,
+          phoneNumber: phone,
           accountRole: AccountRole.USER,
           isVerified: true,
-          profile: { create: {} },
+          profile: { create: { dateOfBirth } },
+          oauthIdentities: {
+            create: { provider: providerEnum, providerUserId: identity.sub },
+          },
         },
       });
+    const findExisting = async () =>
+      (
+        await prisma.oAuthIdentity.findUnique({
+          where: {
+            provider_providerUserId: {
+              provider: providerEnum,
+              providerUserId: identity.sub,
+            },
+          },
+          include: { user: true },
+        })
+      )?.user ?? (await prisma.user.findUnique({ where: { email } }));
+    try {
+      user = await createAccount(resolvedPhone);
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        user = await prisma.user.findUnique({ where: { email } });
+      if (!isUniqueViolation(error)) throw error;
+      // A parallel or repeated request won the race: return its account.
+      user = await findExisting();
+      if (!user && resolvedPhone !== fallbackPhone) {
+        // The phone was taken meanwhile by another account: use the placeholder.
+        try {
+          user = await createAccount(fallbackPhone);
+        } catch (retryError) {
+          if (!isUniqueViolation(retryError)) throw retryError;
+          user = await findExisting();
+        }
       }
       if (!user) throw error;
     }
@@ -640,20 +690,47 @@ export const oAuthLoginService = async ({
     };
   }
 
-  await prisma.oAuthIdentity.upsert({
-    where: {
-      provider_providerUserId: {
+  try {
+    await prisma.oAuthIdentity.upsert({
+      where: {
+        provider_providerUserId: {
+          provider: providerEnum,
+          providerUserId: identity.sub,
+        },
+      },
+      create: {
         provider: providerEnum,
         providerUserId: identity.sub,
+        userId: user.id,
       },
-    },
-    create: {
-      provider: providerEnum,
-      providerUserId: identity.sub,
-      userId: user.id,
-    },
-    update: {},
+      update: {},
+    });
+  } catch (error) {
+    // A concurrent upsert won the race; the identity row exists, which is fine.
+    if (!isUniqueViolation(error)) throw error;
+  }
+
+  // Set the DOB only while it is missing; an existing DOB is never overwritten.
+  const existingProfile = await prisma.profile.findUnique({
+    where: { userId: user.id },
+    select: { dateOfBirth: true },
   });
+  let hasDateOfBirth = existingProfile?.dateOfBirth != null;
+  if (!hasDateOfBirth && dateOfBirth) {
+    if (!existingProfile) {
+      try {
+        await prisma.profile.create({ data: { userId: user.id, dateOfBirth } });
+      } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
+      }
+    }
+    // No-op when the DOB is already set (conditional on NULL), so never overwrites.
+    await prisma.profile.updateMany({
+      where: { userId: user.id, dateOfBirth: null },
+      data: { dateOfBirth },
+    });
+    hasDateOfBirth = true;
+  }
 
   const redisClient = getRedisClient();
   await Promise.all([
@@ -705,5 +782,6 @@ export const oAuthLoginService = async ({
     refreshToken: session.refreshToken,
     role: user.accountRole,
     isUserVerified: true,
+    profileComplete: hasDateOfBirth,
   };
 };
