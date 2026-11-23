@@ -178,9 +178,13 @@ describe('POST /owner/verify-ticket status codes (T-011)', { skip: dbTestSkipRea
         })
       ).map((u) => u.id);
       const orders = { orderId: { in: (await db().order.findMany({ where: { sellerUserId: { in: ids } }, select: { id: true } })).map((o) => o.id) } };
-      await db().eventPurchase.deleteMany({ where: orders });
-      await db().refund.deleteMany({ where: orders });
-      await db().order.deleteMany({ where: { sellerUserId: { in: ids } } });
+      // Deferred purchase triggers: delete attendees, purchases and orders in one transaction.
+      await db().$transaction(async (tx) => {
+        await tx.eventPurchaseAttendee.deleteMany({ where: { eventPurchase: orders } });
+        await tx.eventPurchase.deleteMany({ where: orders });
+        await tx.refund.deleteMany({ where: orders });
+        await tx.order.deleteMany({ where: { sellerUserId: { in: ids } } });
+      });
       await db().event.deleteMany({ where: { userId: { in: ids } } });
       await db().user.deleteMany({ where: { id: { in: ids } } });
     } finally {
