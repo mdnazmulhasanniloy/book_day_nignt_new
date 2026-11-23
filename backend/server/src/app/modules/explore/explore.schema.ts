@@ -10,6 +10,14 @@ const booleanQuery = z.preprocess((val) => {
 export const EXPLORE_RADIUS_KM_OPTIONS: readonly number[] = [10, 20, 30, 40, 50];
 export const EXPLORE_DEFAULT_RADIUS_KM = 20;
 
+/** radiusKm validation shared by GET /explore and GET /explore/feed. */
+const radiusKmQuery = z.coerce
+  .number()
+  .refine((v) => EXPLORE_RADIUS_KM_OPTIONS.includes(v), {
+    message: 'radiusKm must be one of 10, 20, 30, 40, 50',
+  })
+  .optional();
+
 /** ISO calendar date YYYY-MM-DD (a real date), interpreted in the explore time zone rule (T-035). */
 const isoDateQuery = z
   .string()
@@ -26,12 +34,7 @@ export const exploreQuerySchema = z.object({
   lat: z.coerce.number().min(-90).max(90).optional(),
   lng: z.coerce.number().min(-180).max(180).optional(),
   city: z.string().optional(),
-  radiusKm: z.coerce
-    .number()
-    .refine((v) => EXPLORE_RADIUS_KM_OPTIONS.includes(v), {
-      message: 'radiusKm must be one of 10, 20, 30, 40, 50',
-    })
-    .optional(),
+  radiusKm: radiusKmQuery,
   cityId: z.string().uuid().optional(),
   minPrice: z.coerce.number().nonnegative().optional(),
   maxPrice: z.coerce.number().nonnegative().optional(),
@@ -97,6 +100,8 @@ export const exploreFeedQuerySchema = z.object({
   city: z.string().optional(),
   lat: z.coerce.number().min(-90).max(90).optional(),
   lng: z.coerce.number().min(-180).max(180).optional(),
+  radiusKm: radiusKmQuery,
+  cityId: z.string().uuid().optional(),
 });
 
 export const explorePaginationQuerySchema = z.object({

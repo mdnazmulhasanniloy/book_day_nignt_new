@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { getTraceId } from '@/app/configs/requestContext.configs';
 import { asyncHandler } from '@/app/utils/system.utils';
 import { exploreListService, exploreDetailService, getSharePreviewHtmlService } from '@/app/modules/explore/explore.services';
-import { TExploreQuery, TExploreDetailQuery } from '@/app/modules/explore/explore.schema';
+import { TExploreQuery, TExploreDetailQuery, TExploreFeedQuery } from '@/app/modules/explore/explore.schema';
 import { buildPaginationLinks } from '@/app/modules/explore/explore.helpers';
 import { JwtPayload } from 'jsonwebtoken';
 
@@ -137,15 +137,11 @@ export const getEventSharePreviewController = asyncHandler(
 export const exploreFeedController = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const traceId = getTraceId();
-    const query = req.query as { city?: string; lat?: string; lng?: string };
+    const query = (req.validatedQuery || req.query) as unknown as TExploreFeedQuery;
     const userId = req.user ? (req.user as JwtPayload).sub : undefined;
 
     const result = await (await import('@/app/modules/explore/explore.services')).exploreFeedService({
-      query: {
-        city: query.city,
-        lat: query.lat ? Number(query.lat) : undefined,
-        lng: query.lng ? Number(query.lng) : undefined,
-      },
+      query,
       userId,
     });
 

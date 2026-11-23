@@ -21,6 +21,47 @@ import { EXPLORE_DEFAULT_RADIUS_KM } from '@/app/modules/explore/explore.schema'
 import { groupItemsByDay } from '@/app/modules/explore/explore.grouping';
 
 /**
+ * Shared by GET /explore and GET /explore/feed (T-034, T-036).
+ * Centre: lat/lng when both are given, otherwise the city centre when cityId is given (any City row,
+ * launched or not). Unknown cityId throws 404. Radius: radiusKm or the server default (20 km).
+ * cityTimezone is only loaded when needed (cityId given and a zone or centre is wanted).
+ */
+export const resolveExploreCentre = async ({
+  lat,
+  lng,
+  cityId,
+  radiusKm,
+  needsZone,
+}: {
+  lat?: number;
+  lng?: number;
+  cityId?: string;
+  radiusKm?: number;
+  needsZone: boolean;
+}) => {
+  let centre: { lat: number; lng: number } | undefined;
+  let cityTimezone: string | undefined;
+  if (cityId !== undefined && (needsZone || lat === undefined || lng === undefined)) {
+    const found = await prisma.city.findUnique({
+      where: { id: cityId },
+      select: { lat: true, lng: true, timezone: true },
+    });
+    if (!found) {
+      throw { statusCode: 404, message: 'City not found', errorType: 'NOT_FOUND' };
+    }
+    cityTimezone = found.timezone;
+    if (lat === undefined || lng === undefined) {
+      centre = { lat: found.lat, lng: found.lng };
+    }
+  }
+  if (lat !== undefined && lng !== undefined) {
+    centre = { lat, lng };
+  }
+  const radiusMetres = (radiusKm ?? EXPLORE_DEFAULT_RADIUS_KM) * 1000;
+  return { centre, cityTimezone, radiusMetres };
+};
+
+/**
  * Service for fetching a paginated list of Clubs and Events based on filters.
  * Utilizes complex PostGIS Raw SQL queries.
  * @returns Promise<{ data: ILightweightExploreItem[], total: number }>
@@ -58,27 +99,13 @@ export const exploreListService = async ({ query, userId, now: clockOverride }: 
   const dayGrouping = group === 'day';
   const needsZone = dayGrouping || from !== undefined || to !== undefined || dateFilter === 'this_week';
 
-  // Centre: lat/lng when both are given, otherwise the city centre when cityId is given.
-  // Time zone: the city zone when cityId is given, else each event's own zone (T-035).
-  let centre: { lat: number; lng: number } | undefined;
-  let cityTimezone: string | undefined;
-  if (cityId !== undefined && (needsZone || lat === undefined || lng === undefined)) {
-    const found = await prisma.city.findUnique({
-      where: { id: cityId },
-      select: { lat: true, lng: true, timezone: true },
-    });
-    if (!found) {
-      throw { statusCode: 404, message: 'City not found', errorType: 'NOT_FOUND' };
-    }
-    cityTimezone = found.timezone;
-    if (lat === undefined || lng === undefined) {
-      centre = { lat: found.lat, lng: found.lng };
-    }
-  }
-  if (lat !== undefined && lng !== undefined) {
-    centre = { lat, lng };
-  }
-  const radiusMetres = (radiusKm ?? EXPLORE_DEFAULT_RADIUS_KM) * 1000;
+  const { centre, cityTimezone, radiusMetres } = await resolveExploreCentre({
+    lat,
+    lng,
+    cityId,
+    radiusKm,
+    needsZone,
+  });
   const centrePoint = centre
     ? Prisma.sql`ST_SetSRID(ST_MakePoint(${centre.lng}, ${centre.lat}), 4326)`
     : undefined;
@@ -580,7 +607,8 @@ export const exploreDetailService = async ({ id, query, userId }: IExploreDetail
  * Service to generate the aggregated "FOR YOU" home feed.
  */
 export const exploreFeedService = async ({ query, userId: _userId }: IExploreFeedService) => {
-  const { city } = query;
+  const { city, lat, lng, cityId, radiusKm } = query;
+  const { centre, radiusMetres } = await resolveExploreCentre({ lat, lng, cityId, radiusKm, needsZone: false });
   const now = new Date();
   const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
   const endToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
@@ -591,6 +619,22 @@ export const exploreFeedService = async ({ query, userId: _userId }: IExploreFee
 
   const cityFilter = city ? { location: { contains: city, mode: 'insensitive' as const } } : {};
 
+  // With a centre (lat/lng or cityId) every module is limited to the radius (ST_DWithin on geog).
+  // Without one nothing changes. Ids are resolved with raw SQL because Prisma cannot filter geography.
+  let eventIdsInRadius: string[] | undefined;
+  let clubIdsInRadius: string[] | undefined;
+  if (centre) {
+    const point = Prisma.sql`ST_SetSRID(ST_MakePoint(${centre.lng}, ${centre.lat}), 4326)`;
+    const [eventRows, clubRows] = await Promise.all([
+      prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "Event" WHERE "deactivatedAt" IS NULL AND "eventStatus" = 'UPCOMING' AND geog IS NOT NULL AND ST_DWithin(geog, ${point}, ${radiusMetres})`,
+      prisma.$queryRaw<{ id: string }[]>`SELECT id FROM "Club" WHERE "deactivatedAt" IS NULL AND geog IS NOT NULL AND ST_DWithin(geog, ${point}, ${radiusMetres})`,
+    ]);
+    eventIdsInRadius = eventRows.map((r) => r.id);
+    clubIdsInRadius = clubRows.map((r) => r.id);
+  }
+  const eventRadius = eventIdsInRadius ? { id: { in: eventIdsInRadius } } : {};
+  const clubRadius = clubIdsInRadius ? { id: { in: clubIdsInRadius } } : {};
+
   const [todayEvents, tomorrowEvents, blowingUpEvents, popularOrganizers, allGenresEvents] = await Promise.all([
     prisma.event.findMany({
       where: {
@@ -599,6 +643,7 @@ export const exploreFeedService = async ({ query, userId: _userId }: IExploreFee
         startAt: { lte: endToday },
         endAt: { gte: startToday },
         ...cityFilter,
+        ...eventRadius,
       },
       select: {
         id: true,
@@ -622,6 +667,7 @@ export const exploreFeedService = async ({ query, userId: _userId }: IExploreFee
         startAt: { lte: endTom },
         endAt: { gte: startTom },
         ...cityFilter,
+        ...eventRadius,
       },
       select: {
         id: true,
@@ -644,6 +690,7 @@ export const exploreFeedService = async ({ query, userId: _userId }: IExploreFee
         eventStatus: 'UPCOMING',
         endAt: { gt: now },
         ...cityFilter,
+        ...eventRadius,
       },
       select: {
         id: true,
@@ -665,6 +712,8 @@ export const exploreFeedService = async ({ query, userId: _userId }: IExploreFee
       where: {
         deactivatedAt: null,
         ...cityFilter,
+        ...eventRadius,
+        ...clubRadius,
       },
       select: {
         id: true,
@@ -682,6 +731,7 @@ export const exploreFeedService = async ({ query, userId: _userId }: IExploreFee
         deactivatedAt: null,
         eventStatus: 'UPCOMING',
         endAt: { gt: now },
+        ...eventRadius,
       },
       select: {
         musicGenres: true,
