@@ -194,6 +194,18 @@ enum GuestListFallbackType {
   WAITING_LIST
 }
 
+enum PricingMode {
+  SINGLE
+  TIERED
+  FREE
+  MIXED
+}
+
+enum TierType {
+  TICKET
+  PASS
+}
+
 enum ClubHostStatus {
   NONE
   PENDING
@@ -431,6 +443,8 @@ model Event {
   moodTags         String[]          @default([])
   isResaleEnabled  Boolean           @default(false)
   viewCount        Int               @default(0)
+  timezone         String            @default("UTC")
+  pricingMode      PricingMode       @default(SINGLE)
   eventPrice       Decimal           @db.Decimal(10, 2)
   currency         String
   clubId           String?
@@ -690,6 +704,7 @@ model EventTicketTier {
   capacity    Int
   soldCount   Int       @default(0)
   sortOrder   Int       @default(0)
+  tierType    TierType  @default(TICKET)
   startAt     DateTime?
   endAt       DateTime?
   isActive    Boolean   @default(true)

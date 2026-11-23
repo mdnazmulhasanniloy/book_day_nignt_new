@@ -134,8 +134,17 @@ say '```'
 psqlc -d "$REHEARSAL_DB" < "$REPORTS/stock-leak.sql" 2>&1 | head -60 | tee -a "$OUT"
 say '```'
 
-say; say "## 6. Migration 4 review query"
-say "- n/a: migration 4 (TO-BE) does not exist in the repo yet."
+say; say "## 6. Migration 4 (T-015): backfill counts and review query"
+PT="$(psqlc -d "$REHEARSAL_DB" -At < "$ROOT/backend/prisma/tests/event_pricing_mode.sql" 2>&1)" || fail "event_pricing_mode.sql errored"
+say '```'
+echo "$PT" | tee -a "$OUT"
+say '```'
+echo "$PT" | grep -q "|FAIL" && fail "event_pricing_mode.sql reported FAIL"
+echo "$PT" | grep -q "PRICETEST" || fail "event_pricing_mode.sql produced no result"
+say "Review query (tiers whose name or group contains pass; the product owner decides which become PASS by hand):"
+say '```'
+psqlc -d "$REHEARSAL_DB" < "$ROOT/backend/prisma/tests/event_pricing_mode_review.sql" 2>&1 | head -60 | tee -a "$OUT"
+say '```'
 
 say; say "## Summary"
 if [[ ${#FAILS[@]} -eq 0 ]]; then
