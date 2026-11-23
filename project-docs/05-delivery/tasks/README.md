@@ -57,8 +57,8 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 | [T-018](T-018.md) | Promo management: role and ownership checks, 404 for unknown target | backend | T-003, T-012 | done in code (tested locally) |
 | [T-019](T-019.md) | Rate limit POST /promo/validate | backend | T-003 | done in code (tested locally) |
 | [T-020](T-020.md) | Block duplicate guest-list join | backend | T-003 | done in code (tested locally) |
-| [T-021](T-021.md) | Auth cleanup: check order on login, recover and token routes | backend | T-003, HF-004 | not started |
-| [REL-M2](REL-M2.md) | Release checkpoint: M2 ticket sections, presets, promo, guest list | release | T-015, T-016, T-017, T-018, T-019, T-020, T-021 | not started |
+| [T-021](T-021.md) | Auth cleanup: check order on login, recover and token routes | backend | T-003, HF-004 | done in code (tested locally) |
+| [REL-M2](REL-M2.md) | Release checkpoint: M2 ticket sections, presets, promo, guest list | release | T-015, T-016, T-017, T-018, T-019, T-020, T-021 | all tasks done in code; release checkpoint items not run |
 
 ## M3 Fees and commissions
 

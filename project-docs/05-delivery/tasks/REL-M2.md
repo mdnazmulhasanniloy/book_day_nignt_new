@@ -4,7 +4,7 @@
 |---|---|
 | Stack | release |
 | Depends on | T-015, T-016, T-017, T-018, T-019, T-020, T-021 |
-| Status | not started |
+| Status | all tasks done in code; release checkpoint items not run |
 
 Do not start the next milestone until every box below is checked or explicitly waived by the product owner.
 

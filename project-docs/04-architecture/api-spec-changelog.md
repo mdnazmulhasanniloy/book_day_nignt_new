@@ -106,6 +106,8 @@ Totals: 47 added, 33 changed, 6 deprecated. The spec grows from 151 to 198 opera
 | GET | `/bookings` | CR-14 | additive | New optional `bucket` filter (FUTURE/PENDING/PAST) and items gain `bookingStatus` (CONFIRMED / GUEST_LIST_PENDING / PAYMENT_PROCESSING / CANCELED / REFUNDED). `tab` is unchanged. |
 | POST | `/webhooks/payment/stripe` | CR-16, BUG-B16 | additive | Missing or invalid Stripe signature returns 400 (was 500, which makes Stripe retry for days). Payment webhook also handles refund events (refund created/updated/failed) to update Refund.status; duplicates are ignored via ... |
 | POST | `/connect/webhook` | CR-16, BUG-B16 | additive | Missing or invalid Stripe signature returns 400 (was 500). |
+| POST | `/auth/login` | CR-01, BUG-B21 | additive | Same request and success response. The password is checked before the account status: an unknown email and a wrong password on a DELETED, BLOCKED or INACTIVE account return the same 401 INVALID_CREDENTIALS; the status messages (401) are returned only after a correct password. An account without a password hash answers 401 INVALID_CREDENTIALS (was 500 for an active social-only account). |
+| POST | `/auth/check`, `/auth/logout`, `/recover/verify`, `/recover/reset` | CR-01, BUG-B21 | additive | The token check now runs before body validation, so a missing, invalid, expired or revoked token returns 401 (existing errorType) even with an invalid body. A valid token with an invalid body still returns 422. Success responses unchanged. |
 
 ### Deprecated (kept working)
 

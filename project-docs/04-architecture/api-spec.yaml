@@ -311,8 +311,8 @@ paths:
       tags:
       - auth
       summary: Email/password login
-      description: Account status (DELETED/BLOCKED/INACTIVE) is checked BEFORE the password. No role restriction (an ADMIN account may also log in here). Unverified users get a fresh OTP + OTP page token instead of a session. Device is upserted by deviceIdentifier; lat/lng cached.
-      x-auth: 'public. chain: validateReqBody(loginSchema) -> findUserByEmail -> checkAccountStatus -> checkPassword'
+      description: 'The password is checked BEFORE the account status (T-021, B-21), so an unknown email and a wrong password on a DELETED, BLOCKED or INACTIVE account return the same 401 INVALID_CREDENTIALS. The status message (ACCOUNT_DELETED, USER_BLOCKED, ACCOUNT_INACTIVE, still 401) is returned only after a correct password. An account with no password hash (social sign-in) answers like a wrong password. No role restriction (an ADMIN account may also log in here). Unverified users get a fresh OTP + OTP page token instead of a session. Device is upserted by deviceIdentifier; lat/lng cached.'
+      x-auth: 'public. chain: validateReqBody(loginSchema) -> findUserByEmail -> checkPassword -> checkAccountStatus'
       security: []
       requestBody:
         required: true
@@ -867,8 +867,8 @@ paths:
       tags:
       - auth
       summary: Validate access token and device; get brief profile
-      description: Body validation runs BEFORE token checks (a bad body yields 422 even without a token). Device must belong to JWT sub and match deviceIdentifier. Updates device lastSeenAt (max once/hour) and fcmToken.
-      x-auth: 'user bearer: validateReqBody(checkAccessTokenSchema) -> checkUserAccessToken -> checkUserExistence -> checkAccountStatus -> checkDeviceContext'
+      description: 'The token check runs BEFORE body validation (T-021, B-21): a missing, invalid, expired or revoked token returns 401 even when the body is invalid; with a valid token a bad body still returns 422. Device must belong to JWT sub and match deviceIdentifier. Updates device lastSeenAt (max once/hour) and fcmToken.'
+      x-auth: 'user bearer: checkUserAccessToken -> validateReqBody(checkAccessTokenSchema) -> checkUserExistence -> checkAccountStatus -> checkDeviceContext'
       security:
       - userBearer: []
       requestBody:
@@ -1059,8 +1059,8 @@ paths:
       tags:
       - auth
       summary: Logout (revoke access token, deactivate device)
-      description: Blacklists the access token until expiry, sets device isActive=false and fcmToken=null, and revokes refreshToken if supplied. No data in response.
-      x-auth: 'user bearer: validateReqBody(logoutSchema) -> checkUserAccessToken -> checkUserExistence -> checkAccountStatus -> checkDeviceContext'
+      description: 'Blacklists the access token until expiry, sets device isActive=false and fcmToken=null, and revokes refreshToken if supplied. No data in response. The token check runs before body validation (T-021): no token or a revoked token returns 401 even with an invalid body.'
+      x-auth: 'user bearer: checkUserAccessToken -> validateReqBody(logoutSchema) -> checkUserExistence -> checkAccountStatus -> checkDeviceContext'
       security:
       - userBearer: []
       requestBody:
@@ -6341,8 +6341,8 @@ paths:
       tags:
       - recover
       summary: Verify recovery OTP
-      description: 'Body validated before token. Just deletes the OTP on success; no data. ⚠️ The server does not record that verification happened: /recover/reset does not require this step (only the page token).'
-      x-auth: 'recover-page token: cookie recover_page_token OR Authorization Bearer, via checkResetPasswordPageToken. chain: validateReqBody -> checkResetPasswordPageToken -> checkUserExistence -> checkAccountStatus -> checkOtp'
+      description: 'The page token is checked before the body is validated (T-021): a missing, invalid or revoked token returns 401 even with an invalid body. Just deletes the OTP on success; no data. ⚠️ The server does not record that verification happened: /recover/reset does not require this step (only the page token).'
+      x-auth: 'recover-page token: cookie recover_page_token OR Authorization Bearer, via checkResetPasswordPageToken. chain: checkResetPasswordPageToken -> validateReqBody -> checkUserExistence -> checkAccountStatus -> checkOtp'
       security:
       - userBearer: []
       requestBody:
@@ -6499,8 +6499,8 @@ paths:
       tags:
       - recover
       summary: Reset password
-      description: Body validated before token. Schema not strict. Page token is blacklisted after use; confirmation email + push notification sent. For admins cookie recover_page_token is cleared. ⚠️ OTP verification is NOT enforced server-side (OTP is not checked here).
-      x-auth: 'recover-page token: cookie recover_page_token OR Authorization Bearer, via checkResetPasswordPageToken. chain: validateReqBody -> checkResetPasswordPageToken -> checkUserExistence -> checkAccountStatus'
+      description: 'The page token is checked before the body is validated (T-021): a missing, invalid or revoked token returns 401 even with an invalid body. Schema not strict. Page token is blacklisted after use; confirmation email + push notification sent. For admins cookie recover_page_token is cleared. ⚠️ OTP verification is NOT enforced server-side (OTP is not checked here).'
+      x-auth: 'recover-page token: cookie recover_page_token OR Authorization Bearer, via checkResetPasswordPageToken. chain: checkResetPasswordPageToken -> validateReqBody -> checkUserExistence -> checkAccountStatus -> requireRecoverVerified'
       security:
       - userBearer: []
       requestBody:
