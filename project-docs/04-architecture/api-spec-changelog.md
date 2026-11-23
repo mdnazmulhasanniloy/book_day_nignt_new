@@ -36,8 +36,8 @@ Totals: 47 added, 33 changed, 6 deprecated. The spec grows from 151 to 198 opera
 | PATCH | `/admin/filter-options/{id}` | CR-10 | additive (new endpoint) | Edit or deactivate a genre or mood. **Implemented in T-037** |
 | POST | `/events/{eventId}/interested` | CR-11 | additive (new endpoint) | Mark Interested. **T-040 (tested locally, not deployed): implemented; idempotent 200, returns {isInterested, interestedCount}; 404 for unknown, deactivated or canceled event.** |
 | DELETE | `/events/{eventId}/interested` | CR-11 | additive (new endpoint) | Remove Interested. **T-040 (tested locally, not deployed): implemented; idempotent 200, count never negative.** |
-| GET | `/me/recently-viewed` | CR-11 | additive (new endpoint) | My recently viewed events |
-| GET | `/explore/most-viewed` | CR-11 | additive (new endpoint) | Most viewed events in a city |
+| GET | `/me/recently-viewed` | CR-11 | additive (new endpoint) | My recently viewed events. **Implemented in T-042** (tested locally, not deployed): user bearer (checkUserAccessToken, checkUserExistence, checkAccountStatus), own rows only, newest first, at most 20 in total, paged, items are explore event items plus `viewedAt` |
+| GET | `/explore/most-viewed` | CR-11 | additive (new endpoint) | Most viewed events in a city. **Implemented in T-042** (public, tested locally, not deployed): views over 30 UTC days, city radius via `cityId` or `lat`/`lng`, `limit` max 20, ranking rules documented in the spec and `data-model.md` |
 | GET | `/artists` | CR-12 | additive (new endpoint) | Discover artists |
 | GET | `/artists/{id}` | CR-12 | additive (new endpoint) | Artist profile |
 | PATCH | `/artists/{id}` | CR-12 | additive (new endpoint) | Edit an artist profile (owner) |

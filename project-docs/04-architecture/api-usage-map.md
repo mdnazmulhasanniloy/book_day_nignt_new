@@ -189,7 +189,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 
 | Endpoint | Used by Flutter | Used by Admin | Status |
 |---|---|---|---|
-| `GET /explore` | `flutter_app/lib/app/core/explore/repository/explore_api_repository.dart:13` | - | Flutter only. T-034: new optional `radiusKm` (10 to 50 step 10, server default stays 20), `cityId`, and a new `distanceKm` item field when a centre exists; the app sends none of these today, so its result is unchanged. T-035: new optional `group=day`, `from`, `to`, `dateFilter=this_week`; the app sends none of them, so its response is unchanged |
+| `GET /explore` | `flutter_app/lib/app/core/explore/repository/explore_api_repository.dart:13` | - | Flutter only. T-034: new optional `radiusKm` (10 to 50 step 10, server default stays 20), `cityId`, and a new `distanceKm` item field when a centre exists; the app sends none of these today, so its result is unchanged. T-035: new optional `group=day`, `from`, `to`, `dateFilter=this_week`; the app sends none of them, so its response is unchanged T-042 (tested locally, not deployed): `sort=trending` (already accepted by the schema, was ignored) now ranks events by views + Interested taps over 7 days; the app does not send it today, so its response is unchanged. |
 | `GET /explore/feed` | `flutter_app/lib/app/modules/user_side/home/widgets/discovery_feed_section.dart:46`<br>`flutter_app/lib/app/modules/user_side/home/views/trending_events_view.dart:72`<br>`flutter_app/lib/app/modules/user_side/home/views/organizers_view.dart:193` | - | Flutter only. T-036 (tested locally, not deployed): the server now honours optional `lat`/`lng`, `cityId`, `radiusKm`; the current app sends none of them, so its response is unchanged. |
 | `GET /explore/genres` | `flutter_app/lib/app/core/explore/repository/explore_api_repository.dart:27` | - | Flutter only |
 | `GET /explore/club/{id}/events/upcoming` | `flutter_app/lib/app/modules/user_side/club_details_view/widgets/club_community_section.dart:596-598` (path built with `${kind}`; ⚠️ UNVERIFIED which values) | - | Flutter only |
@@ -224,6 +224,8 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 |---|---|---|---|
 | `POST /events/{eventId}/interested` | - | - | New (CR-11); no client calls it yet (Flutter work is the last milestone). Count only, no list of users |
 | `DELETE /events/{eventId}/interested` | - | - | New (CR-11); no client calls it yet |
+| `GET /me/recently-viewed` | - | - | New (CR-11, T-042, tested locally, not deployed); no client calls it yet. User bearer, the caller's own rows only |
+| `GET /explore/most-viewed` | - | - | New (CR-11, T-042, tested locally, not deployed); no client calls it yet. Public, ranking by 30 day views in a city radius |
 | `GET /explore/{id}` (type=EVENT) | unchanged | - | Gains additive `interestedCount` and `isInterested` (bearer only); Flutter parses by hand and ignores unknown keys. T-041 (tested locally): no response change; `viewCount` is now filled by a flush job (up to about a minute behind) and a view is also kept in Redis and, with a token, in the user's recent views |
 
 ### wishlist
