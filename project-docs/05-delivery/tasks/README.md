@@ -91,7 +91,7 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 | [T-040](T-040.md) | Interested: POST/DELETE /events/{id}/interested and interestedCount | backend | T-039 | done in code (tested locally) |
 | [T-041](T-041.md) | View tracking: Redis counters, flush job, recent views, viewCount dedupe | backend (server, worker, scheduler) | T-039 | done in code (tested locally) |
 | [T-042](T-042.md) | Recently viewed, most viewed and sort=trending | backend | T-040, T-041, T-034 | done in code (tested locally) |
-| [T-043](T-043.md) | Migration 12: artist bio and social links | backend (database) | T-002 | not started |
+| [T-043](T-043.md) | Migration 12: artist bio and social links | backend (database) | T-002 | done in code (tested locally) |
 | [T-044](T-044.md) | Artists: list, profile, owner edit, admin endpoints, lineup artistId | backend | T-043, T-017 | not started |
 | [T-045](T-045.md) | Public event page fields on GET /explore/{id} | backend | T-040, T-041, T-017 | not started |
 | [T-046](T-046.md) | Customer tickets: bucket filter and bookingStatus | backend | T-003 | not started |
