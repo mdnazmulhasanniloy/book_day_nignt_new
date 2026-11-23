@@ -14,7 +14,7 @@ import { getEmailQueue } from '@/app/queues/email/email.queue';
 import { QUEUE_JOBS } from '@/const';
 import { sendPushNotification, getUsersNearby } from '@/app/modules/notification/notification.helpers';
 import { mapPrismaError } from '@/app/utils/prismaError.utils';
-import { ensureArtistForLineup, resolveLineupArtistId } from '@/app/modules/artists/artists.helpers';
+import { ensureArtistForLineup, resolveLineupLink } from '@/app/modules/artists/artists.helpers';
 import {
   mapTicketTierTree,
   reconcileEventTicketTiers,
@@ -84,12 +84,13 @@ export const createEventService = async ({
     if (lineup && lineup.length > 0) {
       for (const artist of lineup) {
         const { id: _lineupId, ...artistData } = artist;
-        const linkedArtistId = await resolveLineupArtistId(tx, artistData);
+        const link = await resolveLineupLink(tx, artistData);
         await tx.eventLineup.create({
           data: {
             ...artistData,
             eventId: newEvent.id,
-            artistId: linkedArtistId,
+            artistId: link.artistId,
+            isVerified: link.isVerified,
           },
         });
       }
@@ -287,12 +288,13 @@ export const updateEventService = async ({
         await tx.eventLineup.deleteMany({ where: { eventId } });
         for (const artist of lineup) {
           const { id: _lineupId, ...artistData } = artist;
-          const linkedArtistId = await resolveLineupArtistId(tx, artistData);
+          const link = await resolveLineupLink(tx, artistData);
           await tx.eventLineup.create({
             data: {
               ...artistData,
               eventId,
-              artistId: linkedArtistId,
+              artistId: link.artistId,
+              isVerified: link.isVerified,
             },
           });
         }
@@ -500,6 +502,7 @@ export const getEventDetailService = async ({
         },
         lineup: {
           orderBy: { sortOrder: 'asc' },
+          include: { artist: { select: { isVerified: true } } },
         },
       },
     })
@@ -509,6 +512,10 @@ export const getEventDetailService = async ({
 
   return {
     ...event,
+    lineup: event.lineup.map(({ artist, ...row }) => ({
+      ...row,
+      isVerified: artist?.isVerified ?? false,
+    })),
     ticketTiers: mapTicketTierTree(event.ticketTiers),
   };
 };
@@ -698,7 +705,7 @@ export const duplicateEventService = async ({
           audioPreviewUrl: artist.audioPreviewUrl,
           spotifyUrl: artist.spotifyUrl,
           soundcloudUrl: artist.soundcloudUrl,
-          isVerified: artist.isVerified,
+          isVerified: ensured.isVerified,
           sortOrder: artist.sortOrder,
         },
       });

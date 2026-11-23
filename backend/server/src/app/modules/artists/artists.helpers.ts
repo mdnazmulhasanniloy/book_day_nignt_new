@@ -71,19 +71,29 @@ export const mapArtistProfile = (
 export const resolveLineupArtistId = async (
   tx: Prisma.TransactionClient | typeof prisma,
   input: { artistId?: string } & Parameters<typeof ensureArtistForLineup>[1]
-): Promise<string> => {
+): Promise<string> => (await resolveLineupLink(tx, input)).artistId;
+
+/**
+ * Same as `resolveLineupArtistId`, and also returns the stored `isVerified` of the Artist.
+ * A lineup row's verified mark always comes from the Artist record, never from the client payload.
+ */
+export const resolveLineupLink = async (
+  tx: Prisma.TransactionClient | typeof prisma,
+  input: { artistId?: string } & Parameters<typeof ensureArtistForLineup>[1]
+): Promise<{ artistId: string; isVerified: boolean }> => {
   const { artistId, ...rest } = input;
   if (artistId !== undefined) {
     const found = await tx.artist.findUnique({
       where: { id: artistId },
-      select: { id: true },
+      select: { id: true, isVerified: true },
     });
     if (!found) {
       throw { statusCode: 404, message: 'Artist not found' };
     }
-    return found.id;
+    return { artistId: found.id, isVerified: found.isVerified };
   }
-  return (await ensureArtistForLineup(tx, rest)).id;
+  const ensured = await ensureArtistForLineup(tx, rest);
+  return { artistId: ensured.id, isVerified: ensured.isVerified };
 };
 
 /**

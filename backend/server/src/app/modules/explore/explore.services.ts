@@ -597,7 +597,7 @@ export const exploreDetailService = async ({ id, query, userId }: IExploreDetail
         audioPreviewUrl: row.audioPreviewUrl,
         spotifyUrl: row.spotifyUrl,
         soundcloudUrl: row.soundcloudUrl,
-        isVerified: row.isVerified,
+        isVerified: artist.isVerified,
         sortOrder: row.sortOrder,
         artist,
       });
@@ -943,7 +943,7 @@ export const exploreClubArtistsService = async ({
     select: {
       artistName: true,
       artistAvatar: true,
-      isVerified: true,
+      artist: { select: { isVerified: true } },
       spotifyUrl: true,
       soundcloudUrl: true,
     },
@@ -951,7 +951,12 @@ export const exploreClubArtistsService = async ({
   });
 
   const uniqueArtists = Array.from(
-    new Map(lineups.map((a) => [a.artistName.toLowerCase(), a])).values()
+    new Map(
+      lineups.map(({ artist, ...a }) => [
+        a.artistName.toLowerCase(),
+        { ...a, isVerified: artist?.isVerified ?? false },
+      ])
+    ).values()
   );
 
   return uniqueArtists;

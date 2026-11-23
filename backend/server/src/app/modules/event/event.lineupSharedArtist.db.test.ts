@@ -265,4 +265,44 @@ describe('lineup without artistId never modifies a shared artist (W-04)', { skip
     const other = await mkShared('NotListed');
     assert.equal((await send('A', 'PATCH', `/artists/${other.id}`, { bio: 'x' })).status, 404);
   });
+
+  it('lineup isVerified comes from the Artist record: a client-sent isVerified is ignored on POST, PUT and read', async () => {
+    const plain = await db().artist.create({
+      data: { name: `${P} Plain`, nameKey: `${P} Plain`.toLowerCase(), isVerified: false },
+    });
+    const verified = await mkShared('VerifiedOne');
+
+    // POST: client claims true for an unverified artist, false for a verified one
+    const r = await send('B', 'POST', '/event', eventBody({
+      lineup: [
+        { artistId: plain.id, artistName: plain.name, isVerified: true, sortOrder: 0 },
+        { artistId: verified.id, artistName: verified.name, isVerified: false, sortOrder: 1 },
+        { artistName: `${P} Fresh One`, isVerified: true, sortOrder: 2 },
+      ],
+    }));
+    assert.equal(r.status, 201);
+    const { data } = (await r.json()) as { data: { id: string } };
+    let rows = await lineupOf(data.id);
+    assert.deepEqual(rows.map((x) => x.isVerified), [false, true, false]);
+
+    // PUT: same rule
+    const put = await send('B', 'PUT', `/event/${data.id}`, {
+      lineup: [{ artistId: plain.id, artistName: plain.name, isVerified: true, sortOrder: 0 }],
+    });
+    assert.equal(put.status, 200);
+    rows = await lineupOf(data.id);
+    assert.deepEqual(rows.map((x) => x.isVerified), [false]);
+
+    // legacy row whose stored flag was client-set: reads still show the Artist's value
+    await db().eventLineup.updateMany({ where: { eventId: data.id }, data: { isVerified: true } });
+    const detail = await send('B', 'GET', `/event/${data.id}`);
+    assert.equal(detail.status, 200);
+    const body = (await detail.json()) as { data: { lineup: { isVerified: boolean }[] } };
+    assert.deepEqual(body.data.lineup.map((x) => x.isVerified), [false]);
+
+    // when an admin later verifies the artist, the display follows
+    await db().artist.update({ where: { id: plain.id }, data: { isVerified: true } });
+    const again = (await (await send('B', 'GET', `/event/${data.id}`)).json()) as { data: { lineup: { isVerified: boolean }[] } };
+    assert.deepEqual(again.data.lineup.map((x) => x.isVerified), [true]);
+  });
 });
