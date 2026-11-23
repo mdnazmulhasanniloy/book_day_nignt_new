@@ -17,6 +17,7 @@ import {
   mapArtist,
 } from '@/app/modules/artists/artists.helpers';
 import { Prisma } from '@prisma/client';
+import { EXPLORE_DEFAULT_RADIUS_KM } from '@/app/modules/explore/explore.schema';
 
 /**
  * Service for fetching a paginated list of Clubs and Events based on filters.
@@ -42,16 +43,44 @@ export const exploreListService = async ({ query, userId }: IExploreListService)
     mood,
     categoryType,
     city,
+    radiusKm,
+    cityId,
   } = query;
   const page = Number(query.page || 1);
   const limit = Number(query.limit || 10);
   const skip = (page - 1) * limit;
 
+  // Centre: lat/lng when both are given, otherwise the city centre when cityId is given.
+  let centre: { lat: number; lng: number } | undefined;
+  if (lat !== undefined && lng !== undefined) {
+    centre = { lat, lng };
+  } else if (cityId !== undefined) {
+    const found = await prisma.city.findUnique({
+      where: { id: cityId },
+      select: { lat: true, lng: true },
+    });
+    if (!found) {
+      throw { statusCode: 404, message: 'City not found', errorType: 'NOT_FOUND' };
+    }
+    centre = { lat: found.lat, lng: found.lng };
+  }
+  const radiusMetres = (radiusKm ?? EXPLORE_DEFAULT_RADIUS_KM) * 1000;
+  const centrePoint = centre
+    ? Prisma.sql`ST_SetSRID(ST_MakePoint(${centre.lng}, ${centre.lat}), 4326)`
+    : undefined;
+  const clubDistance = centrePoint
+    ? Prisma.sql`, ROUND((ST_Distance(c.geog, ${centrePoint}::geography) / 1000)::numeric, 1) as "distanceKm"`
+    : Prisma.empty;
+  const eventDistance = centrePoint
+    ? Prisma.sql`, ROUND((ST_Distance(e.geog, ${centrePoint}::geography) / 1000)::numeric, 1) as "distanceKm"`
+    : Prisma.empty;
+  const selectDistance = centrePoint ? Prisma.sql`, "distanceKm"` : Prisma.empty;
+
   // Build Club Conditions
   const clubConditions: Prisma.Sql[] = [Prisma.sql`c."deactivatedAt" IS NULL`];
   
-  if (lat !== undefined && lng !== undefined) {
-    clubConditions.push(Prisma.sql`ST_DWithin(c.geog, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326), 20000)`);
+  if (centrePoint) {
+    clubConditions.push(Prisma.sql`ST_DWithin(c.geog, ${centrePoint}, ${radiusMetres})`);
   }
   if (isVip !== undefined) {
     clubConditions.push(Prisma.sql`c."isVip" = ${isVip}`);
@@ -95,8 +124,8 @@ export const exploreListService = async ({ query, userId }: IExploreListService)
     Prisma.sql`e."endAt" > ${new Date()}`
   ];
   
-  if (lat !== undefined && lng !== undefined) {
-    eventConditions.push(Prisma.sql`ST_DWithin(e.geog, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326), 20000)`);
+  if (centrePoint) {
+    eventConditions.push(Prisma.sql`ST_DWithin(e.geog, ${centrePoint}, ${radiusMetres})`);
   }
   if (search) {
     eventConditions.push(Prisma.sql`e."eventName" ILIKE ${`%${search}%`}`);
@@ -185,6 +214,7 @@ export const exploreListService = async ({ query, userId }: IExploreListService)
       COALESCE((SELECT MIN(price) FROM "ClubPackage" WHERE "clubId" = c.id AND "isActive" = true), 0) as "minPrice",
       COALESCE((SELECT MAX(price) FROM "ClubPackage" WHERE "clubId" = c.id AND "isActive" = true), 0) as "maxPrice",
       (SELECT currency FROM "ClubPackage" WHERE "clubId" = c.id AND "isActive" = true LIMIT 1) as currency
+      ${clubDistance}
       ${wishlistSubqueryClub}
     FROM "Club" c
     LEFT JOIN "ClubReview" r ON c.id = r."clubId"
@@ -201,6 +231,7 @@ export const exploreListService = async ({ query, userId }: IExploreListService)
       e."eventPrice" as "minPrice", 
       e."eventPrice" as "maxPrice", 
       e.currency
+      ${eventDistance}
       ${wishlistSubqueryEvent}
     FROM "Event" e
     ${eventWhere}
@@ -244,12 +275,12 @@ export const exploreListService = async ({ query, userId }: IExploreListService)
   const data = await prisma.$queryRaw<{ 
     id: string, name: string, lat: number, lng: number, location: string, type: "CLUB" | "EVENT",
     review: number, isVip: boolean, thumbnail: string, minPrice: number, maxPrice: number, currency: string,
-    isWishlist?: boolean
+    isWishlist?: boolean, distanceKm?: string | number | null
   }[]>`
     WITH combined AS (
       ${combinedQuery}
     )
-    SELECT id, name, lat, lng, location, "type", review, "isVip", thumbnail, "minPrice", "maxPrice", currency${selectWishlist} FROM combined
+    SELECT id, name, lat, lng, location, "type", review, "isVip", thumbnail, "minPrice", "maxPrice", currency${selectDistance}${selectWishlist} FROM combined
     ${orderBy}
     LIMIT ${limit} OFFSET ${skip}
   `;
@@ -268,6 +299,10 @@ export const exploreListService = async ({ query, userId }: IExploreListService)
 
     if (userId !== undefined) {
       base.isWishlist = Boolean(item.isWishlist);
+    }
+
+    if (centre !== undefined && item.distanceKm !== undefined && item.distanceKm !== null) {
+      base.distanceKm = Number(item.distanceKm);
     }
 
     if (item.type === 'CLUB') {

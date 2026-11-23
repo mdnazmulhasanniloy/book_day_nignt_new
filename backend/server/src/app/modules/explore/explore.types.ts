@@ -44,6 +44,7 @@ export interface ILightweightExploreItem {
   price?: number;
   currency: string;
   isWishlist?: boolean;
+  distanceKm?: number;
   musicGenres?: string[];
   categoryType?: string;
   followerCount?: number;

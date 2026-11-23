@@ -6,6 +6,10 @@ const booleanQuery = z.preprocess((val) => {
   return val;
 }, z.boolean().optional());
 
+/** Allowed search radii in km. The server default when radiusKm is omitted is 20 (old clients). */
+export const EXPLORE_RADIUS_KM_OPTIONS: readonly number[] = [10, 20, 30, 40, 50];
+export const EXPLORE_DEFAULT_RADIUS_KM = 20;
+
 export const exploreQuerySchema = z.object({
   type: z.enum(['CLUB', 'EVENT']).optional(),
   date: z.string().datetime().optional(),
@@ -13,6 +17,13 @@ export const exploreQuerySchema = z.object({
   lat: z.coerce.number().min(-90).max(90).optional(),
   lng: z.coerce.number().min(-180).max(180).optional(),
   city: z.string().optional(),
+  radiusKm: z.coerce
+    .number()
+    .refine((v) => EXPLORE_RADIUS_KM_OPTIONS.includes(v), {
+      message: 'radiusKm must be one of 10, 20, 30, 40, 50',
+    })
+    .optional(),
+  cityId: z.string().uuid().optional(),
   minPrice: z.coerce.number().nonnegative().optional(),
   maxPrice: z.coerce.number().nonnegative().optional(),
   isFree: booleanQuery,
