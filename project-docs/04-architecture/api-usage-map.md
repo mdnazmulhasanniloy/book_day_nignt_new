@@ -126,8 +126,8 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 |---|---|---|---|
 | `GET /club` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/club_repository.dart:35` | - | Flutter only |
 | `POST /club` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/club_repository.dart:16` | - | Flutter only |
-| `GET /club/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/club_repository.dart:45` | - | Flutter only |
-| `PUT /club/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/club_repository.dart:58` | - | Flutter only |
+| `GET /club/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/club_repository.dart:45` | - | Flutter only. T-012: missing or foreign id is now 404 NOT_FOUND (was 500); no client depends on the 500 (read only check: the app maps 4xx to a validation error with the server message, 5xx to a generic error) |
+| `PUT /club/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/club_repository.dart:58` | - | Flutter only. T-012: missing or foreign id is now 404 NOT_FOUND (was 500) |
 | `PUT /club/{id}/bookings/close` | - | - | **UNUSED** |
 | `GET /admin/club` | - | `admin/src/apis/clubs.api.ts:28` | Admin only |
 
@@ -137,8 +137,8 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 |---|---|---|---|
 | `POST /event` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:15` | - | Flutter only |
 | `GET /event` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:37`<br>`flutter_app/lib/app/modules/club_owner_side/owner_home/repository/owner_stats_repository.dart:86` | - | Flutter only |
-| `PUT /event/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:85` | - | Flutter only |
-| `GET /event/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:48` | - | Flutter only |
+| `PUT /event/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:85` | - | Flutter only. T-012: missing or foreign id is now 404 NOT_FOUND (a foreign id was 403, which the app treats like 401) |
+| `GET /event/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:48` | - | Flutter only. T-012: missing or foreign id is now 404 NOT_FOUND (was 500) |
 | `POST /event/{id}/duplicate` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:448` | - | Flutter only |
 | `PUT /event/{id}/bookings/close` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:456` | - | Flutter only |
 | `GET /admin/event` | - | `admin/src/apis/events.api.ts:28` | Admin only |

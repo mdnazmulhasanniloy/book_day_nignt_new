@@ -8308,7 +8308,7 @@ paths:
       - club
       summary: Get one owned club with opening hours and packages
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + checkConnectReadinessMiddleware (Stripe Connect canCreateListings) + validateReqParams(clubIdParamsSchema)'
-      description: 'Ownership: service uses prisma.club.findUniqueOrThrow({where:{id,userId}}). A club that does not exist OR belongs to another owner throws a Prisma P2025 error that is NOT mapped by globalErrorMiddleware, so the client gets 500 ''Internal Server Error'' (not 404/403). Documented as coded. Returns ALL packages (including inactive) ordered by sortOrder. TO-BE (CR-17, BUG-B26): Club not found or not owned returns 404 (was 500 from unmapped Prisma P2025).'
+      description: 'Ownership: service uses prisma.club.findUniqueOrThrow({where:{id,userId}}). A club that does not exist OR belongs to another owner returns 404 {success:false, message:''Club not found'', errorType:''NOT_FOUND'', traceId} with the same body for both (T-012, tested locally, not deployed; was 500 from unmapped Prisma P2025). Prisma errors are converted by mapPrismaError (P2025 -> 404, P2003 -> 409 FOREIGN_KEY_CONFLICT) with fixed messages; raw Prisma text never reaches the client. Returns ALL packages (including inactive) ordered by sortOrder. TO-BE note (CR-17, BUG-B26) shipped in T-012.'
       security:
       - userBearer: []
       parameters:
@@ -8587,14 +8587,13 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: club_get_club_id
       x-requirement: CR-17, BUG-B26
-      x-status: planned
       x-change: modified
     put:
       tags:
       - club
       summary: Update an owned club (partial) incl. hours/packages/activation
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + checkConnectReadinessMiddleware (Stripe Connect canCreateListings) + validateReqParams(clubIdParamsSchema) + validateReqBody(updateClubSchema)'
-      description: 'Ownership: service uses prisma.club.findUniqueOrThrow({where:{id,userId}}). A club that does not exist OR belongs to another owner throws a Prisma P2025 error that is NOT mapped by globalErrorMiddleware, so the client gets 500 ''Internal Server Error'' (not 404/403). Documented as coded. All body fields optional. `isActive:false` sets deactivatedAt=now, `true` clears it. openingHours (exactly 7 if sent): item with `id` updates that row (404 ''Opening hour not found: <id>'' if not in this club), without id upserts by (clubId, dayOfWeek). packages: no id -> create (skipped if isActive=false); id -> update; `isActive:false` with id -> hard-delete if no ClubBooking references it, else deactivate; omitted packages untouched; 404 ''Package not found: <id>''. Active packages must share one currency (422 from schema; service re-checks with statusCode 422). Returns bare Club row. TO-BE (CR-17, BUG-B26): Club not found or not owned returns 404 (was 500 from unmapped Prisma P2025).'
+      description: 'Ownership: service uses prisma.club.findUniqueOrThrow({where:{id,userId}}). A club that does not exist OR belongs to another owner returns 404 {success:false, message:''Club not found'', errorType:''NOT_FOUND'', traceId} with the same body for both (T-012, tested locally, not deployed; was 500 from unmapped Prisma P2025). Prisma errors are converted by mapPrismaError (P2025 -> 404, P2003 -> 409 FOREIGN_KEY_CONFLICT) with fixed messages; raw Prisma text never reaches the client. All body fields optional. `isActive:false` sets deactivatedAt=now, `true` clears it. openingHours (exactly 7 if sent): item with `id` updates that row (404 ''Opening hour not found: <id>'' if not in this club), without id upserts by (clubId, dayOfWeek). packages: no id -> create (skipped if isActive=false); id -> update; `isActive:false` with id -> hard-delete if no ClubBooking references it, else deactivate; omitted packages untouched; 404 ''Package not found: <id>''. Active packages must share one currency (422 from schema; service re-checks with statusCode 422). Returns bare Club row. TO-BE note (CR-17, BUG-B26) shipped in T-012.'
       security:
       - userBearer: []
       parameters:
@@ -8880,7 +8879,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: club_put_club_id
       x-requirement: CR-17, BUG-B26
-      x-status: planned
       x-change: modified
   /club/{id}/bookings/close:
     put:
@@ -9897,7 +9895,7 @@ paths:
       - event
       summary: Update an owned event (partial) / cancel / restore
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + checkConnectReadinessMiddleware (Stripe Connect canCreateListings) + validateReqParams(eventIdParamsSchema) + validateReqBody(updateEventSchema) + checkEventCancellationValidityMiddleware'
-      description: 'All fields optional. checkEventCancellationValidityMiddleware loads the event and enforces ownership (404 / 403 with bare {success,message} bodies - no errorType/traceId). Rules: (1) event already CANCELED -> only a restore is allowed (eventStatus=UPCOMING AND isActive=true) else 400; (2) eventStatus=CANCELED within 6h of startAt -> 400; otherwise formal cancellation: deactivatedAt set, a SCHEDULED Refund (grossAmount, +6 days) created per PAID EVENT order, refund jobs + cancellation emails + push enqueued after commit. WARNING: sending `ticketTiers` deletes ALL existing tiers and recreates them (soldCount resets to 0, ids change); sending `lineup` likewise replaces all lineup rows. Returns bare Event row. TO-BE (CR-04, BUG-B24): Ticket tiers are now updated in place. A tier object WITH `id` updates that tier (soldCount and id preserved); a tier WITHOUT `id` is created; an existing tier missing from the array is hard-deleted only if soldCount=0 AND no EventPurchase row references it (T-006), otherwise deactivated (isActive=false) and kept. capacity lower than soldCount returns 409 TIER_CAPACITY_BELOW_SOLD. Previously `id` was ignored and all tiers were deleted and recreated (soldCount reset to 0). Backward compatibility for the live app, which does not send ids: when no incoming tier carries an id, the server matches incoming tiers to existing ones by (parent groupName, tierName) and updates those in place; unmatched sold tiers are deactivated rather than deleted.'
+      description: 'All fields optional. checkEventCancellationValidityMiddleware loads the event and enforces ownership: an event that is missing OR owned by another user returns 404 {success:false, message:''Event not found'', errorType:''NOT_FOUND'', traceId} (T-012, tested locally, not deployed; was 403 ''Forbidden'' for a foreign event, which the live Flutter app treats like 401). Rules: (1) event already CANCELED -> only a restore is allowed (eventStatus=UPCOMING AND isActive=true) else 400; (2) eventStatus=CANCELED within 6h of startAt -> 400; otherwise formal cancellation: deactivatedAt set, a SCHEDULED Refund (grossAmount, +6 days) created per PAID EVENT order, refund jobs + cancellation emails + push enqueued after commit. WARNING: sending `ticketTiers` deletes ALL existing tiers and recreates them (soldCount resets to 0, ids change); sending `lineup` likewise replaces all lineup rows. Returns bare Event row. TO-BE (CR-04, BUG-B24): Ticket tiers are now updated in place. A tier object WITH `id` updates that tier (soldCount and id preserved); a tier WITHOUT `id` is created; an existing tier missing from the array is hard-deleted only if soldCount=0 AND no EventPurchase row references it (T-006), otherwise deactivated (isActive=false) and kept. capacity lower than soldCount returns 409 TIER_CAPACITY_BELOW_SOLD. Previously `id` was ignored and all tiers were deleted and recreated (soldCount reset to 0). Backward compatibility for the live app, which does not send ids: when no incoming tier carries an id, the server matches incoming tiers to existing ones by (parent groupName, tierName) and updates those in place; unmatched sold tiers are deactivated rather than deleted.'
       security:
       - userBearer: []
       parameters:
@@ -10333,9 +10331,7 @@ paths:
         '403':
           description: '- ACCESS_DENIED: ''Access denied: Requires club owner privileges'' (accountRole must be CLUB_OWNER)
 
-            - (no errorType) ''Complete Stripe Connect setup before managing listings'' (checkConnectReadinessMiddleware; response is {success,message,traceId})
-
-            - ''Forbidden'' (middleware; event.userId != caller; body {success,message} only)'
+            - (no errorType) ''Complete Stripe Connect setup before managing listings'' (checkConnectReadinessMiddleware; response is {success,message,traceId})'
           content:
             application/json:
               schema:
@@ -10363,7 +10359,7 @@ paths:
       - event
       summary: Get one owned event with all ticket tiers and lineup
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + checkConnectReadinessMiddleware (Stripe Connect canCreateListings) + validateReqParams(eventIdParamsSchema)'
-      description: 'Owner detail view; includes inactive tiers. ticketTiers is the mapped tree (price as 2dp string, soldOut flag, children nested). Event/other-owner not found -> findUniqueOrThrow P2025 -> 500 (unmapped), as coded. TO-BE (CR-17, BUG-B26): Event not found or not owned returns 404 (was 500 from unmapped Prisma P2025).'
+      description: 'Owner detail view; includes inactive tiers. ticketTiers is the mapped tree (price as 2dp string, soldOut flag, children nested). Event missing or owned by another user returns 404 {success:false, message:''Event not found'', errorType:''NOT_FOUND'', traceId}, same body for both (T-012, tested locally, not deployed; was 500 from unmapped Prisma P2025). Fixed messages only, raw Prisma text never reaches the client.'
       security:
       - userBearer: []
       parameters:
@@ -10777,7 +10773,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: event_get_event_id
       x-requirement: CR-17, BUG-B26
-      x-status: planned
       x-change: modified
   /event/{id}/duplicate:
     post:

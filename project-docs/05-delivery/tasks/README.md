@@ -42,7 +42,7 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 | [T-009](T-009.md) | Social sign-in: date of birth and profileComplete, retry-safe | backend | T-003 | not started |
 | [T-010](T-010.md) | Admin status codes: refresh 401, suspend 404, page/limit 422 | backend | T-003 | done in code (tested locally) |
 | [T-011](T-011.md) | verify-ticket business errors return real status codes | backend | T-003 | done in code (tested locally) |
-| [T-012](T-012.md) | Map Prisma not-found and FK errors for club and event routes | backend | T-003 | not started |
+| [T-012](T-012.md) | Map Prisma not-found and FK errors for club and event routes | backend | T-003 | done in code (tested locally) |
 | [T-013](T-013.md) | Event module delete 409 and wishlist 404 | backend | T-012 | not started |
 | [T-014](T-014.md) | Validate request bodies on DELETE routes | backend | T-003 | not started |
 | [REL-M1](REL-M1.md) | Release checkpoint: M1 security and correctness | release | T-001, T-002, T-003, T-004, T-005, T-006, T-007, T-008, T-009, T-010, T-011, T-012, T-013, T-014 | not started |
