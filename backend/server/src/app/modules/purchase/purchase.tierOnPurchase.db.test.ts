@@ -7,6 +7,7 @@ import {
   getTestPrisma,
 } from '@/testing/testDb';
 import { createEvent, createTier, createUser } from '@/testing/fixtures';
+import { FakeQueue } from '@/testing/fakes';
 
 // T-006: the chosen tier is stored on EventPurchase (CR-04, BUG-B24).
 // The service uses the app's own Prisma client, which reads DATABASE_URL, so
@@ -109,6 +110,7 @@ describe('POST /purchase/event stores the tier (T-006)', { skip: dbTestSkipReaso
       payload: { friends: [], ...payload },
       idempotencyKey: key,
       buyerAge: 30,
+      queue: new FakeQueue(), // T-008: no real Redis in tests
     });
     created.orderIds.push(result.order.id);
     created.purchaseIds.push(result.eventPurchase.id);

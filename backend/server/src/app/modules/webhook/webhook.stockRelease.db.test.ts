@@ -8,7 +8,7 @@ import {
   getTestPrisma,
 } from '@/testing/testDb';
 import { createEvent, createTier, createUser } from '@/testing/fixtures';
-import { installFakeRedis, signStripePayload } from '@/testing/fakes';
+import { FakeQueue, installFakeRedis, signStripePayload } from '@/testing/fakes';
 
 // T-007: release EventTicketTier.soldCount when a payment fails or is canceled (CR-04, BUG-B24).
 // The webhook service uses the app's own Prisma client (DATABASE_URL), pointed at the
@@ -126,6 +126,7 @@ describe('webhook releases tier stock (T-007)', { skip: dbTestSkipReason() }, ()
       payload: { friends, ...payload } as never,
       idempotencyKey: `key-${rand()}-${Date.now()}`,
       buyerAge: 30,
+      queue: new FakeQueue(), // T-008: no real Redis in tests
     });
     created.orderIds.push(result.order.id);
     const piId = `pi_${rand()}`;
