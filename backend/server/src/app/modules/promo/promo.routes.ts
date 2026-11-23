@@ -23,6 +23,7 @@ import {
   checkUserExistenceMiddleware,
   checkAccountStatus,
 } from '@/app/modules/auth/auth.middlewares';
+import { checkPromoManagerRoleMiddleware } from '@/app/modules/promo/promo.middlewares';
 
 const router = Router();
 
@@ -42,12 +43,13 @@ router.get(
   listPromoCodesController
 );
 
-// Admin or authenticated owner can create promo codes
+// Club owners and admins only (role gate); customers get 403
 router.post(
   '/promo',
   checkUserAccessTokenMiddleware,
   checkUserExistenceMiddleware,
   checkAccountStatus,
+  checkPromoManagerRoleMiddleware,
   validateReqBody(createPromoCodeSchema),
   createPromoCodeController
 );
@@ -57,6 +59,7 @@ router.put(
   checkUserAccessTokenMiddleware,
   checkUserExistenceMiddleware,
   checkAccountStatus,
+  checkPromoManagerRoleMiddleware,
   validateReqParams(promoIdParamsSchema),
   validateReqBody(updatePromoCodeSchema),
   updatePromoCodeController
@@ -67,6 +70,7 @@ router.delete(
   checkUserAccessTokenMiddleware,
   checkUserExistenceMiddleware,
   checkAccountStatus,
+  checkPromoManagerRoleMiddleware,
   validateReqParams(promoIdParamsSchema),
   deletePromoCodeController
 );

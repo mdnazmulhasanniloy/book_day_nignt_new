@@ -1,4 +1,4 @@
-import { DiscountType } from '@prisma/client';
+import { AccountRole, DiscountType } from '@prisma/client';
 import {
   TListPromoQuery,
   TUpdatePromoCodePayload,
@@ -22,6 +22,7 @@ export interface IValidatePromoCodeResponse {
 
 export interface ICreatePromoCodeParams {
   userId: string;
+  accountRole: AccountRole;
   code: string;
   discountType: DiscountType;
   discountValue: number;
@@ -39,10 +40,12 @@ export interface IListPromoCodesParams {
 export interface IUpdatePromoCodeParams {
   id: string;
   userId: string;
+  accountRole: AccountRole;
   payload: TUpdatePromoCodePayload;
 }
 
 export interface IDeletePromoCodeParams {
   id: string;
   userId: string;
+  accountRole: AccountRole;
 }
