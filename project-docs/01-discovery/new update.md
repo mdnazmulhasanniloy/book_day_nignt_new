@@ -748,7 +748,7 @@ ID B3.4  |  Original request and review clarification
 
 Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: Backend: artist list and artist profile (including bio and social links), editing by clubs whose events list the artist and by admins, and linking an artist to an event line-up; an event edit no longer overwrites a shared artist. Tests pass locally. Open: who may edit a profile (Q4 in our latest list). Admin dashboard page and Flutter screens: not started. Not deployed and not yet demonstrated on a build. (ref: T-043, T-044)
+Implementation and evidence: Backend: artist list and artist profile (including bio and social links), editing by clubs whose events list the artist and by admins, and linking an artist to an event line-up; an event edit no longer overwrites a shared artist, and the verified mark of an artist in a line-up always comes from the artist profile, never from what the app sends. Tests pass locally. Open: who may edit a profile (Q4 in our latest list). Admin dashboard page and Flutter screens: not started. Not deployed and not yet demonstrated on a build. (ref: T-043, T-044)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## B3 5 Follow artists and account ownership
@@ -1086,7 +1086,7 @@ ID T5  |  Verification requirement
 
 Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: Backend: clearer error responses (for example expired session, not found, invalid input) replace several generic server errors on the admin, scanning, map, event module and wishlist calls; tests pass locally. No staging environment or named test build exists yet, so no demonstration has been recorded; the first security release package is ready but waits for a staging setup and approval, and we need to know who puts new versions live (Q30). Loading, empty, error and retry screens in the Flutter app and admin dashboard: not started. Next action: set up staging, name the build and run the smoke checks. (ref: T-010 to T-014, REL-HF)
+Implementation and evidence: Backend: clearer error responses (for example expired session, not found, invalid input) replace several generic server errors on the admin, scanning, map, event module and wishlist calls; tests pass locally. No staging environment or named test build exists yet, so no demonstration has been recorded; the first security release package is ready but waits for a staging setup and approval, and we need to know who puts new versions live (Q30). Loading, empty, error and retry screens in the Flutter app and admin dashboard: not started. An automated check that runs all backend tests (including the database, worker and scheduler tests) on every change is now prepared in the repository; it has not run on GitHub yet and deploys nothing. We also prepared a step-by-step staging checklist for you; you choose the host and create the resources. Next action: you set up staging, we name the build and run the smoke checks. (ref: T-010 to T-014, REL-HF)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 
