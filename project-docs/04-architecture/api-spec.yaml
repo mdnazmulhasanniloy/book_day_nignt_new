@@ -23790,7 +23790,7 @@ paths:
       tags:
       - owner
       summary: Verify a ticket / check in an order
-      description: 'Sets Order.checkedInAt and push-notifies the buyer. NOTE: the service throws plain Error objects (no statusCode) for every business failure (ticket not found, caller not the seller, order not PAID or refunded, already used, missing purchase relationship), so the global handler returns 500 ''Internal Server Error'' and the intended messages are not exposed. UNVERIFIED whether clients rely on them. This route has NO checkConnectReadiness. TO-BE (CR-17, BUG-B15): Business failures return real statuses with errorType instead of 500: not found OR not your order -> 404 (existence of other sellers'' orders is not revealed); not PAID or refunded -> 422 TICKET_NOT_VALID; already used -> 409 TICKET_ALREADY_USED (body includes usedAt). 401/403 are deliberately NOT used for business failures, because the Flutter client treats 401/403 as an authentication failure. Endpoint behaviour is otherwise unchanged (one check-in per order); the per-day/per-attendee scan is deferred with CR-05.'
+      description: 'Sets Order.checkedInAt and push-notifies the buyer. This route has NO checkConnectReadiness. Implemented in T-011 (CR-17, BUG-B15; tested locally, not deployed): business failures return real statuses with a stable errorType instead of 500: ticket not found OR not your order -> 404 TICKET_NOT_FOUND (identical body, so the existence of other sellers'' orders is not revealed); order not PAID or refunded -> 422 TICKET_NOT_VALID; already used -> 409 TICKET_ALREADY_USED (body also has usedAt, the ISO time of the first check-in). Human messages are unchanged (Ticket not found; Ticket is not valid for entry (status: ...); Ticket has already been used on <ISO time>). 401/403 are deliberately NOT used for business failures, because the Flutter client treats 401/403 as an authentication failure (401/403 still come only from the auth and role middlewares). Endpoint behaviour is otherwise unchanged: one check-in per order, any Refund row still blocks entry (T-064 changes that later), a missing purchase relationship is still an unmapped 500; the per-day/per-attendee scan is deferred with CR-05.'
       x-auth: owner (user bearer + checkClubOwnerRoleMiddleware; no Connect readiness)
       security:
       - userBearer: []
@@ -23863,26 +23863,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Ticket not found, or the order belongs to another seller (TO-BE; was 500)
+          description: TICKET_NOT_FOUND: ticket not found, or the order belongs to another seller (same body for both; was 500)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: 'Body invalid, or TICKET_NOT_VALID: order not PAID or refunded (TO-BE; was 500)'
+          description: 'Body invalid, or TICKET_NOT_VALID: order not PAID or refunded (was 500)'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: TICKET_ALREADY_USED, body includes usedAt (TO-BE; was 500)
+          description: TICKET_ALREADY_USED, body includes usedAt (was 500)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: owner_post_owner_verify_ticket
       x-requirement: CR-17, BUG-B15
-      x-status: planned
       x-change: modified
   /owner/bookings/export:
     get:

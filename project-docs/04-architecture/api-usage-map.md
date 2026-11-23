@@ -304,7 +304,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 | `GET /owner/dashboard` | `flutter_app/lib/app/modules/club_owner_side/owner_home/repository/owner_stats_repository.dart:22` | - | Flutter only |
 | `GET /owner/earnings` | `flutter_app/lib/app/modules/club_owner_side/owner_home/repository/owner_stats_repository.dart:32` | - | Flutter only |
 | `GET /owner/payments` | `flutter_app/lib/app/modules/club_owner_side/owner_home/repository/owner_stats_repository.dart:72` | - | Flutter only |
-| `POST /owner/verify-ticket` | `flutter_app/lib/app/modules/club_owner_side/ticket_scanner/repository/ticket_scanner_repository.dart:68` | - | Flutter only |
+| `POST /owner/verify-ticket` | `flutter_app/lib/app/modules/club_owner_side/ticket_scanner/repository/ticket_scanner_repository.dart:68` | - | Flutter only. T-011: business failures are now 404/409/422 (were 500); the scanner screen shows the server message for any 4xx and a generic text for 5xx, and 401/403 are not used, so no logout path is triggered |
 | `GET /owner/bookings/export` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:480` | - | Flutter only |
 
 ### public-web
