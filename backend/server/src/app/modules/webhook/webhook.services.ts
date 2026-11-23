@@ -6,6 +6,11 @@ import logger from '@/app/configs/logger.configs';
 import { getSystemQueue } from '@/app/queues/system/system.queue';
 import { QUEUE_JOBS } from '@/const';
 import { sendPushNotification } from '@/app/modules/notification/notification.helpers';
+import { getTraceId } from '@/app/configs/requestContext.configs';
+import {
+  reacquireEventTierStock,
+  releaseEventTierStock,
+} from '@/app/modules/webhook/webhook.helpers';
 
 export interface IProcessPaymentWebhookService {
   payload: any;
@@ -20,7 +25,11 @@ export interface IProcessPaymentWebhookService {
  *
  * State Transitions:
  * - payment_intent.succeeded: PaymentTransaction (PAID), Order (PAID), ClubBooking (BOOKED - only if currently HOLD)
- * - payment_intent.payment_failed/canceled: PaymentTransaction (FAILED), Order (PAYMENT_FAILED), ClubBooking (EXPIRED - only if currently HOLD)
+ * - payment_intent.payment_failed/canceled: PaymentTransaction (FAILED), Order (PAYMENT_FAILED, only if still PENDING_PAYMENT),
+ *   ClubBooking (EXPIRED - only if currently HOLD), and the EventTicketTier soldCount held by the order is released once
+ *   (only when the EventPurchase stores a ticketTierId; T-007).
+ * - payment_intent.succeeded for an order already PAYMENT_FAILED with a tier link: stock is taken again if the tier has room,
+ *   otherwise the order is left unchanged and logged as MANUAL_REVIEW (no automatic refund; T-007).
  *
  * Duplicate Delivery Handling:
  * Webhooks may be delivered multiple times. We use the WebhookEvent model to track processed Stripe events.
@@ -85,6 +94,9 @@ export const processPaymentWebhookService = async ({
         },
       });
 
+      // Set when a late success cannot get its seats back: skip fulfillment, flag for manual review.
+      let tierFullManualReview = false;
+
       if (paymentTx) {
         const { order } = paymentTx;
 
@@ -98,7 +110,26 @@ export const processPaymentWebhookService = async ({
           });
 
           // WHY GUARD: Never downgrade or modify an already finalized successful/failed payment due to out-of-order webhooks.
-          if (!currentTx || currentTx.status !== 'PENDING') {
+          if (!currentTx) return;
+
+          // Late success after payment_failed (T-007): the failed handler released the tier stock.
+          // Take it again; if the tier is full, change nothing and flag for manual review.
+          if (
+            currentTx.status === 'FAILED' &&
+            event.type === 'payment_intent.succeeded' &&
+            order.eventPurchase?.ticketTierId
+          ) {
+            const reacquired = await reacquireEventTierStock({
+              tx,
+              orderId: order.id,
+            });
+            if (reacquired === 'TIER_FULL') {
+              tierFullManualReview = true;
+              return;
+            }
+            if (reacquired === 'NOT_APPLICABLE') return;
+            // REACQUIRED: fall through to the normal succeeded handling below.
+          } else if (currentTx.status !== 'PENDING') {
             return;
           }
 
@@ -182,10 +213,8 @@ export const processPaymentWebhookService = async ({
               where: { id: currentTx.id },
               data: { status: 'FAILED' },
             });
-            await tx.order.update({
-              where: { id: order.id },
-              data: { status: 'PAYMENT_FAILED' },
-            });
+            // Guarded transition + one-time stock release (T-007).
+            await releaseEventTierStock({ tx, orderId: order.id });
 
             if (order.clubBooking) {
               const currentBooking = await tx.clubBooking.findUnique({
@@ -236,6 +265,17 @@ export const processPaymentWebhookService = async ({
             }
           }
         });
+
+        if (tierFullManualReview) {
+          logger.error(
+            `[webhook] MANUAL_REVIEW late payment_intent.succeeded for order ${order.id} (payment intent ${stripePaymentIntentId}, stripe event ${event.id}): tier is full after its stock was released, order left PAYMENT_FAILED, no automatic refund. traceId: ${getTraceId()}`
+          );
+          await prisma.webhookEvent.update({
+            where: { id: record.id },
+            data: { status: 'PROCESSED', processedAt: new Date() },
+          });
+          return;
+        }
 
         // 4. Fulfillment (PDF Generation)
         // WHY: Enqueue this strictly AFTER the transaction commits to guarantee the worker only operates on fully persisted PAID states.
