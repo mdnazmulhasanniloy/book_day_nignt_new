@@ -84,7 +84,7 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 | [T-033](T-033.md) | Cities: GET /cities and admin cities endpoints | backend | T-031 | done in code (tested locally) |
 | [T-034](T-034.md) | Explore: radiusKm, cityId and distanceKm | backend | T-030, T-033 | done in code (tested locally) |
 | [T-035](T-035.md) | Explore: day grouping, date range, this_week, result total | backend | T-034, T-017 | done in code (tested locally) |
-| [T-036](T-036.md) | Explore feed honours city, cityId and radius | backend | T-034 | not started |
+| [T-036](T-036.md) | Explore feed honours city, cityId and radius | backend | T-034 | done in code (tested locally) |
 | [T-037](T-037.md) | Filter vocabulary: GET /explore/filters and admin filter-options | backend | T-031 | not started |
 | [T-038](T-038.md) | GET /explore/map with the same filters as /explore | backend | T-034, T-037 | not started |
 | [T-039](T-039.md) | Migration 11: interested, recent views and daily view counts | backend (database) | T-002, T-003 | not started |

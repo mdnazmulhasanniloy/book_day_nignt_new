@@ -15675,7 +15675,7 @@ paths:
       - explore
       summary: Home 'For You' feed (public)
       x-auth: 'optional user bearer: optionalUserAccessTokenMiddleware (no header = guest; header present but bad = 401) + validateReqQuery(exploreFeedQuerySchema)'
-      description: 'Aggregated: today/tomorrow (up to 10 upcoming events overlapping the day, by startAt), blowingUp (top 10 by viewCount), popularOrganizers (top 10 clubs by followerCount), genres (distinct genres of upcoming events). `city` filters by ILIKE location. `lat`/`lng` are validated but IGNORED by the service. The token (if any) is not used for personalisation. No isWishlist. TO-BE (CR-09, BUG-B28): lat/lng, city, cityId and radiusKm are honoured by every feed module (lat/lng were accepted but ignored). Module labels use the city actually applied.'
+      description: 'Aggregated: today/tomorrow (up to 10 upcoming events overlapping the day, by startAt), blowingUp (top 10 by viewCount), popularOrganizers (top 10 clubs by followerCount), genres (distinct genres of upcoming events). `city` filters by ILIKE location. The token (if any) is not used for personalisation. No isWishlist. Implemented in T-036 (CR-09, BUG-B28; tested locally, not deployed): with a centre (lat and lng both sent, else the City centre of cityId, lat/lng win; any City row, launched or not; unknown cityId returns 404, malformed 422) every module (today, tomorrow, blowingUp, popularOrganizers and genres) only contains events and clubs within radiusKm (10, 20, 30, 40, 50 else 422; server default 20 when omitted). city (ILIKE location) still applies on top when sent. With no lat/lng/cityId the response is exactly as before (radiusKm alone changes nothing; lat without lng is not a centre). The response shape is unchanged: there are no module labels or distance fields in it, so no label text is produced; the city actually applied is the one named by cityId. Items do not carry distanceKm in the feed.'
       security:
       - optionalUserBearer: []
       parameters:
@@ -15691,7 +15691,7 @@ paths:
           type: number
           minimum: -90
           maximum: 90
-        description: validated, unused
+        description: 'Search centre together with lng. Honoured by every module since T-036 (tested locally, not deployed).'
       - name: lng
         in: query
         required: false
@@ -15699,21 +15699,27 @@ paths:
           type: number
           minimum: -180
           maximum: 180
-        description: validated, unused
+        description: 'Search centre together with lat. Honoured by every module since T-036 (tested locally, not deployed).'
       - name: radiusKm
         in: query
         required: false
         schema:
           type: integer
-          minimum: 1
-          maximum: 50
+          enum:
+          - 10
+          - 20
+          - 30
+          - 40
+          - 50
           default: 20
+        description: 'Radius in km around the centre; any other value returns 422. Server default 20 when omitted (the new app sends 30 explicitly). Implemented in T-036 (tested locally, not deployed).'
       - name: cityId
         in: query
         required: false
         schema:
           type: string
           format: uuid
+        description: 'City centre used when lat/lng are absent; any City row (launched or not). Unknown returns 404. Implemented in T-036 (tested locally, not deployed).'
       responses:
         '200':
           description: Success
@@ -15967,7 +15973,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: explore_get_explore_feed
       x-requirement: CR-09, BUG-B28
-      x-status: planned
       x-change: modified
   /explore/genres:
     get:
