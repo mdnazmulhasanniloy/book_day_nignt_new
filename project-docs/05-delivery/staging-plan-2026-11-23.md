@@ -28,7 +28,7 @@ Rule: staging holds **no real customer data**. If a production copy is used, per
 
 | # | Step | Who | Needs from you |
 |---|---|---|---|
-| S1 | Move the CI workflow to the repository root (`.github/workflows/ci.yaml`) with the paths set to `backend/`. Run `npm test`, `npm run test:db` (PostGIS service container) and `tsc`. Dummy credentials only, as the existing file already does. | development team | approval to add root workflows |
+| S1 | Move the CI workflow to the repository root (`.github/workflows/ci.yaml`) with the paths set to `backend/`. Run `npm test`, `npm run test:db` (PostGIS service container) and `tsc`. Dummy credentials only, as the existing file already does. | development team | **Done in code (W-10, local branch, not pushed).** `.github/workflows/ci.yaml` runs `tsc` and all tests; lint is non-blocking (FU-002). It has not run on GitHub yet. |
 | S2 | Add root `deploy-staging.yaml`: build the three images, tag `rc`, deploy to staging, run the migration container, then the smoke script. | development team | approval; staging host details |
 | S3 | Add root `deploy-production.yaml`: same images, **reuses the images already tested on staging** (promote by tag, no rebuild), requires manual approval through the `production` environment. Keep the firewall open and close steps. | development team | approval |
 | S4 | Create the staging infrastructure (extend the existing Terraform and Ansible under `backend/infrastructure/`). | whoever owns the cloud account | cloud account access, budget approval |
@@ -36,7 +36,7 @@ Rule: staging holds **no real customer data**. If a production copy is used, per
 | S6 | Write `scripts/smoke-staging.sh` from the checklist in `tasks/REL-HF.md` section 3, so the smoke list is one command. | development team | none |
 | S7 | Admin dashboard: its deploy workflow also triggers on any tag. Give it the same staging then production split. | development team | decision on where the dashboard is hosted |
 
-S1 can start at once and is risk free (it only runs tests). S2 to S5 need your approval and the cloud details.
+S1 is done in code. S2 to S5 need your approval and the cloud details. The step-by-step version of this plan for the owner is `staging-checklist-2026-11-23.md`; the merge order is in `merge-plan-2026-11-23.md`.
 
 ## 4. First release through staging
 

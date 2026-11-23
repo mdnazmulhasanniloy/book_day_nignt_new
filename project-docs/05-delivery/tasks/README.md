@@ -148,4 +148,11 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 | [T-079](T-079.md) | Admin page: Refunds list | admin | T-070, T-068 | not started |
 | [REL-M7](REL-M7.md) | Release checkpoint: M7 admin app | release | T-070, T-071, T-072, T-073, T-074, T-075, T-076, T-077, T-078, T-079 | not started |
 
+## Follow-ups (not scheduled)
+
+| ID | Title | Stack | Depends on | Status |
+|---|---|---|---|---|
+| [FU-001](FU-001.md) | Move the share page inline script to a file and add a Content-Security-Policy | backend | none | not started |
+| [FU-002](FU-002.md) | Make lint run again (typescript-eslint and TypeScript 7) | backend | none | not started |
+
 Totals: 83 work tasks (4 hotfix, 69 backend and database, 10 admin) and 8 release checkpoints.
