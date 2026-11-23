@@ -15278,7 +15278,7 @@ paths:
       - explore
       summary: Search/browse clubs and upcoming events (public)
       x-auth: 'optional user bearer: optionalUserAccessTokenMiddleware (no header = guest; header present but bad = 401) + validateReqQuery(exploreQuerySchema)'
-      description: 'Unified feed: type=CLUB -> clubs only, type=EVENT -> events only, omitted -> UNION ALL of both. Clubs: not deactivated. Events: not deactivated, eventStatus UPCOMING, endAt > now. lat+lng (both required to take effect) restricts to 20 km (PostGIS ST_DWithin on `geog`; events duplicated without geog will not match). Club-only filters: isPopular, ratings, isVip (422 if combined with type=EVENT). Event-only filters: dateFilter, isFree, categoryType, genres (comma list, UPPER-CASED before matching against Event.musicGenres), mood (comma list vs moodTags). `date` (ISO datetime): events active at that instant; clubs open on that weekday (UTC). `city` = ILIKE on location. minPrice/maxPrice: clubs match if any active package in range; events use eventPrice. sort: newest (default) / oldest; `trending` is accepted by the schema but IGNORED (falls to default createdAt DESC); isPopular orders by rating desc. Without a token `isWishlist` is omitted. TO-BE (CR-09, CR-10, BUG-B28): New optional params radiusKm, cityId, group, from, to. `sort=trending` is implemented (views + interested over the last 7 days; Q6c default). dateFilter gains `this_week`. Items gain `distanceKm` when a search centre exists. Response is unchanged when no new param is sent. T-034 (tested locally, not deployed) implemented radiusKm, cityId and distanceKm only: the centre is lat+lng when both are sent, otherwise the City lat/lng for cityId (any existing City row, whatever isLaunched; unknown id 404, malformed id 422; lat/lng win when both are sent); the radius goes to ST_DWithin in metres on the geog GiST index; `distanceKm` (km, 1 decimal, measured by PostGIS ST_Distance on the geography) is on every item only when a centre exists. group, from, to, this_week and sort=trending are NOT implemented yet. meta.total is the live result count used by filter UIs.'
+      description: 'Unified feed: type=CLUB -> clubs only, type=EVENT -> events only, omitted -> UNION ALL of both. Clubs: not deactivated. Events: not deactivated, eventStatus UPCOMING, endAt > now. lat+lng (both required to take effect) restricts to 20 km (PostGIS ST_DWithin on `geog`; events duplicated without geog will not match). Club-only filters: isPopular, ratings, isVip (422 if combined with type=EVENT). Event-only filters: dateFilter, isFree, categoryType, genres (comma list, UPPER-CASED before matching against Event.musicGenres), mood (comma list vs moodTags). `date` (ISO datetime): events active at that instant; clubs open on that weekday (UTC). `city` = ILIKE on location. minPrice/maxPrice: clubs match if any active package in range; events use eventPrice. sort: newest (default) / oldest; `trending` is accepted by the schema but IGNORED (falls to default createdAt DESC); isPopular orders by rating desc. Without a token `isWishlist` is omitted. TO-BE (CR-09, CR-10, BUG-B28): New optional params radiusKm, cityId, group, from, to. `sort=trending` is implemented (views + interested over the last 7 days; Q6c default). dateFilter gains `this_week`. Items gain `distanceKm` when a search centre exists. Response is unchanged when no new param is sent. T-034 (tested locally, not deployed) implemented radiusKm, cityId and distanceKm only: the centre is lat+lng when both are sent, otherwise the City lat/lng for cityId (any existing City row, whatever isLaunched; unknown id 404, malformed id 422; lat/lng win when both are sent); the radius goes to ST_DWithin in metres on the geog GiST index; `distanceKm` (km, 1 decimal, measured by PostGIS ST_Distance on the geography) is on every item only when a centre exists. T-035 (tested locally, not deployed) implemented group=day, from, to, dateFilter=this_week and meta.total. TIME ZONE RULE for all of them: when cityId is sent the zone is City.timezone, otherwise each event uses its own Event.timezone. Event.timezone defaults to UTC and EVERY existing event is UTC (how existing events get a zone is an open client question; nothing is inferred from city or coordinates), so for those events days are UTC days; that is documented behaviour. Days are the LOCAL calendar date of the event START computed with IANA zone arithmetic (AT TIME ZONE / Intl), never fixed offsets, so daylight-saving changes do not shift buckets; an overnight event (for example 23:00 to 03:00 local) belongs to its start day. group=day: data becomes [{label, date, items}] with label Today, Tomorrow, This Weekend or Upcoming, fixed bucket order, empty buckets omitted, items in chronological order of startAt (each item also carries startAt); date = local date (YYYY-MM-DD) of the bucket first item. Today = same local date as now (an event that started on an earlier day and is still running is also Today), Tomorrow = next local date, This Weekend = Friday 18:00 to the end of Sunday of the current Monday to Sunday week in that zone, Upcoming = the rest; Today and Tomorrow win over This Weekend. group=day applies to events only: with type omitted clubs are left out, with type=CLUB it returns 422. Paging applies to the flat chronological list first, then the page is grouped. from and to are ISO dates YYYY-MM-DD, inclusive, compared with the local start date; a bad date or from after to returns 422. dateFilter=this_week = local start date from Monday to Sunday of the week that contains now. Order: unchanged (createdAt DESC) unless group=day, from, to or this_week is sent, then startAt ASC (sort and isPopular still override). Requests without the new params return the old response shape. meta.total is the count of all matches ignoring page and limit, with the same filters (already returned before T-035). sort=trending is NOT implemented yet. meta.total is the live result count used by filter UIs.'
       security:
       - optionalUserBearer: []
       parameters:
@@ -15307,7 +15307,7 @@ paths:
           - this_weekend
           - next_weekend
           - this_week
-        description: events only
+        description: 'events only. this_week (T-035) = Monday to Sunday of the current week in the zone rule described on the operation.'
       - name: lat
         in: query
         required: false
@@ -15452,20 +15452,21 @@ paths:
           - none
           - day
           default: none
-        description: 'day = response data is grouped: [{label: Today|Tomorrow|This Weekend|Upcoming, date, items:[...]}] chronologically. Default keeps the flat array.'
+        description: 'day = response data is grouped: [{label: Today|Tomorrow|This Weekend|Upcoming, date, items:[...]}] chronologically. Default keeps the flat array. Implemented in T-035 (tested locally, not deployed): bucket rules, zone rule and the type=CLUB 422 are in the operation description. Weekend = Friday 18:00 to the end of Sunday in the zone.'
       - name: from
         in: query
         required: false
         schema:
           type: string
-          format: date-time
-        description: Start of date range (CR-10). Combine with to.
+          format: date
+        description: 'Start of date range (CR-10), ISO date YYYY-MM-DD, inclusive, compared with the LOCAL date of the event start (zone rule on the operation). Implemented in T-035 (tested locally, not deployed). Must not be after to (422).'
       - name: to
         in: query
         required: false
         schema:
           type: string
-          format: date-time
+          format: date
+        description: 'End of date range (CR-10), ISO date YYYY-MM-DD, inclusive. Implemented in T-035 (tested locally, not deployed).'
       responses:
         '200':
           description: Success

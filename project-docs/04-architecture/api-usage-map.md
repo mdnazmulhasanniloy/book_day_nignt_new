@@ -186,7 +186,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 
 | Endpoint | Used by Flutter | Used by Admin | Status |
 |---|---|---|---|
-| `GET /explore` | `flutter_app/lib/app/core/explore/repository/explore_api_repository.dart:13` | - | Flutter only. T-034: new optional `radiusKm` (10 to 50 step 10, server default stays 20), `cityId`, and a new `distanceKm` item field when a centre exists; the app sends none of these today, so its result is unchanged |
+| `GET /explore` | `flutter_app/lib/app/core/explore/repository/explore_api_repository.dart:13` | - | Flutter only. T-034: new optional `radiusKm` (10 to 50 step 10, server default stays 20), `cityId`, and a new `distanceKm` item field when a centre exists; the app sends none of these today, so its result is unchanged. T-035: new optional `group=day`, `from`, `to`, `dateFilter=this_week`; the app sends none of them, so its response is unchanged |
 | `GET /explore/feed` | `flutter_app/lib/app/modules/user_side/home/widgets/discovery_feed_section.dart:46`<br>`flutter_app/lib/app/modules/user_side/home/views/trending_events_view.dart:72`<br>`flutter_app/lib/app/modules/user_side/home/views/organizers_view.dart:193` | - | Flutter only |
 | `GET /explore/genres` | `flutter_app/lib/app/core/explore/repository/explore_api_repository.dart:27` | - | Flutter only |
 | `GET /explore/club/{id}/events/upcoming` | `flutter_app/lib/app/modules/user_side/club_details_view/widgets/club_community_section.dart:596-598` (path built with `${kind}`; ⚠️ UNVERIFIED which values) | - | Flutter only |
