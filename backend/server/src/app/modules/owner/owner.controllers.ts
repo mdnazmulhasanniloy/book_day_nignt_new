@@ -104,10 +104,28 @@ export const verifyTicketController = asyncHandler(
 
     const { orderId } = req.body as { orderId: string };
 
-    const result = await verifyTicketService({
-      userId: user.id,
-      orderId,
-    });
+    let result;
+    try {
+      result = await verifyTicketService({
+        userId: user.id,
+        orderId,
+      });
+    } catch (error) {
+      // T-011: the 409 body also carries usedAt (the global handler only
+      // forwards message and errorType).
+      const e = error as { statusCode?: number; message?: string; errorType?: string; usedAt?: string };
+      if (e?.statusCode === 409 && e.errorType === 'TICKET_ALREADY_USED') {
+        res.status(409).json({
+          success: false,
+          message: e.message,
+          errorType: e.errorType,
+          usedAt: e.usedAt,
+          traceId,
+        });
+        return;
+      }
+      throw error;
+    }
 
     res.status(200).json({
       success: true,
