@@ -25,7 +25,7 @@
 | S-15 | Low | `backend/server/src/const.ts` (`corsWhiteList`), `app.ts:173`, `server.ts:25` | Dev tunnel and LAN origins in the production CORS whitelist; hardcoded host `https://ibady.nazmul.qzz.io` in Swagger config. | ⚠️ UNVERIFIED |
 | S-16 | Low | `backend/server/src/app/modules/notification/notification.routes.ts:41` | `PATCH /notifications/:id/read` has no params schema (see V-01). | ⚠️ UNVERIFIED |
 | S-17 | High | `backend/server/src/app/modules/admin/admin.services.ts:439-540` (`getAdminUsersService`) | `GET /admin/users` loads users with `include` (all scalar fields) and returns `...restUser`; the `password` hash is not stripped (other admin functions at lines 68, 92, 202, 253 do strip it). Every listed user's bcrypt hash is sent to the admin client. | Verified |
-| S-18 | Med | `backend/server/src/app/utils/system.utils.ts:117-123`, `media.routes.ts` | `validateReqBody` only validates POST, PUT and PATCH (`ALLOWED_WRITE_METHODS`), so the `deleteMediaSchema` on `DELETE /media` is never applied; `req.body.urls` reaches the controller unvalidated. Same applies to any other DELETE route that relies on `validateReqBody`. | Verified |
+| S-18 | Med | `backend/server/src/app/utils/system.utils.ts:117-123`, `media.routes.ts` | `validateReqBody` only validated POST, PUT and PATCH (`ALLOWED_WRITE_METHODS`), so the `deleteMediaSchema` on `DELETE /media` never ran. Fixed in T-014: DELETE added to the list; `DELETE /media` is the only DELETE route with `validateReqBody` and both clients send the expected body. | Fixed in code (T-014, tested locally) |
 | S-19 | High | `backend/server/src/app/modules/recover/` | `POST /recover/reset` needs only the reset-page token; the OTP check is reportedly not enforced server-side at that step. | ⚠️ UNVERIFIED (subagent) |
 | S-20 | Med | `owner` module, `GET /owner/bookings/export` | The exported CSV is uploaded to S3 with a public-read ACL and the URL is returned as `downloadUrl`; the file contains booking data. | ⚠️ UNVERIFIED (subagent) |
 | S-21 | Med | `owner` module | `GET /owner/bookings/export` and `POST /owner/verify-ticket` have no Connect readiness check (other owner routes do). | ⚠️ UNVERIFIED (subagent) |
@@ -143,7 +143,7 @@ Nothing in this section has been fixed. It records where each item is planned in
 |---|---|---|
 | CR-17 standard error codes (correct HTTP status plus a stable `errorType` instead of 500 for business failures) | Resolved by the status-code tasks: B-15, B-17, B-18, B-22, B-26, B-27, S-18 | T-010, T-011, T-012, T-013, T-014 (M1); B-16 in HF-002 |
 | S-04 blacklist key mismatch | Hotfix track (verify the writer and readers first) | HF-003 |
-| S-01 unauthenticated `/media` upload and delete | Hotfix track. Auth now required (bearer or admin cookie + CSRF). Residual: any signed-in account can delete any URL (no ownership record); DELETE body validation not applied (S-18) | HF-005 |
+| S-01 unauthenticated `/media` upload and delete | Hotfix track. Auth now required (bearer or admin cookie + CSRF). Residual: any signed-in account can delete any URL (no ownership record); DELETE body validation now applied (S-18, T-014) | HF-005 |
 | S-19 reset password without OTP | Hotfix track (verify first, then fix) | HF-004 |
 | S-17 password hash in `GET /admin/users` | Fix already in the baseline code; task is verification (tests run, staging check) | HF-001 |
 | B-16 Stripe webhook signature gives 500 | Hotfix track | HF-002 |

@@ -337,7 +337,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 - Flutter builds `/explore/club/{id}/events/${kind}` (`club_community_section.dart:597`); the backend serves only `upcoming` and `past`. ⚠️ UNVERIFIED which values `kind` takes.
 - Flutter calls `/auth/*` and `/recover/*` flows but never `POST /auth/refresh`; the refresh token is stored and unused.
 - Admin reuses the user-facing `/recover/*` routes and `/media` (no admin-specific versions).
-- Both clients call `/media` upload and delete; the route has no auth (see `known-issues.md` S-01, S-18).
+- Both clients call `/media` upload and delete; the route has no auth (see `known-issues.md` S-01). `DELETE /media` body validation runs since T-014 (S-18); Flutter (`media_service.dart:69`) and Admin (`media.api.ts:21`) both send `{urls: [string]}`.
 - Flutter calls Google Places (New) directly: `POST https://places.googleapis.com/v1/places:autocomplete` and `GET https://places.googleapis.com/v1/places/{placeId}` (`explore_repository.dart:255,302`, `club_location_repository.dart:34,82`). Not a backend route.
 - Admin pages still on mock data: Notifications (`features/notifications/api/mock.ts`) and `useGetDashboardMetrics` (`features/dashboard/api/dashboard.api.ts`); the backend has no admin notifications endpoint. Unused mock files: `features/{clubs,events,earnings,settings}/api/mock.ts`.
 - Flutter does not use Socket.IO or any `/socket` route; the Admin app does not either.

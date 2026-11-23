@@ -6819,8 +6819,8 @@ paths:
       tags:
       - media
       summary: Delete uploaded media by URL
-      description: 'urls are converted to S3 keys via URL pathname (or the raw string if not a URL). No ownership check. Empty array accepted. ⚠️ UNVERIFIED: whether validateReqBody actually runs for DELETE (depends on ALLOWED_WRITE_METHODS, not read).'
-      x-auth: 'HF-005: requireMediaAuth (same as POST /media). Any authenticated account can still delete any URL (no ownership record; see known-issues S-01 follow-up). chain: requireMediaAuth -> validateReqBody(deleteMediaSchema) (validation not applied on DELETE, S-18)'
+      description: 'urls are converted to S3 keys via URL pathname (or the raw string if not a URL). No ownership check. Empty array accepted. Body is validated by validateReqBody since T-014 (DELETE added to the validated methods): a missing body, a non-array urls, an empty-string url or an unknown key returns 422 with the standard validation error body. Both clients already send {urls: [..]}.'
+      x-auth: 'HF-005: requireMediaAuth (same as POST /media). Any authenticated account can still delete any URL (no ownership record; see known-issues S-01 follow-up). chain: requireMediaAuth -> validateReqBody(deleteMediaSchema) (body validated on DELETE since T-014, S-18)'
       security:
       - userBearer: []
       - adminCookie: []
