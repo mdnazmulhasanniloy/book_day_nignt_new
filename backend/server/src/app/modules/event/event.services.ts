@@ -7,7 +7,7 @@ import {
 } from '@/app/modules/event/event.types';
 import { TEventListQueryForAdmin } from '@/app/modules/event/event.schema';
 import { ILightweightExploreItem } from '@/app/modules/explore/explore.types';
-import { Event, Prisma } from '@prisma/client';
+import { Event, PricingMode, Prisma } from '@prisma/client';
 import { getSystemQueue } from '@/app/queues/system/system.queue';
 import { getEmailQueue } from '@/app/queues/email/email.queue';
 import { QUEUE_JOBS } from '@/const';
@@ -19,6 +19,10 @@ import {
   reconcileEventTicketTiers,
   type TierReconcileWarning,
 } from '@/app/modules/event/event.ticketTier.helpers';
+import {
+  resolvePricingMode,
+  type PricingTierInput,
+} from '@/app/modules/event/event.pricingMode.helpers';
 
 const EVENT_NOT_FOUND = 'Event not found';
 
@@ -38,6 +42,13 @@ export const createEventService = async ({
     const newEvent = await tx.event.create({
       data: {
         ...eventData,
+        // T-017: explicit value validated, otherwise derived (migration 4 rule).
+        pricingMode: resolvePricingMode({
+          requested: eventData.pricingMode,
+          stored: null,
+          eventPrice: eventData.eventPrice,
+          tiers: ticketTiers ?? [],
+        }),
         userId,
       },
     });
@@ -213,11 +224,46 @@ export const updateEventService = async ({
 
   try {
     const updatedEvent = await prisma.$transaction(async (tx) => {
+      // 0. T-017: pricingMode check (422 rolls the whole transaction back).
+      let pricingModeToStore: PricingMode | undefined;
+      if (
+        eventData.pricingMode !== undefined ||
+        eventData.eventPrice !== undefined ||
+        ticketTiers !== undefined
+      ) {
+        const stored = await tx.event.findUniqueOrThrow({
+          where: { id: eventId },
+          select: { eventPrice: true, pricingMode: true },
+        });
+        let tiersForRule: PricingTierInput[];
+        if (ticketTiers !== undefined) {
+          tiersForRule = ticketTiers;
+        } else {
+          const rows = await tx.eventTicketTier.findMany({ where: { eventId } });
+          tiersForRule = rows
+            .filter((row) => row.parentId === null)
+            .map((root) => ({
+              price: Number(root.price),
+              isActive: root.isActive,
+              children: rows
+                .filter((row) => row.parentId === root.id)
+                .map((child) => ({ price: Number(child.price), isActive: child.isActive })),
+            }));
+        }
+        pricingModeToStore = resolvePricingMode({
+          requested: eventData.pricingMode,
+          stored: stored.pricingMode,
+          eventPrice: eventData.eventPrice ?? Number(stored.eventPrice),
+          tiers: tiersForRule,
+        });
+      }
+
       // 1. Update the Event record
       const eventToReturn = await tx.event.update({
         where: { id: eventId },
         data: {
           ...eventData,
+          ...(pricingModeToStore !== undefined && { pricingMode: pricingModeToStore }),
           ...(deactivatedAt !== undefined && { deactivatedAt }),
         },
       });
@@ -587,6 +633,8 @@ export const duplicateEventService = async ({
         isResaleEnabled: source.isResaleEnabled,
         eventPrice: source.eventPrice,
         currency: source.currency,
+        timezone: source.timezone,
+        pricingMode: source.pricingMode,
         clubId: source.clubId,
         clubHostStatus: 'NONE',
         bookingsClosed: false,

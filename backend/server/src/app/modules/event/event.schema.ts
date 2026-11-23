@@ -17,11 +17,40 @@ export const eventCategoryTypeEnum = z.enum([
 
 export const tierTypeEnum = z.enum(['TICKET', 'PASS']);
 
+export const pricingModeEnum = z.enum(['SINGLE', 'TIERED', 'MIXED', 'FREE']);
+
+// Real IANA names only (Intl list plus UTC and aliases such as Asia/Kolkata). No offsets, no wrong case.
+const IANA_SHAPE = /^(UTC|[A-Z][A-Za-z0-9_+-]*(\/[A-Z][A-Za-z0-9_+-]*)+)$/;
+const canonicalZones = new Set<string>(
+  (Intl as unknown as { supportedValuesOf: (key: string) => string[] }).supportedValuesOf('timeZone')
+);
+export const isValidIanaTimeZone = (value: string): boolean => {
+  if (canonicalZones.has(value)) return true;
+  if (!IANA_SHAPE.test(value)) return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+export const timezoneSchema = z
+  .string()
+  .refine(isValidIanaTimeZone, { message: 'timezone must be a valid IANA time zone name' });
+
+// Optional description: an empty string is stored as NULL (A2.15, A2.16).
+const optionalDescription = z
+  .string()
+  .nullable()
+  .optional()
+  .transform((v) => (v === '' ? null : v));
+
 const eventTicketTierBaseSchema = z.object({
   id: z.string().uuid().optional(),
   tierName: z.string().min(1),
   groupName: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
+  description: optionalDescription,
   price: z.coerce.number().nonnegative(),
   capacity: z.coerce.number().int().positive(),
   sortOrder: z.coerce.number().int().default(0),
@@ -50,7 +79,7 @@ export const eventLineupSchema = z.object({
 export const createEventSchema = z
   .object({
     eventName: z.string().min(1),
-    eventDescription: z.string().nullable().optional(),
+    eventDescription: optionalDescription,
     thumbnail: z.url(),
     images: z.array(z.url()),
     eventStatus: eventStatusEnum.default('UPCOMING'),
@@ -69,6 +98,9 @@ export const createEventSchema = z
     eventPrice: z.number().nonnegative(),
     currency: z.string().min(1),
     clubId: z.string().optional(),
+    // Omitted: DB default UTC / derived pricingMode (T-017). Never inferred from city or location.
+    timezone: timezoneSchema.optional(),
+    pricingMode: pricingModeEnum.optional(),
   })
   .refine((data) => new Date(data.endAt) > new Date(data.startAt), {
     message: 'endAt must be later than startAt',
@@ -78,7 +110,7 @@ export const createEventSchema = z
 export const updateEventSchema = z
   .object({
     eventName: z.string().min(1).optional(),
-    eventDescription: z.string().nullable().optional(),
+    eventDescription: optionalDescription,
     thumbnail: z.url().optional(),
     images: z.array(z.url()).optional(),
     eventStatus: eventStatusEnum.optional(),
@@ -98,6 +130,8 @@ export const updateEventSchema = z
     currency: z.string().min(1).optional(),
     isActive: z.boolean().optional(),
     clubId: z.string().optional(),
+    timezone: timezoneSchema.optional(),
+    pricingMode: pricingModeEnum.optional(),
   })
   .refine(
     (data) => {
