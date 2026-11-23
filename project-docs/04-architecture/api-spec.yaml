@@ -3141,14 +3141,14 @@ paths:
         required: false
         schema:
           type: string
-          pattern: '^[1-9][0-9]*
+          pattern: '^[1-9][0-9]*$'
           default: '1'
       - name: limit
         in: query
         required: false
         schema:
           type: string
-          pattern: '^[1-9][0-9]*
+          pattern: '^[1-9][0-9]*$'
           description: Positive integer, at most 100 (T-010)
           default: '10'
       - name: role
@@ -3946,14 +3946,14 @@ paths:
         required: false
         schema:
           type: string
-          pattern: '^[1-9][0-9]*
+          pattern: '^[1-9][0-9]*$'
           default: '1'
       - name: limit
         in: query
         required: false
         schema:
           type: string
-          pattern: '^[1-9][0-9]*
+          pattern: '^[1-9][0-9]*$'
           description: Positive integer, at most 100 (T-010)
           default: '10'
       - name: serviceType
@@ -23858,7 +23858,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: TICKET_NOT_FOUND: ticket not found, or the order belongs to another seller (same body for both; was 500)
+          description: 'TICKET_NOT_FOUND: ticket not found, or the order belongs to another seller (same body for both; was 500)'
           content:
             application/json:
               schema:
