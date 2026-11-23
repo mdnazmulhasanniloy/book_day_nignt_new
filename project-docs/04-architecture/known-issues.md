@@ -152,4 +152,5 @@ Nothing in this section has been fixed. It records where each item is planned in
 | B-19 module purchase idempotency body check | Built with the module and extras tasks (M5), not as a separate task | T-056 |
 | B-20 inconsistent `/admin/commission` response shapes | Skipped: the v2 pricing rules (CR-15) supersede these endpoints; v1 shapes stay as they are and are deprecated | none |
 | B-24 tier update resets `soldCount` | M1, in place update with no dependency on migration 5 | T-004 |
+| Section vs tier rule (CR-03): a section cannot have sales, a child needs a top-level parent of the same event | Done in code in T-016 (tested locally, not deployed). Write path only. Open: a live-app PUT that sends `children` under a parent that already has sales now returns 422 TIER_SECTION_HAS_SALES (see the T-016 task result). Existing events are not re-validated on read | T-016 |
 | S-03 self-signup as `CLUB_OWNER`, S-21, B-07, B-08, B-10 | Not scheduled in backend/admin: S-03 waits on D1; S-21 belongs to deferred CR-05; B-07, B-08, B-10 are Flutter (M8, not started) | none |

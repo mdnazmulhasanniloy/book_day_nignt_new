@@ -9367,8 +9367,7 @@ paths:
                               enum:
                               - TICKET
                               - PASS
-                              default: TICKET
-                              description: Drives preset name lists (GET /ticket-tier-presets). Pass validity per day arrives with CR-05 (deferred). (CR-03)
+                              description: 'Drives preset name lists (GET /ticket-tier-presets). Pass validity per day arrives with CR-05 (deferred). (CR-03) Implemented in T-016. Omitted on POST means TICKET; omitted on PUT keeps the stored value (a live-app PUT that does not send it never resets a PASS). An unknown value returns 422. Returned on every tier object, including children (additive).'
                           required:
                           - tierName
                           - price
@@ -9895,7 +9894,7 @@ paths:
       - event
       summary: Update an owned event (partial) / cancel / restore
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + checkConnectReadinessMiddleware (Stripe Connect canCreateListings) + validateReqParams(eventIdParamsSchema) + validateReqBody(updateEventSchema) + checkEventCancellationValidityMiddleware'
-      description: 'All fields optional. checkEventCancellationValidityMiddleware loads the event and enforces ownership: an event that is missing OR owned by another user returns 404 {success:false, message:''Event not found'', errorType:''NOT_FOUND'', traceId} (T-012, tested locally, not deployed; was 403 ''Forbidden'' for a foreign event, which the live Flutter app treats like 401). Rules: (1) event already CANCELED -> only a restore is allowed (eventStatus=UPCOMING AND isActive=true) else 400; (2) eventStatus=CANCELED within 6h of startAt -> 400; otherwise formal cancellation: deactivatedAt set, a SCHEDULED Refund (grossAmount, +6 days) created per PAID EVENT order, refund jobs + cancellation emails + push enqueued after commit. WARNING: sending `ticketTiers` deletes ALL existing tiers and recreates them (soldCount resets to 0, ids change); sending `lineup` likewise replaces all lineup rows. Returns bare Event row. TO-BE (CR-04, BUG-B24): Ticket tiers are now updated in place. A tier object WITH `id` updates that tier (soldCount and id preserved); a tier WITHOUT `id` is created; an existing tier missing from the array is hard-deleted only if soldCount=0 AND no EventPurchase row references it (T-006), otherwise deactivated (isActive=false) and kept. capacity lower than soldCount returns 409 TIER_CAPACITY_BELOW_SOLD. Previously `id` was ignored and all tiers were deleted and recreated (soldCount reset to 0). Backward compatibility for the live app, which does not send ids: when no incoming tier carries an id, the server matches incoming tiers to existing ones by (parent groupName, tierName) and updates those in place; unmatched sold tiers are deactivated rather than deleted.'
+      description: 'All fields optional. checkEventCancellationValidityMiddleware loads the event and enforces ownership: an event that is missing OR owned by another user returns 404 {success:false, message:''Event not found'', errorType:''NOT_FOUND'', traceId} (T-012, tested locally, not deployed; was 403 ''Forbidden'' for a foreign event, which the live Flutter app treats like 401). Rules: (1) event already CANCELED -> only a restore is allowed (eventStatus=UPCOMING AND isActive=true) else 400; (2) eventStatus=CANCELED within 6h of startAt -> 400; otherwise formal cancellation: deactivatedAt set, a SCHEDULED Refund (grossAmount, +6 days) created per PAID EVENT order, refund jobs + cancellation emails + push enqueued after commit. WARNING: sending `ticketTiers` deletes ALL existing tiers and recreates them (soldCount resets to 0, ids change); sending `lineup` likewise replaces all lineup rows. Returns bare Event row. TO-BE (CR-04, BUG-B24): Ticket tiers are now updated in place. A tier object WITH `id` updates that tier (soldCount and id preserved); a tier WITHOUT `id` is created; an existing tier missing from the array is hard-deleted only if soldCount=0 AND no EventPurchase row references it (T-006), otherwise deactivated (isActive=false) and kept. capacity lower than soldCount returns 409 TIER_CAPACITY_BELOW_SOLD. Previously `id` was ignored and all tiers were deleted and recreated (soldCount reset to 0). Backward compatibility for the live app, which does not send ids: when no incoming tier carries an id, the server matches incoming tiers to existing ones by (parent groupName, tierName) and updates those in place; unmatched sold tiers are deactivated rather than deleted. T-016 section rule (tested locally, not deployed): a tier that already has sales (soldCount > 0) cannot be sent with `children` (422 TIER_SECTION_HAS_SALES), and the parent of a child must be a top-level tier of the same event (422 TIER_INVALID_PARENT; the request shape nests children, so this cannot be triggered through the API today and is a defensive check). Checked on write only; existing events are not re-validated on read.'
       security:
       - userBearer: []
       parameters:
@@ -24178,11 +24177,10 @@ paths:
       tags:
       - event
       summary: Preset tier names
-      description: Static preset lists for the ticket-tier form plus the explanatory helper text, so the apps do not hard-code vocabulary. Custom names stay allowed. Section = parent that groups tiers for a day or access type; tier = priced quantity inside a section.
+      description: 'Static preset lists for the ticket-tier form plus the explanatory helper text, so the apps do not hard-code vocabulary. Custom names stay allowed. Section = parent that groups tiers for a day or access type; tier = priced quantity inside a section. Implemented in T-016 (tested locally, not deployed). Names come from the client tracker A2.5 to A2.7. `presets` is the same list with `tierType` and `sortOrder` (position inside its own type, from 0); `ticketPresets` and `passPresets` are kept as plain name arrays.'
       x-auth: public (no auth middleware)
       security: &id017 []
       x-requirement: CR-03
-      x-status: planned
       x-change: added
       responses:
         '200':
@@ -24225,6 +24223,24 @@ paths:
                         - Early Pass
                         - Standard Pass
                         - Late Pass
+                      presets:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                          - name
+                          - tierType
+                          - sortOrder
+                          properties:
+                            name:
+                              type: string
+                            tierType:
+                              type: string
+                              enum:
+                              - TICKET
+                              - PASS
+                            sortOrder:
+                              type: integer
                       sectionHelp:
                         type: string
                       tierHelp:

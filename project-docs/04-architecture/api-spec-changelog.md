@@ -17,7 +17,7 @@ Totals: 47 added, 33 changed, 6 deprecated. The spec grows from 151 to 198 opera
 
 | Method | Path | Requirement | Compatibility | What |
 |---|---|---|---|---|
-| GET | `/ticket-tier-presets` | CR-03 | additive (new endpoint) | Preset tier names |
+| GET | `/ticket-tier-presets` | CR-03 | additive (new endpoint) | Preset tier names. **Implemented in T-016** (public, tested locally, not deployed): `data` has `ticketPresets`, `passPresets`, `presets[{name,tierType,sortOrder}]`, `sectionHelp`, `tierHelp` |
 | POST | `/v2/quotes` | CR-07, BUG-S08 | v2 (new) | Create a quote request (authenticated) |
 | POST | `/event/{eventId}/extras` | CR-07 | additive (new endpoint) | Create an extra |
 | GET | `/event/{eventId}/extras` | CR-07 | additive (new endpoint) | List extras of an event |

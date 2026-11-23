@@ -135,9 +135,10 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 
 | Endpoint | Used by Flutter | Used by Admin | Status |
 |---|---|---|---|
-| `POST /event` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:15` | - | Flutter only |
+| `POST /event` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:15` | - | Flutter only. T-016: tier objects accept optional `tierType` (TICKET or PASS, default TICKET; invalid value 422). The live app does not send it |
 | `GET /event` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:37`<br>`flutter_app/lib/app/modules/club_owner_side/owner_home/repository/owner_stats_repository.dart:86` | - | Flutter only |
-| `PUT /event/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:85` | - | Flutter only. T-012: missing or foreign id is now 404 NOT_FOUND (a foreign id was 403, which the app treats like 401) |
+| `PUT /event/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:85` | - | Flutter only. T-012: missing or foreign id is now 404 NOT_FOUND (a foreign id was 403, which the app treats like 401). T-016: tier objects accept optional `tierType` (omitted keeps the stored value, so the live app never resets a PASS) and a tier with sales cannot be sent with `children` (422 TIER_SECTION_HAS_SALES) |
+| `GET /ticket-tier-presets` | - | - | New in T-016 (public). Not called by Flutter or Admin yet |
 | `GET /event/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:48` | - | Flutter only. T-012: missing or foreign id is now 404 NOT_FOUND (was 500) |
 | `POST /event/{id}/duplicate` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:448` | - | Flutter only |
 | `PUT /event/{id}/bookings/close` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:456` | - | Flutter only |
