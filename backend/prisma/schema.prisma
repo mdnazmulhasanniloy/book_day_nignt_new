@@ -247,6 +247,8 @@ model User {
   vipHosts       VipHost[]
   artistFollows  ArtistFollower[]
   oauthIdentities OAuthIdentity[]
+  eventInterests  EventInterest[]
+  recentEventViews UserRecentEventView[]
 
   @@index([accountRole])
   @@index([accountStatus])
@@ -472,6 +474,9 @@ model Event {
   guestList            EventGuestList?
   vipHosts             EventVipHost[]
   hostContacts         HostContact[]
+  interests            EventInterest[]
+  recentViews          UserRecentEventView[]
+  viewsDaily           EventViewDaily[]
 
   @@index([userId])
   @@index([clubId, clubHostStatus])
@@ -1052,4 +1057,42 @@ model FilterOption {
 
   @@unique([kind, labelKey])
   @@index([kind, isActive, sortOrder])
+}
+
+// T-039 (migration 11, CR-11): engagement tracking. Written by later tasks (T-040, T-041).
+// EventInterest links a user and an event; it stores no name or display preference.
+model EventInterest {
+  id        String   @id @default(uuid())
+  userId    String
+  eventId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@index([eventId, createdAt])
+}
+
+model UserRecentEventView {
+  id           String   @id @default(uuid())
+  userId       String
+  eventId      String
+  lastViewedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@index([userId, lastViewedAt(sort: Desc)])
+}
+
+model EventViewDaily {
+  eventId String
+  day     DateTime @db.Date
+  views   Int      @default(0)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, day])
 }
