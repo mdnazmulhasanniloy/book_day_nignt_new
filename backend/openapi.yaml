@@ -65,6 +65,12 @@ tags:
     description: Quote requests for event modules
   - name: Service Charge
     description: Public service charge
+  - name: Admin
+    description: Admin management endpoints (users, earnings, cities, filter options, artists, clubs, events)
+  - name: Follow
+    description: Club follow endpoints
+  - name: Promo
+    description: Promo code endpoints
 
 components:
   securitySchemes:
@@ -12719,7 +12725,7 @@ paths:
 
   /api/v1/service-charge:
     get:
-      operationId: getServiceCharge
+      operationId: getPublicServiceCharge
       tags:
         - Service Charge
       summary: Get global service charge (public)
