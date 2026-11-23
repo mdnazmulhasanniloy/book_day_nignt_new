@@ -31,6 +31,7 @@ export const QUEUE_JOBS = {
   SEND_FCM_NOTIFICATION: 'send-fcm-notification',
   EXPIRE_CLUB_BOOKING_HOLD: 'expire-club-booking-hold',
   EXPIRE_EVENT_MODULE_HOLD: 'expire-event-module-hold',
+  EXPIRE_EVENT_TICKET_HOLD: 'expire-event-ticket-hold',
   RECOVER_USER_VERIFICATION_OTP_RESEND: 'recover-user-verification-otp-resend',
   RECOVER_USER_PASSWORD_RESET_SUCCESSFUL:
     'recover-user-password-reset-successful',

@@ -1,3 +1,5 @@
+import type { JobsOptions } from 'bullmq';
+import type { IExpireEventTicketHold } from '@/app/queues/system/system.types';
 import {
   TClubAvailabilityQuery,
   TCreateClubPurchasePayload,
@@ -24,6 +26,10 @@ export interface ICreateEventPurchaseService {
   payload: TCreateEventPurchasePayload;
   idempotencyKey: string;
   buyerAge: number;
+  /** Queue used to schedule the hold-expiry job; defaults to the system queue (tests inject a fake). */
+  queue?: {
+    add: (name: string, data: IExpireEventTicketHold, opts?: JobsOptions) => Promise<unknown>;
+  };
 }
 export interface ICreateModulePurchaseService {
   userId: string;

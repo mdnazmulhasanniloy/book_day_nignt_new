@@ -14,9 +14,12 @@ import {
 } from '@/app/modules/purchase/purchase.types';
 import { getSystemQueue } from '@/app/queues/system/system.queue';
 import { QUEUE_JOBS } from '@/const';
+import { EVENT_TICKET_HOLD_MS } from '@/const';
+import logger from '@/app/configs/logger.configs';
 import {
   IExpireClubBookingHold,
   IExpireEventModuleHold,
+  IExpireEventTicketHold,
 } from '@/app/queues/system/system.types';
 
 /**
@@ -232,6 +235,7 @@ export const createEventPurchaseService = async ({
   payload,
   idempotencyKey,
   buyerAge,
+  queue,
 }: ICreateEventPurchaseService): Promise<IEventPurchaseResult> => {
   try {
     const existingOrder = await prisma.order.findUnique({
@@ -249,7 +253,7 @@ export const createEventPurchaseService = async ({
       };
     }
 
-    return await prisma.$transaction(
+    const result = await prisma.$transaction(
       async (tx) => {
         const event = await tx.event.findUniqueOrThrow({
           where: { id: payload.eventId },
@@ -399,6 +403,25 @@ export const createEventPurchaseService = async ({
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
     );
+
+    // Scheduled strictly AFTER the commit. If the order is still unpaid when the
+    // hold ends, the worker releases its tier stock (T-008). A failed enqueue must
+    // not fail a purchase that already committed; it is logged, and the leaked
+    // stock is detectable with reports/stock-leak.sql (no sweep exists yet).
+    try {
+      const jobPayload: IExpireEventTicketHold = { orderId: result.order.id };
+      await (queue ?? getSystemQueue()).add(QUEUE_JOBS.EXPIRE_EVENT_TICKET_HOLD, jobPayload, {
+        jobId: `event-ticket-hold-${result.order.id}`,
+        delay: EVENT_TICKET_HOLD_MS,
+      });
+    } catch (error) {
+      logger.error(
+        `[createEventPurchase] Failed to schedule ticket hold expiry for order ${result.order.id}`,
+        { error }
+      );
+    }
+
+    return result;
   } catch (error) {
     throw error;
   }
