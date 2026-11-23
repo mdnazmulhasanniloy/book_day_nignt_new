@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const retrieveLoggedInUserBookingsQuerySchema = z.object({
   tab: z.enum(['UPCOMING', 'COMPLETED', 'CANCELED']).optional().default('UPCOMING'),
+  bucket: z.enum(['FUTURE', 'PENDING', 'PAST']).optional(),
   page: z.preprocess((val) => Number(val) || 1, z.number().min(1).default(1)),
   limit: z.preprocess((val) => Number(val) || 10, z.number().min(1).default(10)),
 });

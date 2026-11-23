@@ -8,15 +8,262 @@ import {
   TExploreData,
   TExplorePresentation,
   TBookingListItem,
+  TBookingListItemBase,
+  TGuestListBookingListItem,
 } from '@/app/modules/bookings/bookings.types';
 import {
   mapEventPurchaseBookingSnapshot,
   resolveBuyerBookingByIdOrOrderId,
 } from '@/app/modules/bookings/bookings.helpers';
+import {
+  deriveGuestListBookingStatus,
+  deriveOrderBookingStatus,
+  IBookingClassification,
+} from '@/app/modules/bookings/bookings.bucket';
 import { exploreDetailService } from '@/app/modules/explore/explore.services';
 import { Prisma } from '@prisma/client';
+import type { TBookingBucket } from '@/app/modules/bookings/bookings.bucket';
 import { currentFixedCstWallClock } from '@/app/modules/purchase/purchase.helpers';
 import { syncSucceededPaymentsForBuyer } from '@/app/modules/webhook/webhook.services';
+
+const bookingOrderInclude = {
+  clubBooking: {
+    include: {
+      club: {
+        include: {
+          clubPackages: true,
+          reviews: true,
+        },
+      },
+    },
+  },
+  eventPurchase: {
+    include: {
+      event: true,
+    },
+  },
+  eventModulePurchase: {
+    include: {
+      event: true,
+      module: true,
+    },
+  },
+  refund: true,
+} satisfies Prisma.OrderInclude;
+
+type TBookingOrder = Prisma.OrderGetPayload<{ include: typeof bookingOrderInclude }>;
+
+/** Formats one order row as a list item (the pre-T-046 shape, unchanged). */
+const formatBookingOrder = (order: TBookingOrder): TBookingListItemBase => {
+  if (
+    order.serviceType === 'CLUB' &&
+    order.clubBooking &&
+    order.clubBooking.club
+  ) {
+    const { clubBooking } = order;
+    const { club } = clubBooking;
+
+    const prices = club.clubPackages.map((p) => Number(p.price));
+    const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+    const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+
+    const reviewAvg =
+      club.reviews.length > 0
+        ? club.reviews.reduce((acc, curr) => acc + curr.rating, 0) /
+          club.reviews.length
+        : 0;
+
+    return {
+      id: clubBooking.id, // Booking id takes precedence as per requirements
+      orderId: order.id,
+      purchaseDate: order.createdAt,
+      startAt: clubBooking.startAt,
+      endAt: clubBooking.endAt,
+      name: club.name,
+      lat: Number(club.lat),
+      lng: Number(club.lng),
+      location: club.location,
+      type: 'CLUB',
+      thumbnail: club.thumbnail,
+      currency: order.currency,
+
+      review: Number(reviewAvg.toFixed(1)),
+      isVip: Boolean(club.isVip),
+      priceRange: {
+        minPrice,
+        maxPrice,
+      },
+    };
+  } else if (
+    order.serviceType === 'EVENT' &&
+    order.eventPurchase &&
+    order.eventPurchase.event
+  ) {
+    const { eventPurchase } = order;
+    const { event } = eventPurchase;
+
+    return {
+      id: eventPurchase.id, // Booking id takes precedence as per requirements
+      orderId: order.id,
+      purchaseDate: order.createdAt,
+      eventStartAt: eventPurchase.eventStartAt,
+      eventEndAt: eventPurchase.eventEndAt,
+      name: event.eventName,
+      lat: Number(event.lat),
+      lng: Number(event.lng),
+      location: event.location,
+      type: 'EVENT',
+      thumbnail: event.thumbnail,
+      currency: order.currency,
+      price: Number(eventPurchase.pricePerPerson),
+    };
+  } else if (
+    order.serviceType === 'EVENT' &&
+    order.eventModulePurchase &&
+    order.eventModulePurchase.event
+  ) {
+    const { eventModulePurchase } = order;
+    const { event } = eventModulePurchase;
+
+    return {
+      id: eventModulePurchase.id,
+      orderId: order.id,
+      purchaseDate: order.createdAt,
+      eventStartAt: event.startAt,
+      eventEndAt: event.endAt,
+      name: `${event.eventName} — ${eventModulePurchase.moduleName}`,
+      lat: Number(event.lat),
+      lng: Number(event.lng),
+      location: event.location,
+      type: 'EVENT',
+      thumbnail: event.thumbnail,
+      currency: order.currency,
+      price: Number(eventModulePurchase.unitPrice),
+    };
+  }
+
+  throw new Error('Invalid booking state or missing relation');
+};
+
+/** Derives bookingStatus and bucket of an order (mapping table in bookings.bucket.ts). */
+const classifyOrder = ({
+  order,
+  now,
+}: {
+  order: TBookingOrder;
+  now: Date;
+}): IBookingClassification => {
+  const { clubBooking, eventPurchase, eventModulePurchase } = order;
+  const event = eventPurchase?.event ?? eventModulePurchase?.event;
+  const endAt = clubBooking
+    ? clubBooking.endAt
+    : eventPurchase
+      ? eventPurchase.eventEndAt
+      : eventModulePurchase?.event.endAt;
+  if (!endAt) throw new Error('Invalid booking state or missing relation');
+  return deriveOrderBookingStatus({
+    orderStatus: order.status,
+    hasRefund: order.refund !== null,
+    eventCanceled: event?.eventStatus === 'CANCELED',
+    holdExpired:
+      clubBooking?.status === 'EXPIRED' ||
+      eventModulePurchase?.status === 'EXPIRED',
+    endAt,
+    now,
+  });
+};
+
+/**
+ * T-046: bucket view. Every booking of the user (orders of any status plus
+ * guest-list entries of the user) is classified, filtered by bucket, ordered
+ * newest first and paged in memory (one user's rows are few). Scoped to the
+ * user id in both queries.
+ */
+const retrieveBucketBookings = async ({
+  bucket,
+  userId,
+  page,
+  limit,
+  now,
+}: {
+  bucket: TBookingBucket;
+  userId: string;
+  page: number;
+  limit: number;
+  now: Date;
+}): Promise<{
+  data: (TBookingListItem | TGuestListBookingListItem)[];
+  total: number;
+  totalPages: number;
+}> => {
+  const [orders, entries] = await Promise.all([
+    prisma.order.findMany({
+      where: { buyerUserId: userId },
+      include: bookingOrderInclude,
+    }),
+    prisma.eventGuestListEntry.findMany({
+      where: { userId },
+      include: { guestList: { include: { event: true } } },
+    }),
+  ]);
+
+  const items: {
+    bucket: TBookingBucket;
+    item: TBookingListItem | TGuestListBookingListItem;
+  }[] = [];
+  for (const order of orders) {
+    const classification = classifyOrder({ order, now });
+    items.push({
+      bucket: classification.bucket,
+      item: {
+        ...formatBookingOrder(order),
+        bookingStatus: classification.bookingStatus,
+      },
+    });
+  }
+  for (const entry of entries) {
+    const { event } = entry.guestList;
+    const classification = deriveGuestListBookingStatus({
+      status: entry.status,
+      endAt: event.endAt,
+      eventCanceled: event.eventStatus === 'CANCELED',
+      now,
+    });
+    items.push({
+      bucket: classification.bucket,
+      item: {
+        id: entry.id,
+        orderId: null,
+        purchaseDate: entry.createdAt,
+        eventStartAt: event.startAt,
+        eventEndAt: event.endAt,
+        name: event.eventName,
+        lat: Number(event.lat),
+        lng: Number(event.lng),
+        location: event.location,
+        type: 'EVENT',
+        thumbnail: event.thumbnail,
+        currency: event.currency,
+        bookingStatus: classification.bookingStatus,
+      },
+    });
+  }
+
+  const inBucket = items
+    .filter((x) => x.bucket === bucket)
+    .map((x) => x.item)
+    .sort(
+      (a, b) =>
+        b.purchaseDate.getTime() - a.purchaseDate.getTime() ||
+        a.id.localeCompare(b.id)
+    );
+  const total = inBucket.length;
+  return {
+    data: inBucket.slice((page - 1) * limit, page * limit),
+    total,
+    totalPages: Math.ceil(total / limit) || 1,
+  };
+};
 
 /**
  * This service is used to retrieve all bookings of logged in user
@@ -25,15 +272,24 @@ import { syncSucceededPaymentsForBuyer } from '@/app/modules/webhook/webhook.ser
 export const retrieveLoggedInUserBookingsService = async ({
   query,
   userId,
+  now: nowOverride,
 }: IRetrieveLoggedInUserBookingsService): Promise<{
-  data: TBookingListItem[];
+  data: (TBookingListItem | TGuestListBookingListItem)[];
   total: number;
   totalPages: number;
 }> => {
-  const { tab, page, limit } = query;
+  const { tab, bucket, page, limit } = query;
+  // Buyer scope: an empty id would make Prisma drop the filter and list other users' rows.
+  if (typeof userId !== 'string' || userId.length === 0) {
+    throw new Error('retrieveLoggedInUserBookingsService requires a user id');
+  }
   const skip = (page - 1) * limit;
   await syncSucceededPaymentsForBuyer(userId);
-  const now = currentFixedCstWallClock();
+  const now = nowOverride ?? currentFixedCstWallClock();
+
+  if (bucket) {
+    return retrieveBucketBookings({ bucket, userId, page, limit, now });
+  }
 
   const baseWhere: Prisma.OrderWhereInput = {
     buyerUserId: userId,
@@ -114,121 +370,13 @@ export const retrieveLoggedInUserBookingsService = async ({
     orderBy: { createdAt: 'desc' },
     skip,
     take: limit,
-    include: {
-      clubBooking: {
-        include: {
-          club: {
-            include: {
-              clubPackages: true,
-              reviews: true,
-            },
-          },
-        },
-      },
-      eventPurchase: {
-        include: {
-          event: true,
-        },
-      },
-      eventModulePurchase: {
-        include: {
-          event: true,
-          module: true,
-        },
-      },
-    },
+    include: bookingOrderInclude,
   });
 
-  const formattedData: TBookingListItem[] = orders.map((order) => {
-    if (
-      order.serviceType === 'CLUB' &&
-      order.clubBooking &&
-      order.clubBooking.club
-    ) {
-      const { clubBooking } = order;
-      const { club } = clubBooking;
-
-      const prices = club.clubPackages.map((p) => Number(p.price));
-      const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
-      const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
-
-      const reviewAvg =
-        club.reviews.length > 0
-          ? club.reviews.reduce((acc, curr) => acc + curr.rating, 0) /
-            club.reviews.length
-          : 0;
-
-      return {
-        id: clubBooking.id, // Booking id takes precedence as per requirements
-        orderId: order.id,
-        purchaseDate: order.createdAt,
-        startAt: clubBooking.startAt,
-        endAt: clubBooking.endAt,
-        name: club.name,
-        lat: Number(club.lat),
-        lng: Number(club.lng),
-        location: club.location,
-        type: 'CLUB',
-        thumbnail: club.thumbnail,
-        currency: order.currency,
-
-        review: Number(reviewAvg.toFixed(1)),
-        isVip: Boolean(club.isVip),
-        priceRange: {
-          minPrice,
-          maxPrice,
-        },
-      };
-    } else if (
-      order.serviceType === 'EVENT' &&
-      order.eventPurchase &&
-      order.eventPurchase.event
-    ) {
-      const { eventPurchase } = order;
-      const { event } = eventPurchase;
-
-      return {
-        id: eventPurchase.id, // Booking id takes precedence as per requirements
-        orderId: order.id,
-        purchaseDate: order.createdAt,
-        eventStartAt: eventPurchase.eventStartAt,
-        eventEndAt: eventPurchase.eventEndAt,
-        name: event.eventName,
-        lat: Number(event.lat),
-        lng: Number(event.lng),
-        location: event.location,
-        type: 'EVENT',
-        thumbnail: event.thumbnail,
-        currency: order.currency,
-        price: Number(eventPurchase.pricePerPerson),
-      };
-    } else if (
-      order.serviceType === 'EVENT' &&
-      order.eventModulePurchase &&
-      order.eventModulePurchase.event
-    ) {
-      const { eventModulePurchase } = order;
-      const { event } = eventModulePurchase;
-
-      return {
-        id: eventModulePurchase.id,
-        orderId: order.id,
-        purchaseDate: order.createdAt,
-        eventStartAt: event.startAt,
-        eventEndAt: event.endAt,
-        name: `${event.eventName} — ${eventModulePurchase.moduleName}`,
-        lat: Number(event.lat),
-        lng: Number(event.lng),
-        location: event.location,
-        type: 'EVENT',
-        thumbnail: event.thumbnail,
-        currency: order.currency,
-        price: Number(eventModulePurchase.unitPrice),
-      };
-    }
-
-    throw new Error('Invalid booking state or missing relation');
-  });
+  const formattedData: TBookingListItem[] = orders.map((order) => ({
+    ...formatBookingOrder(order),
+    bookingStatus: classifyOrder({ order, now }).bookingStatus,
+  }));
 
   const totalPages = Math.ceil(total / limit) || 1;
 
