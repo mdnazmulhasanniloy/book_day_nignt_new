@@ -51,6 +51,10 @@ tags:
     description: Endpoints for webhook management (stripe)
   - name: Waiting List
     description: Endpoints for club waiting list management
+  - name: Cities
+    description: City selector and city management
+  - name: Artists
+    description: Artist discovery, profile edit and follow endpoints
 
 components:
   securitySchemes:
@@ -2410,6 +2414,149 @@ components:
           type: string
         followerCount:
           type: integer
+    City:
+      type: object
+      required:
+        - id
+        - name
+        - lat
+        - lng
+        - isLaunched
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        countryCode:
+          type: string
+          description: ISO 3166-1 alpha-2
+        lat:
+          type: number
+        lng:
+          type: number
+        timezone:
+          type: string
+          description: IANA zone
+        isLaunched:
+          type: boolean
+          description: false = city is known but not live; clients show a "coming soon" state
+    ArtistSocialLinks:
+      type: object
+      description: OUR PROPOSAL (T-044), to be confirmed by the client. Only these keys are accepted, unknown keys are rejected (422). Each value is an https URL of at most 2048 characters. Spotify has its own column (spotifyUrl) and the photo is `photo`.
+      additionalProperties: false
+      properties:
+        instagram:
+          type: string
+          format: uri
+          maxLength: 2048
+        facebook:
+          type: string
+          format: uri
+          maxLength: 2048
+        x:
+          type: string
+          format: uri
+          maxLength: 2048
+        tiktok:
+          type: string
+          format: uri
+          maxLength: 2048
+        youtube:
+          type: string
+          format: uri
+          maxLength: 2048
+        soundcloud:
+          type: string
+          format: uri
+          maxLength: 2048
+        website:
+          type: string
+          format: uri
+          maxLength: 2048
+    ArtistProfile:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        photo:
+          type: string
+          description: Artist.avatar
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        socialLinks:
+          oneOf:
+            - $ref: '#/components/schemas/ArtistSocialLinks'
+            - type: 'null'
+        spotifyUrl:
+          type: string
+          nullable: true
+        soundcloudUrl:
+          type: string
+          nullable: true
+        audioPreviewUrl:
+          type: string
+          nullable: true
+        isVerified:
+          type: boolean
+        followerCount:
+          type: integer
+        isFollowing:
+          type: boolean
+          description: only with a valid bearer token, and only about that user
+        upcomingEventCount:
+          type: integer
+          description: only on GET /artists items
+        upcomingEvents:
+          type: array
+          description: only on GET /artists/{id} and PATCH /artists/{id}, at most 20, soonest first
+          items:
+            type: object
+            additionalProperties: true
+            description: same item shape as GET /explore type=EVENT plus startAt
+    ArtistUpdate:
+      type: object
+      description: At least one field. Unknown keys are rejected (422). Owner PATCH accepts photo, bio, spotifyUrl and socialLinks only; the admin PATCH also accepts name and isVerified.
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          description: admin only
+        photo:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: https URL, stored in Artist.avatar
+          nullable: true
+        bio:
+          type: string
+          maxLength: 2000
+          description: trimmed, an empty string is stored as null
+          nullable: true
+        spotifyUrl:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: https URL
+          nullable: true
+        socialLinks:
+          oneOf:
+            - $ref: '#/components/schemas/ArtistSocialLinks'
+            - type: 'null'
+          description: replaces the whole stored object, null clears it
+        isVerified:
+          type: boolean
+          description: admin only
 paths:
   /api/v1/owner/dashboard:
     get:
@@ -8901,6 +9048,1496 @@ paths:
                 $ref: '#/components/schemas/ApiErrorResponse'
         '422':
           description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/cities:
+    get:
+      operationId: getCities
+      tags:
+        - Cities
+      summary: Search cities
+      description: City selector source. Works without location permission. Implemented in T-033. Returns launched and unlaunched cities by default so the app can show a not-live-yet state; launchedOnly=true returns only isLaunched=true. q is a case-insensitive name prefix. Sorted by name. 422 for limit above 50 or a non-boolean launchedOnly.
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+          description: name prefix/contains
+        - name: launchedOnly
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Cities
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/City'
+                  meta:
+                    $ref: '#/components/schemas/PageMeta'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/admin/cities:
+    get:
+      operationId: getAdminCities
+      tags:
+        - Admin
+      summary: List cities (admin)
+      description: Includes unlaunched cities. q is a case-insensitive name prefix. Implemented in T-033 (reads need no CSRF header, like GET /admin/profile).
+      security:
+        - adminAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Cities
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/City'
+                  meta:
+                    $ref: '#/components/schemas/PageMeta'
+        '403':
+          description: Not admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    post:
+      operationId: postAdminCities
+      tags:
+        - Admin
+      summary: Create a city
+      description: Name + coordinates + timezone. isLaunched defaults to false, timezone to UTC, countryCode is stored upper-case. Duplicate (name, countryCode) gives 409, a missing country counts as one value for this check. Implemented in T-033.
+      security:
+        - adminAuth: []
+          csrfAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - lat
+                - lng
+              properties:
+                name:
+                  type: string
+                countryCode:
+                  type: string
+                  description: ISO 3166-1 alpha-2
+                lat:
+                  type: number
+                lng:
+                  type: number
+                timezone:
+                  type: string
+                  description: IANA zone
+                isLaunched:
+                  type: boolean
+                  description: false = city is known but not live; clients show a "coming soon" state
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/City'
+        '403':
+          description: Not admin / CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: City already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/admin/cities/{id}:
+    patch:
+      operationId: patchAdminCitiesId
+      tags:
+        - Admin
+      summary: Update a city (launch / unlaunch)
+      description: Toggle isLaunched, rename, fix coordinates. At least one field is required (422 otherwise). Unlaunching never deletes the row. Renaming onto an existing (name, countryCode) gives 409. Implemented in T-033.
+      security:
+        - adminAuth: []
+          csrfAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                countryCode:
+                  type: string
+                  description: ISO 3166-1 alpha-2
+                lat:
+                  type: number
+                lng:
+                  type: number
+                timezone:
+                  type: string
+                  description: IANA zone
+                isLaunched:
+                  type: boolean
+                  description: false = city is known but not live; clients show a "coming soon" state
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/City'
+        '403':
+          description: Not admin / CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: City not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/admin/filter-options:
+    get:
+      operationId: getAdminFilterOptions
+      tags:
+        - Admin
+      summary: List genre and mood vocabulary
+      description: 'Admin view of the editable vocabularies (Q6b: starter list that the owner edits). Implemented in T-037. Returns active and inactive rows, ordered by kind, sortOrder, label, id; optional kind filter (anything else gives 422); no paging. Reads need no CSRF header, like GET /admin/cities.'
+      security:
+        - adminAuth: []
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - GENRE
+              - MOOD
+      responses:
+        '200':
+          description: Options
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        kind:
+                          type: string
+                          enum:
+                            - GENRE
+                            - MOOD
+                        label:
+                          type: string
+                        sortOrder:
+                          type: integer
+                        isActive:
+                          type: boolean
+        '403':
+          description: Not admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    post:
+      operationId: postAdminFilterOptions
+      tags:
+        - Admin
+      summary: Add a genre or mood
+      description: Labels are unique per kind (case-insensitive). Deactivating (PATCH) hides it from pickers without breaking existing events that use it. Implemented in T-037. labelKey is the trimmed, lower-cased label; a duplicate (kind, labelKey) gives 409. label is trimmed, 1 to 120 characters. sortOrder is an integer 0 to 1000000, default 0 when omitted. Unknown body fields give 422. The response is {id, kind, label, sortOrder, isActive}.
+      security:
+        - adminAuth: []
+          csrfAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - kind
+                - label
+              properties:
+                kind:
+                  type: string
+                  enum:
+                    - GENRE
+                    - MOOD
+                label:
+                  type: string
+                  minLength: 1
+                sortOrder:
+                  type: integer
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    type: object
+                    additionalProperties: true
+        '403':
+          description: Not admin / CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Duplicate label
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/admin/filter-options/{id}:
+    patch:
+      operationId: patchAdminFilterOptionsId
+      tags:
+        - Admin
+      summary: Edit or deactivate a genre or mood
+      description: 'Rename, reorder or deactivate. Implemented in T-037. At least one field is required (422 otherwise); kind cannot be changed. Renaming recomputes labelKey and gives 409 when another row of the same kind already has it. Only the FilterOption row changes: events keep their own musicGenres and moodTags text, so deactivating or renaming never edits an event. Unknown id gives 404.'
+      security:
+        - adminAuth: []
+          csrfAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                sortOrder:
+                  type: integer
+                isActive:
+                  type: boolean
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    type: object
+                    additionalProperties: true
+        '403':
+          description: Not admin / CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Duplicate label
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/artists:
+    get:
+      operationId: getArtists
+      tags:
+        - Artists
+      summary: Discover artists
+      description: 'T-044. Artists linked (EventLineup.artistId) to at least one upcoming event: not deactivated, eventStatus UPCOMING and not yet ended, the same rule as GET /explore type=EVENT. Sorted by upcoming event count (desc), then name, then id. `search` is a case-insensitive substring match on the name (percent and underscore are literal). `cityId` keeps only artists with an upcoming event within the default explore radius (20 km) of that city centre (unknown city 404). Items use the ArtistProfile shape with `upcomingEventCount` instead of `upcomingEvents`. `isFollowing` is present only with a valid bearer token (and only about that user); an invalid token is 401. limit max 50, default 10. Message: Artists retrieved successfully.'
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: cityId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Artists
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ArtistProfile'
+                  meta:
+                    $ref: '#/components/schemas/PageMeta'
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/artists/{id}:
+    get:
+      operationId: getArtistsId
+      tags:
+        - Artists
+      summary: Artist profile
+      description: 'T-044. Any existing artist. `upcomingEvents` (at most 20, soonest first) uses the GET /explore type=EVENT item shape (id, name, lat, lng, location, type, thumbnail, currency, price) plus `startAt`. `isFollowing` only with a valid bearer token. Unknown id 404 Artist not found. Message: Artist retrieved successfully.'
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Artist
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/ArtistProfile'
+        '404':
+          description: Artist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    patch:
+      operationId: patchArtistsId
+      tags:
+        - Artists
+      summary: Edit an artist profile (owner)
+      description: 'T-044. Client answer Q6e: clubs and organizers maintain artist profiles, there is no artist login. A CLUB_OWNER manages an artist when they own an active (not deactivated) event whose lineup links that artist (EventLineup.artistId). The rule "created the artist" is NOT implemented because Artist has no creator column (open question). An unrelated owner, an unknown artist or an artist only on deactivated events all return 404 Artist not found, never 403 (the live app logs out on 403). A caller who is not a CLUB_OWNER gets the usual role 403. Editable by an owner: photo (stored in Artist.avatar), bio, spotifyUrl, socialLinks; name and isVerified are admin only and a body containing them is 422. Omitted fields are kept, null clears, socialLinks replaces the whole object, an empty bio is stored as null. Returns the ArtistProfile. Message: Artist updated successfully.'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtistUpdate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/ArtistProfile'
+        '403':
+          description: Caller is not a CLUB_OWNER (role middleware)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Artist not found or not managed by the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Validation failed (unknown key, invalid URL, invalid socialLinks, empty body)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/admin/artists:
+    get:
+      operationId: getAdminArtists
+      tags:
+        - Admin
+      summary: List artists (admin)
+      description: 'T-044. Every artist, including those without upcoming events, sorted by name then id. `search` is a case-insensitive substring match on the name; `isVerified` filters. ArtistProfile items without `upcomingEvents` and without `isFollowing`. limit max 50, default 10. No CSRF header on reads. Message: Artists retrieved successfully.'
+      security:
+        - adminAuth: []
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: isVerified
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Artists
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ArtistProfile'
+                  meta:
+                    $ref: '#/components/schemas/PageMeta'
+        '403':
+          description: Not admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/admin/artists/{id}:
+    patch:
+      operationId: patchAdminArtistsId
+      tags:
+        - Admin
+      summary: Edit or verify an artist (admin)
+      description: 'T-044. Admin may edit name, photo, bio, spotifyUrl, socialLinks and isVerified. A rename keeps nameKey (lowercased, whitespace collapsed) in sync and returns 409 ARTIST_NAME_EXISTS when another artist already has that name. Same omitted, null and socialLinks rules as PATCH /artists/{id}. Unknown id 404, no cookie 401, a customer token or a missing CSRF header 403. Returns the ArtistProfile (without upcomingEvents). Message: Artist updated successfully.'
+      security:
+        - adminAuth: []
+          csrfAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtistUpdate'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/ArtistProfile'
+        '403':
+          description: Not admin / CSRF
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Artist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: Another artist already has that name (ARTIST_NAME_EXISTS)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/artists/{id}/follow:
+    post:
+      operationId: postArtistsIdFollow
+      tags:
+        - Artists
+      summary: Follow an artist (idempotent)
+      description: Artist must exist (404 'Artist not found'). Creates ArtistFollower and increments Artist.followerCount unless already following.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: artist id
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Artist followed successfully
+                  data:
+                    type: object
+                    properties:
+                      isFollowing:
+                        type: boolean
+                        enum:
+                          - true
+                    required:
+                      - isFollowing
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: |-
+            - USER_NOT_FOUND: 'User not found' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)
+            - 'Artist not found' (no errorType)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    delete:
+      operationId: deleteArtistsIdFollow
+      tags:
+        - Artists
+      summary: Unfollow an artist (idempotent)
+      description: No-op if not following; follower count floored at 0.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: artist id
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Artist unfollowed successfully
+                  data:
+                    type: object
+                    properties:
+                      isFollowing:
+                        type: boolean
+                        enum:
+                          - false
+                    required:
+                      - isFollowing
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request params validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: '- USER_NOT_FOUND: ''User not found'' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/me/artists:
+    get:
+      operationId: getMeArtists
+      tags:
+        - Artists
+      summary: Artists I follow (paginated)
+      description: Newest follow first. Meta has no `links`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Followed artists retrieved successfully
+                  meta:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      total:
+                        type: integer
+                      totalPages:
+                        type: integer
+                    required:
+                      - page
+                      - limit
+                      - total
+                      - totalPages
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        avatar:
+                          type: string
+                          nullable: true
+                        audioPreviewUrl:
+                          type: string
+                          nullable: true
+                        spotifyUrl:
+                          type: string
+                          nullable: true
+                        soundcloudUrl:
+                          type: string
+                          nullable: true
+                        isVerified:
+                          type: boolean
+                        followerCount:
+                          type: integer
+                      required:
+                        - id
+                        - name
+                        - avatar
+                        - audioPreviewUrl
+                        - spotifyUrl
+                        - soundcloudUrl
+                        - isVerified
+                        - followerCount
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - meta
+                  - data
+                  - traceId
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request query validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - TOKEN_EXPIRED: 'Token has been expired'
+            - TOKEN_BLACKLISTED: 'Token has been revoked'
+            - ACCOUNT_DELETED: 'Your account has been deleted' (checkAccountStatus)
+            - USER_BLOCKED: 'Your account has been blocked' (checkAccountStatus)
+            - ACCOUNT_INACTIVE: 'Your account has been deactivated' (checkAccountStatus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: '- USER_NOT_FOUND: ''User not found'' (JWT valid but user row no longer exists; checkUserExistenceMiddleware)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/events/{eventId}/interested:
+    post:
+      operationId: postEventsEventIdInterested
+      tags:
+        - Explore
+      summary: Mark Interested
+      description: 'Idempotent: repeated calls by the same user keep one record, so the counter cannot be inflated; a second call returns 200 with the same state (never 409), also under parallel calls. Returns the caller own state and the live count only (no user names, Q6d). interestedCount is COUNT(*) on read, never stored. There is no endpoint that lists the interested users. A canceled event is also 404 (T-040).'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Interested
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      isInterested:
+                        type: boolean
+                        enum:
+                          - true
+                      interestedCount:
+                        type: integer
+        '404':
+          description: Event not found, deactivated or canceled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+    delete:
+      operationId: deleteEventsEventIdInterested
+      tags:
+        - Explore
+      summary: Remove Interested
+      description: 'Idempotent: removing a missing record is 200 with the current count, which never goes negative. Unknown, deactivated or canceled event is 404 (T-040).'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Removed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      isInterested:
+                        type: boolean
+                        enum:
+                          - false
+                      interestedCount:
+                        type: integer
+        '404':
+          description: Event not found, deactivated or canceled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/ticket-tier-presets:
+    get:
+      operationId: getTicketTierPresets
+      tags:
+        - Event
+      summary: Preset tier names
+      description: Static preset lists for the ticket-tier form plus the explanatory helper text, so the apps do not hard-code vocabulary. Custom names stay allowed. Section = parent that groups tiers for a day or access type; tier = priced quantity inside a section. Implemented in T-016. Names come from the client tracker A2.5 to A2.7. `presets` is the same list with `tierType` and `sortOrder` (position inside its own type, from 0); `ticketPresets` and `passPresets` are kept as plain name arrays.
+      security: []
+      responses:
+        '200':
+          description: Presets
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      ticketPresets:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - Super Early
+                          - Early
+                          - Advance
+                          - Regular
+                          - Late
+                          - Super Late
+                      passPresets:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - Blind Pass
+                          - Early Pass
+                          - Standard Pass
+                          - Late Pass
+                      presets:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - name
+                            - tierType
+                            - sortOrder
+                          properties:
+                            name:
+                              type: string
+                            tierType:
+                              type: string
+                              enum:
+                                - TICKET
+                                - PASS
+                            sortOrder:
+                              type: integer
+                      sectionHelp:
+                        type: string
+                      tierHelp:
+                        type: string
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/auth/roles:
+    get:
+      operationId: getAuthRoles
+      tags:
+        - Auth
+      summary: List API roles (static)
+      description: Inline handler; always returns the same static payload.
+      security: []
+      responses:
+        '200':
+          description: Static role catalogue. Response has NO traceId and NO message.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  data:
+                    type: object
+                    properties:
+                      roles:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            apiRole:
+                              type: string
+                              enum:
+                                - USER
+                                - CLUB_OWNER
+                                - ADMIN
+                            productRole:
+                              type: string
+                              enum:
+                                - customer
+                                - club_manager
+                                - admin
+                            can:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - apiRole
+                            - productRole
+                            - can
+                      missingRole:
+                        type: string
+                        example: ORGANIZER is not a separate role. Event organizers use CLUB_OWNER.
+                    required:
+                      - roles
+                      - missingRole
+                required:
+                  - success
+                  - data
+
+  /api/v1/auth/refresh:
+    post:
+      operationId: postAuthRefresh
+      tags:
+        - Auth
+      summary: Rotate refresh token
+      description: Refresh tokens are single-use (stored hashed in Redis). Fails if user is unverified or accountStatus != ACTIVE.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  minLength: 1
+              required:
+                - refreshToken
+              additionalProperties: false
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Session refreshed
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        description: New access JWT
+                      refreshToken:
+                        type: string
+                        description: New refresh token; old one is consumed
+                    required:
+                      - token
+                      - refreshToken
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+        '401':
+          description: Refresh token has expired (TOKEN_EXPIRED); Refresh token is invalid (TOKEN_INVALID); Session has ended. Please log in again. (TOKEN_BLACKLISTED); Session is no longer valid (TOKEN_INVALID); Session is missing a device (INVALID_DEVICE_CONTEXT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: 'Zod body validation failed (validateReqBody). NOTE: status is 422, not 400. errors[].field is the dotted path (or "body").'
           content:
             application/json:
               schema:
