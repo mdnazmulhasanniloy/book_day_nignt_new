@@ -66,7 +66,7 @@ export const mapArtistProfile = (
 /**
  * Lineup item with an optional `artistId` (T-044): links that existing Artist as is (the shared row
  * is never overwritten from a lineup item) and answers 404 when it does not exist. Without
- * `artistId` the legacy upsert by name runs, unchanged.
+ * `artistId`: see ensureArtistForLineup (W-04, never modifies an existing artist).
  */
 export const resolveLineupArtistId = async (
   tx: Prisma.TransactionClient | typeof prisma,
@@ -86,6 +86,16 @@ export const resolveLineupArtistId = async (
   return (await ensureArtistForLineup(tx, rest)).id;
 };
 
+/**
+ * Lineup item WITHOUT `artistId` (W-04). Artist names are unique by `nameKey`, so:
+ * - an Artist with that nameKey already exists: it is returned as is, NOTHING on it is modified
+ *   (no name, avatar, links, isVerified, updatedAt);
+ * - otherwise a new Artist is created from the item, always with `isVerified = false` (only
+ *   admins verify, via /admin/artists). `isVerified` in the item is ignored.
+ * The insert is `ON CONFLICT DO NOTHING` (createMany skipDuplicates), so a concurrent creation of
+ * the same name is not a unique violation (which would abort the surrounding transaction): the
+ * row is re-read afterwards and treated as "already exists".
+ */
 export const ensureArtistForLineup = async (
   tx: Prisma.TransactionClient | typeof prisma,
   input: {
@@ -99,40 +109,21 @@ export const ensureArtistForLineup = async (
 ) => {
   const nameKey = artistNameKey(input.artistName);
   const existing = await tx.artist.findUnique({ where: { nameKey } });
+  if (existing) return existing;
 
-  if (existing) {
-    return tx.artist.update({
-      where: { id: existing.id },
-      data: {
+  await tx.artist.createMany({
+    data: [
+      {
         name: input.artistName.trim(),
-        ...(input.artistAvatar !== undefined
-          ? { avatar: input.artistAvatar }
-          : {}),
-        ...(input.audioPreviewUrl !== undefined
-          ? { audioPreviewUrl: input.audioPreviewUrl }
-          : {}),
-        ...(input.spotifyUrl !== undefined
-          ? { spotifyUrl: input.spotifyUrl }
-          : {}),
-        ...(input.soundcloudUrl !== undefined
-          ? { soundcloudUrl: input.soundcloudUrl }
-          : {}),
-        ...(input.isVerified !== undefined
-          ? { isVerified: input.isVerified }
-          : {}),
+        nameKey,
+        avatar: input.artistAvatar ?? null,
+        audioPreviewUrl: input.audioPreviewUrl ?? null,
+        spotifyUrl: input.spotifyUrl ?? null,
+        soundcloudUrl: input.soundcloudUrl ?? null,
+        isVerified: false,
       },
-    });
-  }
-
-  return tx.artist.create({
-    data: {
-      name: input.artistName.trim(),
-      nameKey,
-      avatar: input.artistAvatar ?? null,
-      audioPreviewUrl: input.audioPreviewUrl ?? null,
-      spotifyUrl: input.spotifyUrl ?? null,
-      soundcloudUrl: input.soundcloudUrl ?? null,
-      isVerified: input.isVerified ?? false,
-    },
+    ],
+    skipDuplicates: true,
   });
+  return tx.artist.findUniqueOrThrow({ where: { nameKey } });
 };
