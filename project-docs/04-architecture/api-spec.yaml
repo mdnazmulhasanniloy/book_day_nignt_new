@@ -16466,7 +16466,7 @@ paths:
       - explore
       summary: Public detail of a club or event
       x-auth: 'optional user bearer: optionalUserAccessTokenMiddleware (no header = guest; header present but bad = 401) + validateReqParams(exploreIdParamsSchema) + validateReqQuery(exploreDetailQuerySchema)'
-      description: '`type` query is REQUIRED and selects which table `id` is looked up in. Returns 404 {success,message:''Resource not found'',traceId} (controller-built, no errorType) when missing or deactivated. type=CLUB: club minus userId/createdAt/updatedAt/deactivatedAt/geog, plus active packages, opening hours, active hosts, aggregateRating/totalReviews, isWishlist/isFollowing when authenticated. type=EVENT: increments Event.viewCount (+1 every call, even for deactivated/non-existent best-effort), returns active ticketTiers tree, lineup with Artist, active modules, public guestList payload (null when not enabled), hosts, organizer and isWishlist when authenticated. Event detail does NOT filter by eventStatus (canceled/completed events are still returned). Response `data` shape depends on `type`. TO-BE (CR-11, CR-13, BUG-B28): type=EVENT gains `interestedCount`, `isInterested` (bearer only), `mapUrl` (Google Maps link built from lat/lng and name), `timezone`. viewCount is incremented only for existing, active events, and a view is recorded in the user''s history when a bearer token is sent. TO-BE (CR-13): Event detail additions are listed under CR-11/CR-13 above (interestedCount, mapUrl, timezone). Organizer/club identity stays in `organizer`; `organizerProfile` (id, name, avatar) is added when the event has an organizer (CR-02).'
+      description: '`type` query is REQUIRED and selects which table `id` is looked up in. Returns 404 {success,message:''Resource not found'',traceId} (controller-built, no errorType) when missing or deactivated. type=CLUB: club minus userId/createdAt/updatedAt/deactivatedAt/geog, plus active packages, opening hours, active hosts, aggregateRating/totalReviews, isWishlist/isFollowing when authenticated. type=EVENT: increments Event.viewCount (+1 every call, even for deactivated/non-existent best-effort), returns active ticketTiers tree, lineup with Artist, active modules, public guestList payload (null when not enabled), hosts, organizer and isWishlist when authenticated. Event detail does NOT filter by eventStatus (canceled/completed events are still returned). Response `data` shape depends on `type`. T-040 (tested locally, not deployed) implemented only `interestedCount` (live COUNT(*) of EventInterest, always present) and `isInterested` (only with a valid bearer token); both are additive and no name or avatar of any user is returned. mapUrl, timezone and the other items below are not implemented yet. TO-BE (CR-11, CR-13, BUG-B28): type=EVENT gains `interestedCount`, `isInterested` (bearer only), `mapUrl` (Google Maps link built from lat/lng and name), `timezone`. viewCount is incremented only for existing, active events, and a view is recorded in the user''s history when a bearer token is sent. TO-BE (CR-13): Event detail additions are listed under CR-11/CR-13 above (interestedCount, mapUrl, timezone). Organizer/club identity stays in `organizer`; `organizerProfile` (id, name, avatar) is added when the event has an organizer (CR-02).'
       security:
       - optionalUserBearer: []
       parameters:
@@ -25643,11 +25643,10 @@ paths:
       tags:
       - explore
       summary: Mark Interested
-      description: 'Idempotent: repeated calls by the same user keep one record, so the counter cannot be inflated. Returns the new count only (no user names, Q6d default).'
+      description: 'Idempotent: repeated calls by the same user keep one record, so the counter cannot be inflated; a second call returns 200 with the same state (never 409), also under parallel calls. Returns the caller own state and the live count only (no user names, Q6d). interestedCount is COUNT(*) on read, never stored. There is no endpoint that lists the interested users. A canceled event is also 404 (T-040, tested locally, not deployed).'
       x-auth: 'user bearer: checkUserAccessToken + checkUserExistence + checkAccountStatus'
       security: *id029
       x-requirement: CR-11
-      x-status: planned
       x-change: added
       parameters:
       - name: eventId
@@ -25683,7 +25682,7 @@ paths:
                       interestedCount:
                         type: integer
         '404':
-          description: Event not found or deactivated
+          description: Event not found, deactivated or canceled
           content:
             application/json:
               schema:
@@ -25705,11 +25704,10 @@ paths:
       tags:
       - explore
       summary: Remove Interested
-      description: Idempotent.
+      description: 'Idempotent: removing a missing record is 200 with the current count, which never goes negative. Unknown, deactivated or canceled event is 404 (T-040, tested locally, not deployed).'
       x-auth: 'user bearer: checkUserAccessToken + checkUserExistence + checkAccountStatus'
       security: *id029
       x-requirement: CR-11
-      x-status: planned
       x-change: added
       parameters:
       - name: eventId
@@ -25745,7 +25743,7 @@ paths:
                       interestedCount:
                         type: integer
         '404':
-          description: Event not found
+          description: Event not found, deactivated or canceled
           content:
             application/json:
               schema:

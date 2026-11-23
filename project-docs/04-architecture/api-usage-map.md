@@ -218,6 +218,14 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 | `DELETE /artists/{id}/follow` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:21` | - | Flutter only |
 | `GET /me/artists` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:31` | - | Flutter only |
 
+### interested (T-040, tested locally, not deployed)
+
+| Endpoint | Used by Flutter | Used by Admin | Status |
+|---|---|---|---|
+| `POST /events/{eventId}/interested` | - | - | New (CR-11); no client calls it yet (Flutter work is the last milestone). Count only, no list of users |
+| `DELETE /events/{eventId}/interested` | - | - | New (CR-11); no client calls it yet |
+| `GET /explore/{id}` (type=EVENT) | unchanged | - | Gains additive `interestedCount` and `isInterested` (bearer only); Flutter parses by hand and ignores unknown keys |
+
 ### wishlist
 
 | Endpoint | Used by Flutter | Used by Admin | Status |

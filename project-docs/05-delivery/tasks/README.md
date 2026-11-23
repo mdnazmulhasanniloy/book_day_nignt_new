@@ -88,7 +88,7 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 | [T-037](T-037.md) | Filter vocabulary: GET /explore/filters and admin filter-options | backend | T-031 | done in code (tested locally) |
 | [T-038](T-038.md) | GET /explore/map with the same filters as /explore | backend | T-034, T-037 | done in code (tested locally) |
 | [T-039](T-039.md) | Migration 11: interested, recent views and daily view counts | backend (database) | T-002, T-003 | done in code (tested locally) |
-| [T-040](T-040.md) | Interested: POST/DELETE /events/{id}/interested and interestedCount | backend | T-039 | not started |
+| [T-040](T-040.md) | Interested: POST/DELETE /events/{id}/interested and interestedCount | backend | T-039 | done in code (tested locally) |
 | [T-041](T-041.md) | View tracking: Redis counters, flush job, recent views, viewCount dedupe | backend (server, scheduler) | T-039 | not started |
 | [T-042](T-042.md) | Recently viewed, most viewed and sort=trending | backend | T-040, T-041, T-034 | not started |
 | [T-043](T-043.md) | Migration 12: artist bio and social links | backend (database) | T-002 | not started |

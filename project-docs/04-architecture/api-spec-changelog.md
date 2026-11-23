@@ -34,8 +34,8 @@ Totals: 47 added, 33 changed, 6 deprecated. The spec grows from 151 to 198 opera
 | GET | `/admin/filter-options` | CR-10 | additive (new endpoint) | List genre and mood vocabulary. **Implemented in T-037** |
 | POST | `/admin/filter-options` | CR-10 | additive (new endpoint) | Add a genre or mood. **Implemented in T-037** |
 | PATCH | `/admin/filter-options/{id}` | CR-10 | additive (new endpoint) | Edit or deactivate a genre or mood. **Implemented in T-037** |
-| POST | `/events/{eventId}/interested` | CR-11 | additive (new endpoint) | Mark Interested |
-| DELETE | `/events/{eventId}/interested` | CR-11 | additive (new endpoint) | Remove Interested |
+| POST | `/events/{eventId}/interested` | CR-11 | additive (new endpoint) | Mark Interested. **T-040 (tested locally, not deployed): implemented; idempotent 200, returns {isInterested, interestedCount}; 404 for unknown, deactivated or canceled event.** |
+| DELETE | `/events/{eventId}/interested` | CR-11 | additive (new endpoint) | Remove Interested. **T-040 (tested locally, not deployed): implemented; idempotent 200, count never negative.** |
 | GET | `/me/recently-viewed` | CR-11 | additive (new endpoint) | My recently viewed events |
 | GET | `/explore/most-viewed` | CR-11 | additive (new endpoint) | Most viewed events in a city |
 | GET | `/artists` | CR-12 | additive (new endpoint) | Discover artists |
@@ -103,7 +103,7 @@ Totals: 47 added, 33 changed, 6 deprecated. The spec grows from 151 to 198 opera
 | POST | `/event/{id}/duplicate` | CR-09, BUG-B25 | additive | The copy gets PostGIS `geog` set, so it appears in geo-filtered explore results. |
 | POST, PUT | `/event`, `/event/{id}`, `/club`, `/club/{id}` | CR-09, BUG-B02 | additive | No request or response change. `geog` is now rebuilt from the stored lat/lng whenever an update sends lat OR lng (before, only when both were sent, so a one-sided update left `geog` stale). Rows with non-finite or out-of-range stored coordinates keep their `geog` unchanged. |
 | GET | `/explore/genres` | CR-10 | additive | Unchanged for existing clients; new clients use /explore/filters. |
-| GET | `/explore/{id}` | CR-11, CR-13, BUG-B28 | additive | type=EVENT gains `interestedCount`, `isInterested` (bearer only), `mapUrl` (Google Maps link built from lat/lng and name), `timezone`. viewCount is incremented only for existing, active events, and a view is recorded in the ... |
+| GET | `/explore/{id}` | CR-11, CR-13, BUG-B28 | additive | **T-040 (tested locally, not deployed): `interestedCount` (live COUNT) and `isInterested` (bearer only) implemented on type=EVENT; mapUrl and timezone not yet.** type=EVENT gains `interestedCount`, `isInterested` (bearer only), `mapUrl` (Google Maps link built from lat/lng and name), `timezone`. viewCount is incremented only for existing, active events, and a view is recorded in the ... |
 | GET | `/bookings` | CR-14 | additive | New optional `bucket` filter (FUTURE/PENDING/PAST) and items gain `bookingStatus` (CONFIRMED / GUEST_LIST_PENDING / PAYMENT_PROCESSING / CANCELED / REFUNDED). `tab` is unchanged. |
 | POST | `/webhooks/payment/stripe` | CR-16, BUG-B16 | additive | Missing or invalid Stripe signature returns 400 (was 500, which makes Stripe retry for days). Payment webhook also handles refund events (refund created/updated/failed) to update Refund.status; duplicates are ignored via ... |
 | POST | `/connect/webhook` | CR-16, BUG-B16 | additive | Missing or invalid Stripe signature returns 400 (was 500). |
