@@ -38,8 +38,8 @@ router
 router
   .route('/recover/verify')
   .post(
-    validateReqBody(verifyRecoverUserOtpSchema),
     checkResetPasswordPageTokenMiddleware,
+    validateReqBody(verifyRecoverUserOtpSchema),
     checkUserExistenceMiddleware,
     checkAccountStatus,
     checkOtpMiddleware,
@@ -49,8 +49,8 @@ router
 router
   .route('/recover/reset')
   .post(
-    validateReqBody(resetRecoverUserPasswordSchema),
     checkResetPasswordPageTokenMiddleware,
+    validateReqBody(resetRecoverUserPasswordSchema),
     checkUserExistenceMiddleware,
     checkAccountStatus,
     requireRecoverVerifiedMiddleware,

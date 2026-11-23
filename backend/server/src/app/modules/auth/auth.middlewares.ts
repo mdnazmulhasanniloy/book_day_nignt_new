@@ -324,8 +324,12 @@ export const checkPassword = asyncHandler(
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const traceId = getTraceId();
     const { password } = req.body;
-    const hashedPassword = (req.user as User).password as string;
-    const isMatched = await comparePassword(password, hashedPassword);
+    const hashedPassword = (req.user as User).password;
+    // Accounts without a password hash (social sign-in) cannot log in with a
+    // password: same answer as a wrong password, never a 500 from bcrypt.
+    const isMatched = hashedPassword
+      ? await comparePassword(password, hashedPassword)
+      : false;
     if (!isMatched) {
       res.status(401).json({
         success: false,
