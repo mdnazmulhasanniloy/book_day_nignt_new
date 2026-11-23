@@ -1,5 +1,6 @@
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import { installFakeRedis, startTestServer } from '@/testing/fakes';
@@ -24,37 +25,39 @@ type Route = {
   tokenKind: 'access' | 'reset';
 };
 
-const payload = {
-  sub: 'u-t021',
+// Fresh subject per call: tokens signed in the same second would otherwise be
+// byte-identical and a blacklisted token would leak into the next test.
+const mkPayload = () => ({
+  sub: `u-t021-${randomUUID()}`,
   role: 'USER',
   isVerified: true,
   accountStatus: 'ACTIVE',
   deviceId: 'd-t021',
-} as unknown as Parameters<typeof generateAccessTokenForUser>[0];
+}) as unknown as Parameters<typeof generateAccessTokenForUser>[0];
 
 const routes: Route[] = [
   {
     name: 'POST /auth/check',
     path: '/auth/check',
-    mkToken: () => generateAccessTokenForUser(payload),
+    mkToken: () => generateAccessTokenForUser(mkPayload()),
     tokenKind: 'access',
   },
   {
     name: 'POST /auth/logout',
     path: '/auth/logout',
-    mkToken: () => generateAccessTokenForUser(payload),
+    mkToken: () => generateAccessTokenForUser(mkPayload()),
     tokenKind: 'access',
   },
   {
     name: 'POST /recover/verify',
     path: '/recover/verify',
-    mkToken: () => generateResetPasswordPageToken(payload),
+    mkToken: () => generateResetPasswordPageToken(mkPayload()),
     tokenKind: 'reset',
   },
   {
     name: 'POST /recover/reset',
     path: '/recover/reset',
-    mkToken: () => generateResetPasswordPageToken(payload),
+    mkToken: () => generateResetPasswordPageToken(mkPayload()),
     tokenKind: 'reset',
   },
 ];
@@ -109,8 +112,8 @@ describe('check order: token before body validation (T-021, B-21)', () => {
       it('token signed with the other secret + invalid body -> 401', async () => {
         const wrongKind =
           route.tokenKind === 'access'
-            ? generateResetPasswordPageToken(payload)
-            : generateAccessTokenForUser(payload);
+            ? generateResetPasswordPageToken(mkPayload())
+            : generateAccessTokenForUser(mkPayload());
         const res = await post(route.path, BAD_BODY, wrongKind);
         assert.equal(res.status, 401);
       });
