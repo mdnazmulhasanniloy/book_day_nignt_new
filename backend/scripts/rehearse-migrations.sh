@@ -75,6 +75,15 @@ say "- restore took $(( $(now_s) - t0 ))s (exit $rc, errors other than 'already 
 # 2b. T-005 baseline: purchase count and SUM(soldCount) before migrations (tables exist in the dump)
 BEFORE_SOLD="$(psqlc -d "$REHEARSAL_DB" -At -c "SELECT COALESCE(SUM(\"soldCount\"),0) FROM \"EventTicketTier\";" 2>/dev/null || echo n/a)"
 BEFORE_PUR="$(psqlc -d "$REHEARSAL_DB" -At -c "SELECT count(*) FROM \"EventPurchase\";" 2>/dev/null || echo n/a)"
+# 2c. T-029 baseline: rows with NULL geog, split by valid / invalid coordinates, before migrations
+geog_counts() {
+  psqlc -d "$REHEARSAL_DB" -At -F ' ' -c "SELECT
+    (SELECT count(*) FROM \"$1\"),
+    (SELECT count(*) FROM \"$1\" WHERE geog IS NULL AND lat BETWEEN -90 AND 90 AND lng BETWEEN -180 AND 180),
+    (SELECT count(*) FROM \"$1\" WHERE geog IS NULL AND NOT (lat BETWEEN -90 AND 90 AND lng BETWEEN -180 AND 180));" 2>/dev/null || echo "n/a n/a n/a"
+}
+read -r CLUB_TOTAL_B CLUB_FILL_B CLUB_BAD_B <<< "$(geog_counts Club | tr '|' ' ')"
+read -r EVENT_TOTAL_B EVENT_FILL_B EVENT_BAD_B <<< "$(geog_counts Event | tr '|' ' ')"
 
 # 3. migrate deploy (never `migrate dev`)
 say; say "## 3. prisma migrate deploy"
@@ -145,6 +154,23 @@ say "Review query (tiers whose name or group contains pass; the product owner de
 say '```'
 psqlc -d "$REHEARSAL_DB" < "$ROOT/backend/prisma/tests/event_pricing_mode_review.sql" 2>&1 | head -60 | tee -a "$OUT"
 say '```'
+
+say; say "## 7. Migration 3 (T-029): geog backfill counts and synthetic proof"
+read -r CLUB_TOTAL_A CLUB_FILL_A CLUB_BAD_A <<< "$(geog_counts Club | tr '|' ' ')"
+read -r EVENT_TOTAL_A EVENT_FILL_A EVENT_BAD_A <<< "$(geog_counts Event | tr '|' ' ')"
+say "- Club rows=$CLUB_TOTAL_B; NULL geog with valid lat/lng: before=$CLUB_FILL_B after=$CLUB_FILL_A; NULL geog with invalid coordinates (reported, untouched): before=$CLUB_BAD_B after=$CLUB_BAD_A"
+say "- Event rows=$EVENT_TOTAL_B; NULL geog with valid lat/lng: before=$EVENT_FILL_B after=$EVENT_FILL_A; NULL geog with invalid coordinates (reported, untouched): before=$EVENT_BAD_B after=$EVENT_BAD_A"
+[[ "$CLUB_FILL_A" == "0" && "$EVENT_FILL_A" == "0" ]] || fail "rows with NULL geog and valid lat/lng remain after migrate"
+[[ "$CLUB_BAD_B" == "$CLUB_BAD_A" && "$EVENT_BAD_B" == "$EVENT_BAD_A" ]] || fail "rows with invalid coordinates changed across migrations"
+GEOG_MIG="$ROOT/backend/prisma/migrations/20261123140000_backfill_geog/migration.sql"
+GT="$(cat "$ROOT/backend/prisma/tests/geog_backfill_1_seed.sql" "$GEOG_MIG" \
+  "$ROOT/backend/prisma/tests/geog_backfill_2_first.sql" "$GEOG_MIG" \
+  "$ROOT/backend/prisma/tests/geog_backfill_3_second.sql" | psqlc -d "$REHEARSAL_DB" -At 2>&1)" || fail "geog_backfill sql errored"
+say '```'
+echo "$GT" | grep -E "GEOGTEST|ERROR" | tee -a "$OUT"
+say '```'
+echo "$GT" | grep -q "|FAIL" && fail "geog_backfill sql reported FAIL"
+echo "$GT" | grep -q "GEOGTEST" || fail "geog_backfill sql produced no result"
 
 say; say "## Summary"
 if [[ ${#FAILS[@]} -eq 0 ]]; then
