@@ -259,13 +259,14 @@ Queues (3 attempts with backoff, `*/configs/queue.configs.ts`); workers auto-loa
 |---|---|
 | `email-queue` | signup OTP, resend OTP, signup success (x2), recover OTP, recover resend, recover reset success, host contact, club waiting list, event cancellation, ticket PDF email |
 | `notification-queue` | `send-fcm-notification` |
-| `system-queue` | expire club booking hold, expire event module hold, expire event ticket hold (T-008), generate ticket PDF, make event ongoing, make event completed, process seller transfer, process refund |
+| `system-queue` | expire club booking hold, expire event module hold, expire event ticket hold (T-008), generate ticket PDF, make event ongoing, make event completed, process seller transfer, process refund, flush event views (T-041) |
 
 Cron jobs (`scheduler/src/app/jobs/*/*.tasks.ts`, auto-registered):
 
 | Job | Schedule | Action |
 |---|---|---|
 | `syncEventStatus` | every minute | enqueue MAKE_EVENT_ONGOING / MAKE_EVENT_COMPLETED |
+| `flushEventViews` | every minute | enqueue FLUSH_EVENT_VIEWS (jobId `flush-event-views-<yyyymmddhhmm>`); the worker job renames and reads the Redis `views:<day>` hashes and upserts `EventViewDaily` and `Event.viewCount` (T-041) |
 | `recoverTicketPdfs` | every 15 min | re-queue stuck or missing ticket PDFs (deterministic jobId) |
 | `dispatchReminders` | hourly | event, club-booking and wishlist FCM reminders |
 | `cleanupIncompleteUsers` | daily 00:00 | delete unverified users older than 24 h |

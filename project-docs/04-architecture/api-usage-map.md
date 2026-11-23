@@ -224,7 +224,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 |---|---|---|---|
 | `POST /events/{eventId}/interested` | - | - | New (CR-11); no client calls it yet (Flutter work is the last milestone). Count only, no list of users |
 | `DELETE /events/{eventId}/interested` | - | - | New (CR-11); no client calls it yet |
-| `GET /explore/{id}` (type=EVENT) | unchanged | - | Gains additive `interestedCount` and `isInterested` (bearer only); Flutter parses by hand and ignores unknown keys |
+| `GET /explore/{id}` (type=EVENT) | unchanged | - | Gains additive `interestedCount` and `isInterested` (bearer only); Flutter parses by hand and ignores unknown keys. T-041 (tested locally): no response change; `viewCount` is now filled by a flush job (up to about a minute behind) and a view is also kept in Redis and, with a token, in the user's recent views |
 
 ### wishlist
 
