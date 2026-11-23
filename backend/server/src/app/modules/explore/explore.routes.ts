@@ -16,6 +16,8 @@ import {
   explorePaginationQuerySchema,
 } from '@/app/modules/explore/explore.schema';
 import { validateReqQuery, validateReqParams } from '@/app/utils/system.utils';
+import { exploreFiltersController } from '@/app/modules/filterOption/filterOption.controllers';
+import { exploreFiltersQuerySchema } from '@/app/modules/filterOption/filterOption.schema';
 import { optionalUserAccessTokenMiddleware } from '@/app/modules/auth/auth.middlewares';
 
 const router = Router();
@@ -32,6 +34,13 @@ router.get(
   optionalUserAccessTokenMiddleware,
   validateReqQuery(exploreFeedQuerySchema),
   exploreFeedController
+);
+
+// Public vocabulary (T-037). Registered before /explore/:id.
+router.get(
+  '/explore/filters',
+  validateReqQuery(exploreFiltersQuerySchema),
+  exploreFiltersController
 );
 
 router.get(

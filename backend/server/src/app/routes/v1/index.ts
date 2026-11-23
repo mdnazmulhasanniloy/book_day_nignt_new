@@ -27,8 +27,10 @@ import guestListRoutes from '@/app/modules/guestList/guestList.routes';
 import hostsRoutes from '@/app/modules/hosts/hosts.routes';
 import artistsRoutes from '@/app/modules/artists/artists.routes';
 import cityRoutes from '@/app/modules/city/city.routes';
+import filterOptionRoutes from '@/app/modules/filterOption/filterOption.routes';
 const routes: Router[] = [
   cityRoutes,
+  filterOptionRoutes,
   waitingListRoutes,
   guestListRoutes,
   hostsRoutes,
