@@ -45,7 +45,7 @@ describe('rate limit middleware (T-019)', () => {
       r.json({ success: true });
     });
     const tiny = createRateLimitMiddleware({
-      prefix: 'test:tiny',
+      ipPrefix: REDIS_PREFIXES.promoValidateUser,
       max: 2,
       windowSeconds: 30,
       message: 'slow down',

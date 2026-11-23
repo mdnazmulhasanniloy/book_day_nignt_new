@@ -56,6 +56,9 @@ export const otpMaxAttempts = 5;
 export const otpResendCooldownSeconds = 60;
 export const otpIpWindowSeconds = 15 * 60;
 export const otpIpMaxSends = 10;
+/** POST /promo/validate: fixed window, per IP and per user (T-019, S-09). */
+export const promoValidateMaxPerWindow = 20;
+export const promoValidateWindowSeconds = 60;
 
 /**
  * Active checkout hold for an unpaid Event ticket order: after this long the
@@ -298,6 +301,8 @@ export const REDIS_PREFIXES = {
   otpAttempts: 'user:otp:attempts',
   otpResend: 'user:otp:resend',
   otpIp: 'user:otp:ip',
+  promoValidateIp: 'ratelimit:promo-validate:ip',
+  promoValidateUser: 'ratelimit:promo-validate:user',
   blacklist: 'blacklist:token',
   location: 'user:location',
   locations: 'users:locations',

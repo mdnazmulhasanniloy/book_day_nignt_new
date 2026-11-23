@@ -23,6 +23,7 @@ import {
   checkUserExistenceMiddleware,
   checkAccountStatus,
 } from '@/app/modules/auth/auth.middlewares';
+import { limitPromoValidateMiddleware } from '@/app/middlewares/rateLimit.middlewares';
 import { checkPromoManagerRoleMiddleware } from '@/app/modules/promo/promo.middlewares';
 
 const router = Router();
@@ -30,6 +31,7 @@ const router = Router();
 // Public / Authenticated route to check a code before purchasing
 router.post(
   '/promo/validate',
+  limitPromoValidateMiddleware,
   validateReqBody(validatePromoCodeSchema),
   validatePromoCodeController
 );
