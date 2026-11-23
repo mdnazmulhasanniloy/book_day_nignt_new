@@ -4131,7 +4131,7 @@ paths:
       tags:
         - Admin Auth
       summary: Admin Login
-      description: Authenticate an admin user, sets secure HttpOnly cookies and CSRF cookie
+      description: Authenticate an admin user, sets secure HttpOnly cookies and CSRF cookie A non-admin account with a valid email gets 403 ACCESS_DENIED before the password is checked. Tokens are delivered only in cookies; the body carries csrfToken.
       requestBody:
         required: true
         content:
@@ -4211,14 +4211,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Admin user not found (USER_NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      security:
+        - adminAuth: []
+          csrfAuth: []
   /api/v1/admin/auth/refresh:
     post:
       tags:
         - Admin Auth
       summary: Refresh Admin Tokens
-      description:
-        Atomically rotates refresh tokens. Requires valid CSRF and refresh
-        cookies.
+      description: Atomically rotates refresh tokens. Requires valid CSRF and refresh cookies. Atomically consumes the refresh session in Redis and sets new cookies. An invalid, expired, missing or already consumed refresh session returns 401 (errorType TOKEN_INVALID or TOKEN_EXPIRED), not 500 (T-010). Needs the refresh_token and admin_csrf_token cookies plus the x-csrf-token header.
       parameters:
         - name: X-CSRF-Token
           in: header
@@ -4241,9 +4248,7 @@ paths:
                     example: Admin tokens refreshed successfully
                   csrfToken:
                     type: string
-                    description:
-                      CSRF token provided for easier Swagger testing. Usually sent via
-                      cookie.
+                    description: CSRF token provided for easier Swagger testing. Usually sent via cookie.
                   traceId:
                     type: string
                     format: uuid
@@ -4270,14 +4275,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Admin user not found (USER_NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      security:
+        - adminAuth: []
+          csrfAuth: []
   /api/v1/admin/auth/logout:
     post:
       tags:
         - Admin Auth
       summary: Admin Logout
-      description:
-        Invalidates the current admin session, blacklists access token,
-        clears cookies
+      description: Invalidates the current admin session, blacklists access token, clears cookies
       parameters:
         - name: X-CSRF-Token
           in: header
@@ -4319,6 +4331,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Admin user not found (USER_NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      security:
+        - adminAuth: []
+          csrfAuth: []
   /api/v1/change-password:
     patch:
       tags:
@@ -4461,6 +4482,7 @@ paths:
       description: Changes the authenticated admin's password
       security:
         - adminAuth: []
+          csrfAuth: []
       parameters:
         - in: header
           name: X-CSRF-Token
@@ -4529,19 +4551,22 @@ paths:
       description: Retrieves high-level dashboard statistics and charting data (total earnings, total users, total club owners, user registration chart).
       security:
         - adminAuth: []
+          csrfAuth: []
       parameters:
         - in: query
           name: year
           schema:
             type: string
-            pattern: '^\d{4}$'
+            pattern: ^\d{4}$
           required: false
           description: Year for chart data filtering (defaults to current year)
         - in: query
           name: role
           schema:
             type: string
-            enum: [USER, CLUB_OWNER]
+            enum:
+              - USER
+              - CLUB_OWNER
           required: false
           description: Role filter for chart data (defaults to both)
       responses:
@@ -4608,6 +4633,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Admin user not found (USER_NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Zod query validation failed. Status 422. This response has NO traceId and NO errorType.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
 
   /api/v1/admin/commission:
     get:
@@ -4654,6 +4691,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: 'Access denied: Requires admin privileges (ACCESS_DENIED)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
     patch:
       tags:
         - Admin Auth
@@ -4662,6 +4705,7 @@ paths:
       description: Updates the application charge percentage for a specific service type
       security:
         - adminAuth: []
+          csrfAuth: []
       parameters:
         - in: header
           name: X-CSRF-Token
@@ -4774,6 +4818,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: 'Access denied: Requires admin privileges (ACCESS_DENIED)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
     patch:
       tags:
         - Admin Auth
@@ -4782,6 +4832,7 @@ paths:
       description: Updates the single fixed Service Charge configuration. The amount must be greater than 0.00 and may contain no more than two decimal places.
       security:
         - adminAuth: []
+          csrfAuth: []
       parameters:
         - in: header
           name: X-CSRF-Token
@@ -4940,6 +4991,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - adminAuth: []
+          csrfAuth: []
   /api/v1/admin/terms:
     get:
       tags:
@@ -5029,6 +5083,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
         - adminAuth: []
+          csrfAuth: []
       parameters:
         - name: X-CSRF-Token
           in: header
@@ -5124,6 +5179,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
         - adminAuth: []
+          csrfAuth: []
       parameters:
         - name: X-CSRF-Token
           in: header
@@ -5219,6 +5275,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
         - adminAuth: []
+          csrfAuth: []
       parameters:
         - name: X-CSRF-Token
           in: header
@@ -8391,31 +8448,47 @@ paths:
       tags:
         - Admin
       security:
-        - BearerAuth: []
-        - CookieAuth: []
-        - CsrfAuth: []
+        - adminAuth: []
+          csrfAuth: []
       parameters:
         - in: query
           name: page
           schema:
             type: string
+            pattern: ^[1-9][0-9]*$
+            default: '1'
           description: Page number
         - in: query
           name: limit
           schema:
             type: string
+            pattern: ^[1-9][0-9]*$
+            description: Positive integer, at most 100 (T-010)
+            default: '10'
           description: Limit per page
         - in: query
           name: role
           schema:
             type: string
-            enum: [USER, CLUB_OWNER]
+            enum:
+              - USER
+              - CLUB_OWNER
           description: Filter by role
         - in: query
           name: search
           schema:
             type: string
           description: Search by email or name
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - ACTIVE
+              - BLOCKED
+              - INACTIVE
+              - DELETED
       responses:
         '200':
           description: Users retrieved successfully
@@ -8454,6 +8527,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Admin user not found (USER_NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: page or limit is not a positive integer, or limit above 100, or invalid status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      description: CSRF header required on this GET. Only roles USER and CLUB_OWNER are listed; the default excludes DELETED accounts, pass status=DELETED to list them. page and limit must match ^[1-9][0-9]*$ (positive integer) and limit is at most 100; anything else (abc, 0, -1, 1.5, empty, 101) returns 422 with errors[] (T-010). Defaults are 1 and 10. The response no longer contains the password hash. search matches name or email, case-insensitive.
 
   /api/v1/admin/users/{id}/suspend:
     patch:
@@ -8462,9 +8548,8 @@ paths:
       tags:
         - Admin
       security:
-        - BearerAuth: []
-        - CookieAuth: []
-        - CsrfAuth: []
+        - adminAuth: []
+          csrfAuth: []
       parameters:
         - in: path
           name: id
@@ -8494,7 +8579,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: User not found
+          description: User not found (USER_NOT_FOUND or "User not found")
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Zod params validation failed. Status 422. This response has NO traceId and NO errorType.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      description: 'Toggle: BLOCKED becomes ACTIVE, any other status becomes BLOCKED. An unknown user id returns 404 {success:false, message:"User not found"} (T-010). A malformed id returns 422. Sessions are not revoked here.'
 
   /api/v1/admin/users/{id}/delete:
     patch:
@@ -8503,9 +8599,8 @@ paths:
       tags:
         - Admin
       security:
-        - BearerAuth: []
-        - CookieAuth: []
-        - CsrfAuth: []
+        - adminAuth: []
+          csrfAuth: []
       parameters:
         - in: path
           name: id
@@ -8536,6 +8631,23 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: User is already deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Zod params validation failed. Status 422. This response has NO traceId and NO errorType.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      description: Soft delete (status DELETED, sessions and FCM tokens cleared, owner listings hidden). An unknown user id returns 404, an already deleted user returns 409 "User is already deleted", a malformed id returns 422 (T-010).
   /api/v1/owner/verify-ticket:
     post:
       summary: Verify a ticket via QR Code
@@ -12127,3 +12239,285 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/admin/earnings:
+    get:
+      operationId: getAdminEarnings
+      tags:
+        - Admin
+      summary: Admin earnings (commission) overview
+      description: CSRF header required on this GET. Only PAID orders are listed. status is "Canceled" if a refund exists else "Completed". Decimal fields (price, commission, earning) are serialized as strings. page and limit must be positive integers (pattern ^[1-9][0-9]*$) and limit is at most 100, otherwise 422 with errors[] (T-010); defaults are 1 and 10.
+      security:
+        - adminAuth: []
+          csrfAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: ^[1-9][0-9]*$
+            default: '1'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: ^[1-9][0-9]*$
+            description: Positive integer, at most 100 (T-010)
+            default: '10'
+        - name: serviceType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - EVENT
+              - CLUB
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: All earnings retrieve successful for admin.
+                  meta:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      links:
+                        type: object
+                        properties:
+                          currentPage:
+                            type: string
+                          nextPage:
+                            type: string
+                            nullable: true
+                          previousPage:
+                            type: string
+                            nullable: true
+                          firstPage:
+                            type: string
+                          lastPage:
+                            type: string
+                      totalEarning:
+                        description: sum commissionAmount over all PAID orders (Prisma Decimal, JSON type ⚠️ UNVERIFIED; 0 if none)
+                      todayEarning:
+                        description: same, since local midnight today
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        createdBy:
+                          type: string
+                        dateAndTime:
+                          type: string
+                          format: date-time
+                          nullable: true
+                        location:
+                          type: string
+                        price:
+                          type: string
+                          description: grossAmount (Decimal)
+                        commission:
+                          type: string
+                          description: commissionRate (Decimal)
+                        earning:
+                          type: string
+                          description: commissionAmount (Decimal)
+                        status:
+                          type: string
+                          enum:
+                            - Canceled
+                            - Completed
+                            - Pending
+                        currency:
+                          type: string
+                        serviceType:
+                          type: string
+                          enum:
+                            - EVENT
+                            - CLUB
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - meta
+                  - data
+        '403':
+          description: 'Invalid or missing CSRF token (ACCESS_DENIED); Access denied: Requires admin privileges (ACCESS_DENIED)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Access token not found in cookies (TOKEN_INVALID); Token has been revoked (TOKEN_BLACKLISTED); Token has been expired (TOKEN_EXPIRED); Token is invalid (TOKEN_INVALID); Your admin account has been deleted (ACCOUNT_DELETED); Your admin account has been blocked (USER_BLOCKED); Your admin account has been deactivated (ACCOUNT_INACTIVE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Admin user not found (USER_NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: page or limit is not a positive integer, or limit above 100
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/admin/users/{id}/restore:
+    patch:
+      operationId: patchAdminUsersIdRestore
+      tags:
+        - Admin
+      summary: Restore a soft-deleted user to ACTIVE
+      description: Service errors have NO errorType.
+      security:
+        - adminAuth: []
+          csrfAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User id
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: User restored successfully
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum:
+                          - ACTIVE
+                    required:
+                      - status
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+        '403':
+          description: 'Invalid or missing CSRF token (ACCESS_DENIED); Access denied: Requires admin privileges (ACCESS_DENIED)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: Access token not found in cookies (TOKEN_INVALID); Token has been revoked (TOKEN_BLACKLISTED); Token has been expired (TOKEN_EXPIRED); Token is invalid (TOKEN_INVALID); Your admin account has been deleted (ACCOUNT_DELETED); Your admin account has been blocked (USER_BLOCKED); Your admin account has been deactivated (ACCOUNT_INACTIVE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Admin user not found (USER_NOT_FOUND); User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '409':
+          description: 'User is not deleted (current status: <STATUS>)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Zod params validation failed. Status 422. This response has NO traceId and NO errorType.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/service-charge:
+    get:
+      operationId: getServiceCharge
+      tags:
+        - Service Charge
+      summary: Get global service charge (public)
+      description: Singleton row id=GLOBAL; amount is a flat amount (Decimal(10,2) converted to a number). 404 has no errorType. See GET /admin/service-charge for the admin view.
+      security: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                    example: Service Charge retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: GLOBAL
+                      amount:
+                        type: number
+                      createdAt:
+                        type: string
+                        format: date-time
+                      updatedAt:
+                        type: string
+                        format: date-time
+                    required:
+                      - id
+                      - amount
+                      - createdAt
+                      - updatedAt
+                  traceId:
+                    type: string
+                required:
+                  - success
+                  - message
+                  - data
+        '404':
+          description: Service Charge configuration not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+      deprecated: true
