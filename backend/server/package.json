@@ -9,7 +9,7 @@
   "scripts": {
     "build": "sh scripts/build.sh",
     "test": "tsx --test \"src/**/*.test.ts\"",
-    "test:db": "node scripts/require-test-db.js && tsx --test \"src/**/*.db.test.ts\"",
+    "test:db": "node scripts/require-test-db.js && tsx --test --test-concurrency=1 \"src/**/*.db.test.ts\"",
     "dev": "npx prisma generate && nodemon",
     "start": "node ./dist/server.js",
     "format": "prettier --write \"src/**/*.ts\"",
