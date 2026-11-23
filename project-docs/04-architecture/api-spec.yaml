@@ -15278,7 +15278,7 @@ paths:
       - explore
       summary: Search/browse clubs and upcoming events (public)
       x-auth: 'optional user bearer: optionalUserAccessTokenMiddleware (no header = guest; header present but bad = 401) + validateReqQuery(exploreQuerySchema)'
-      description: 'Unified feed: type=CLUB -> clubs only, type=EVENT -> events only, omitted -> UNION ALL of both. Clubs: not deactivated. Events: not deactivated, eventStatus UPCOMING, endAt > now. lat+lng (both required to take effect) restricts to 20 km (PostGIS ST_DWithin on `geog`; events duplicated without geog will not match). Club-only filters: isPopular, ratings, isVip (422 if combined with type=EVENT). Event-only filters: dateFilter, isFree, categoryType, genres (comma list, UPPER-CASED before matching against Event.musicGenres), mood (comma list vs moodTags). `date` (ISO datetime): events active at that instant; clubs open on that weekday (UTC). `city` = ILIKE on location. minPrice/maxPrice: clubs match if any active package in range; events use eventPrice. sort: newest (default) / oldest; `trending` is accepted by the schema but IGNORED (falls to default createdAt DESC); isPopular orders by rating desc. Without a token `isWishlist` is omitted. TO-BE (CR-09, CR-10, BUG-B28): New optional params radiusKm, cityId, group, from, to. `sort=trending` is implemented (views + interested over the last 7 days; Q6c default). dateFilter gains `this_week`. Items gain `distanceKm` when a search centre exists. Response is unchanged when no new param is sent. meta.total is the live result count used by filter UIs.'
+      description: 'Unified feed: type=CLUB -> clubs only, type=EVENT -> events only, omitted -> UNION ALL of both. Clubs: not deactivated. Events: not deactivated, eventStatus UPCOMING, endAt > now. lat+lng (both required to take effect) restricts to 20 km (PostGIS ST_DWithin on `geog`; events duplicated without geog will not match). Club-only filters: isPopular, ratings, isVip (422 if combined with type=EVENT). Event-only filters: dateFilter, isFree, categoryType, genres (comma list, UPPER-CASED before matching against Event.musicGenres), mood (comma list vs moodTags). `date` (ISO datetime): events active at that instant; clubs open on that weekday (UTC). `city` = ILIKE on location. minPrice/maxPrice: clubs match if any active package in range; events use eventPrice. sort: newest (default) / oldest; `trending` is accepted by the schema but IGNORED (falls to default createdAt DESC); isPopular orders by rating desc. Without a token `isWishlist` is omitted. TO-BE (CR-09, CR-10, BUG-B28): New optional params radiusKm, cityId, group, from, to. `sort=trending` is implemented (views + interested over the last 7 days; Q6c default). dateFilter gains `this_week`. Items gain `distanceKm` when a search centre exists. Response is unchanged when no new param is sent. T-034 (tested locally, not deployed) implemented radiusKm, cityId and distanceKm only: the centre is lat+lng when both are sent, otherwise the City lat/lng for cityId (any existing City row, whatever isLaunched; unknown id 404, malformed id 422; lat/lng win when both are sent); the radius goes to ST_DWithin in metres on the geog GiST index; `distanceKm` (km, 1 decimal, measured by PostGIS ST_Distance on the geography) is on every item only when a centre exists. group, from, to, this_week and sort=trending are NOT implemented yet. meta.total is the live result count used by filter UIs.'
       security:
       - optionalUserBearer: []
       parameters:
@@ -15428,10 +15428,14 @@ paths:
         required: false
         schema:
           type: integer
-          minimum: 1
-          maximum: 50
+          enum:
+          - 10
+          - 20
+          - 30
+          - 40
+          - 50
           default: 20
-        description: 'Search radius around lat/lng (or around the city centre when cityId is sent). Default 20 equals the current hard-coded value, so existing clients are unchanged. Steps in the UI: 10, 20, 30, 40, 50.'
+        description: 'Search radius in km around lat/lng (or around the city centre when cityId is sent). Allowed values 10, 20, 30, 40, 50; any other value returns 422. Implemented in T-034 (tested locally, not deployed). The SERVER default when radiusKm is omitted stays 20 (the old fixed value), so live clients are unchanged. The client answered (Q6a, 2026-11-22) that the app INITIAL selection is 30 km: the new Flutter screens send radiusKm=30 explicitly, the server default is NOT 30. Without a search centre the radius has no effect.'
       - name: cityId
         in: query
         required: false
