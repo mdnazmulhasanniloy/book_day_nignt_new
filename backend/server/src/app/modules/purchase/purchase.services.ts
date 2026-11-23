@@ -269,6 +269,10 @@ export const createEventPurchaseService = async ({
         // client cannot provide or later alter ticket/PDF history fields.
         const personCount = payload.friends.length + 1;
         let pricePerPerson = event.eventPrice;
+        // Snapshot of the chosen tier, written with the purchase row below.
+        // Stays NULL when no tier is chosen (old clients): never inferred.
+        let ticketTierId: string | null = null;
+        let ticketTierName: string | null = null;
 
         if (payload.ticketTierId) {
           const tier = await tx.eventTicketTier.findUnique({
@@ -281,6 +285,8 @@ export const createEventPurchaseService = async ({
             throw { statusCode: 409, message: 'Ticket tier is sold out' };
           }
           pricePerPerson = tier.price;
+          ticketTierId = tier.id;
+          ticketTierName = tier.tierName;
           await tx.eventTicketTier.update({
             where: { id: tier.id },
             data: { soldCount: { increment: personCount } },
@@ -356,6 +362,8 @@ export const createEventPurchaseService = async ({
             eventStartAt: event.startAt,
             eventEndAt: event.endAt,
             pricePerPerson,
+            ticketTierId,
+            ticketTierName,
             // This is based on the immutable EventPurchase start snapshot so
             // UI and future workers are insulated from live Event edits.
             transferEligibleAt: new Date(

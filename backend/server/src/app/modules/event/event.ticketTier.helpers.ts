@@ -173,8 +173,10 @@ const pairByKey = ({
  * - No incoming id (live app): key mode. Sections match on trimmed,
  *   case-insensitive (groupName, tierName); children on (matched parent id,
  *   tierName). Duplicate keys: see `pairByKey`.
- * - Existing tiers not matched: deleted when soldCount = 0 and no surviving
- *   child, otherwise kept with isActive = false.
+ * - Existing tiers not matched: hard-deleted only when soldCount = 0, no
+ *   surviving child and no EventPurchase row references the tier (T-006; the
+ *   snapshot trigger would reject the FK SET NULL of such a delete), otherwise
+ *   kept with isActive = false.
  * - capacity < soldCount: 409 TIER_CAPACITY_BELOW_SOLD. soldCount is never
  *   written. All validation runs before the first write.
  */
@@ -307,8 +309,17 @@ export const reconcileEventTicketTiers = async ({
   // Unmatched existing tiers: children first, then sections (deleting a
   // section cascades to its children, so it is only deleted when none remain).
   const unmatched = existing.filter((tier) => !keptIds.has(tier.id));
+  const referenced = new Set(
+    (
+      await tx.eventPurchase.findMany({
+        where: { ticketTierId: { in: unmatched.map((tier) => tier.id) } },
+        select: { ticketTierId: true },
+        distinct: ['ticketTierId'],
+      })
+    ).map((purchase) => purchase.ticketTierId)
+  );
   const retire = async (tier: EventTicketTier, canDelete: boolean) => {
-    if (tier.soldCount === 0 && canDelete) {
+    if (tier.soldCount === 0 && canDelete && !referenced.has(tier.id)) {
       await tx.eventTicketTier.delete({ where: { id: tier.id } });
     } else if (tier.isActive) {
       await tx.eventTicketTier.update({

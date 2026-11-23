@@ -185,3 +185,32 @@ export const bookingIdFromOrderRelations = (order: {
   order.eventPurchase?.id ??
   order.eventModulePurchase?.id ??
   null;
+
+/**
+ * `booking.eventPurchase` block of GET /bookings/{id} for an event ticket.
+ * Existing keys are unchanged; `ticketTierId` and `ticketTierName` are
+ * additive (T-006, CR-04) and null for no-tier and pre-release purchases.
+ */
+export const mapEventPurchaseBookingSnapshot = (
+  eventPurchase: EventPurchase & {
+    attendees: Array<
+      Pick<EventPurchaseAttendee, 'id' | 'name' | 'gender' | 'age' | 'phoneNumber'>
+    >;
+  }
+) => ({
+  eventName: eventPurchase.eventName,
+  eventLocation: eventPurchase.eventLocation,
+  personCount: eventPurchase.personCount,
+  pricePerPerson: Number(eventPurchase.pricePerPerson),
+  eventStartAt: eventPurchase.eventStartAt,
+  eventEndAt: eventPurchase.eventEndAt,
+  ticketTierId: eventPurchase.ticketTierId,
+  ticketTierName: eventPurchase.ticketTierName,
+  attendees: eventPurchase.attendees.map((a) => ({
+    id: a.id,
+    name: a.name,
+    gender: a.gender,
+    age: a.age ? String(a.age) : '',
+    phoneNumber: a.phoneNumber,
+  })),
+});

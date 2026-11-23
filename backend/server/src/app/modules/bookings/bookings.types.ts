@@ -65,6 +65,8 @@ export interface IBookingDetailResponse {
       pricePerPerson: number;
       eventStartAt: Date;
       eventEndAt: Date;
+      ticketTierId: string | null;
+      ticketTierName: string | null;
       attendees: Array<{
         id: string;
         name: string;

@@ -9,7 +9,10 @@ import {
   TExplorePresentation,
   TBookingListItem,
 } from '@/app/modules/bookings/bookings.types';
-import { resolveBuyerBookingByIdOrOrderId } from '@/app/modules/bookings/bookings.helpers';
+import {
+  mapEventPurchaseBookingSnapshot,
+  resolveBuyerBookingByIdOrOrderId,
+} from '@/app/modules/bookings/bookings.helpers';
 import { exploreDetailService } from '@/app/modules/explore/explore.services';
 import { Prisma } from '@prisma/client';
 import { currentFixedCstWallClock } from '@/app/modules/purchase/purchase.helpers';
@@ -407,21 +410,7 @@ export const retrieveLoggedInUserSingleBookingsService = async ({
         serviceType: 'EVENT',
         purchaseDate: eventPurchase.order.createdAt,
         status,
-        eventPurchase: {
-          eventName: eventPurchase.eventName,
-          eventLocation: eventPurchase.eventLocation,
-          personCount: eventPurchase.personCount,
-          pricePerPerson: Number(eventPurchase.pricePerPerson),
-          eventStartAt: eventPurchase.eventStartAt,
-          eventEndAt: eventPurchase.eventEndAt,
-          attendees: eventPurchase.attendees.map((a) => ({
-            id: a.id,
-            name: a.name,
-            gender: a.gender,
-            age: a.age ? String(a.age) : '',
-            phoneNumber: a.phoneNumber,
-          })),
-        },
+        eventPurchase: mapEventPurchaseBookingSnapshot(eventPurchase),
         payment: {
           status: eventPurchase.order.status,
           grossAmount: Number(eventPurchase.order.grossAmount),
