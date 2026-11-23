@@ -206,6 +206,11 @@ enum TierType {
   PASS
 }
 
+enum FilterOptionKind {
+  GENRE
+  MOOD
+}
+
 enum ClubHostStatus {
   NONE
   PENDING
@@ -1017,4 +1022,34 @@ model HostContact {
 
   @@index([hostId, createdAt])
   @@index([eventId, createdAt])
+}
+
+model City {
+  id          String   @id @default(uuid())
+  name        String
+  countryCode String?
+  lat         Float
+  lng         Float
+  timezone    String   @default("UTC")
+  isLaunched  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([name, countryCode])
+  @@index([isLaunched])
+  @@index([name])
+}
+
+model FilterOption {
+  id        String           @id @default(uuid())
+  kind      FilterOptionKind
+  label     String
+  labelKey  String
+  sortOrder Int              @default(0)
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([kind, labelKey])
+  @@index([kind, isActive, sortOrder])
 }

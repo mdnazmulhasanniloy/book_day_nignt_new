@@ -172,6 +172,25 @@ say '```'
 echo "$GT" | grep -q "|FAIL" && fail "geog_backfill sql reported FAIL"
 echo "$GT" | grep -q "GEOGTEST" || fail "geog_backfill sql produced no result"
 
+say; say "## 8. Migration 10 (T-031): cities and filter options backfill, near-duplicates, synthetic idempotency"
+FT="$(psqlc -d "$REHEARSAL_DB" -At < "$ROOT/backend/prisma/tests/filter_options_backfill.sql" 2>&1)" || fail "filter_options_backfill.sql errored"
+say '```'
+echo "$FT" | tee -a "$OUT"
+say '```'
+echo "$FT" | grep -q "|FAIL" && fail "filter_options_backfill.sql reported FAIL"
+echo "$FT" | grep -q "FILTERTEST" || fail "filter_options_backfill.sql produced no result"
+FILTER_MIG="$ROOT/backend/prisma/migrations/20261123150000_add_cities_filter_options/migration.sql"
+FILTER_BACKFILL="$(sed -n '/^INSERT INTO "FilterOption"/,$p' "$FILTER_MIG")"
+FI="$( { cat "$ROOT/backend/prisma/tests/filter_options_idempotent_1_seed.sql"; echo "$FILTER_BACKFILL"; \
+  cat "$ROOT/backend/prisma/tests/filter_options_idempotent_2_first.sql"; echo "$FILTER_BACKFILL"; \
+  cat "$ROOT/backend/prisma/tests/filter_options_idempotent_3_second.sql"; } | psqlc -d "$REHEARSAL_DB" -At 2>&1)" || fail "filter_options idempotency sql errored"
+say '```'
+echo "$FI" | grep -E "FILTERTEST|ERROR" | tee -a "$OUT"
+say '```'
+echo "$FI" | grep -q "|FAIL" && fail "filter_options idempotency sql reported FAIL"
+echo "$FI" | grep -q "ERROR" && fail "filter_options idempotency sql raised an error"
+echo "$FI" | grep -q "FILTERTEST" || fail "filter_options idempotency sql produced no result"
+
 say; say "## Summary"
 if [[ ${#FAILS[@]} -eq 0 ]]; then
   say "RESULT: PASS"
