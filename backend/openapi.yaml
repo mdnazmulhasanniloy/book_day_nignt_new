@@ -71,6 +71,11 @@ components:
         whereas `/auth/check` expects the standard user access token.
 
         '
+    csrfAuth:
+      type: apiKey
+      in: header
+      name: x-csrf-token
+      description: 'Double-submit CSRF token for admin write requests: the header value must equal the admin_csrf_token cookie. Also required on admin GET /admin/dashboard, /admin/users, /admin/earnings.'
   schemas:
     CreateWishlistPayload:
       type: object
@@ -380,6 +385,9 @@ components:
         isWishlist:
           type: boolean
           description: Whether the club is saved in the authenticated user's wishlist. Omitted for guest requests.
+        distanceKm:
+          type: number
+          description: Distance in km (1 decimal, PostGIS ST_Distance on the geography) from the search centre. Present only when a centre exists (lat+lng, or the City centre of cityId).
     ExploreEventListItem:
       type: object
       required:
@@ -418,6 +426,13 @@ components:
         isWishlist:
           type: boolean
           description: Whether the event is saved in the authenticated user's wishlist. Omitted for guest requests.
+        distanceKm:
+          type: number
+          description: Distance in km (1 decimal) from the search centre. Present only when a centre exists (lat+lng, or the City centre of cityId).
+        startAt:
+          type: string
+          format: date-time
+          description: Present on items returned with group=day.
     ExploreClubDetailOpeningHour:
       type: object
       properties:
@@ -595,6 +610,20 @@ components:
         isWishlist:
           type: boolean
           description: Whether the event is saved in the authenticated user's wishlist. Omitted for guest requests.
+        timezone:
+          type: string
+          description: IANA time zone of the event (default UTC; nothing is inferred from city or coordinates).
+        interestedCount:
+          type: integer
+          description: Live count of users who tapped Interested (always present). No user identity is returned.
+        isInterested:
+          type: boolean
+          description: Whether the caller tapped Interested. Present only with a valid bearer token.
+        mapUrl:
+          type: string
+          description: Google Maps link https://www.google.com/maps/search/?api=1&query=<URL-encoded "<eventName> <lat>,<lng>">. Always present on type=EVENT.
+        club:
+          $ref: '#/components/schemas/ExploreEventClubIdentity'
     ChangePasswordPayload:
       type: object
       required:
@@ -2291,6 +2320,96 @@ components:
                   type: string
                 name:
                   type: string
+    ApiErrorResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          enum:
+            - false
+        message:
+          type: string
+        errorType:
+          type: string
+          description: AuthErrorType value (server/src/const.ts), when thrown
+        traceId:
+          type: string
+          description: Absent on some responses (see operation notes)
+        errors:
+          type: array
+          description: Present only on 422 validation errors
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              code:
+                type: string
+              message:
+                type: string
+        usedAt:
+          type: string
+          format: date-time
+          description: 'Only on 409 TICKET_ALREADY_USED from POST /owner/verify-ticket: ISO time of the first check-in.'
+      description: Error body used by the operations added or revised in the 2026-11 sync. Unlike ErrorResponse, traceId is not guaranteed (query and params validation failures omit it) and errorType and errors[] may be present. 422 validation failures use status 422, not 400.
+    PageMeta:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+    ExploreGroupedDay:
+      type: object
+      required:
+        - label
+        - date
+        - items
+      description: One bucket of GET /explore?group=day. Buckets are in the fixed order Today, Tomorrow, This Weekend, Upcoming; empty buckets are omitted.
+      properties:
+        label:
+          type: string
+          enum:
+            - Today
+            - Tomorrow
+            - This Weekend
+            - Upcoming
+        date:
+          type: string
+          format: date
+          description: Local date (YYYY-MM-DD) of the first item of the bucket.
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExploreEventListItem'
+    ExploreEventClubIdentity:
+      type: object
+      nullable: true
+      description: Identity of the club the event is linked to through Event.clubId; null when the event has no club or that club is deactivated.
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        thumbnail:
+          type: string
+        location:
+          type: string
+        followerCount:
+          type: integer
 paths:
   /api/v1/owner/dashboard:
     get:
@@ -5785,13 +5904,15 @@ paths:
         - {}
         - bearerAuth: []
       summary: List Clubs and Events
-      description: Returns a paginated list of public Clubs and Events. Event results returned by public Explore are always restricted to active Events with eventStatus=UPCOMING and endAt later than the current time, including when a date filter is supplied. Deactivated Clubs are excluded. Note that Club prices (minPrice, maxPrice, and currency) are derived ONLY from active packages. If an optional bearer token is provided, each item will contain an `isWishlist` boolean indicator.
+      description: 'Returns a paginated list of public Clubs and Events. Event results returned by public Explore are always restricted to active Events with eventStatus=UPCOMING and endAt later than the current time, including when a date filter is supplied. Deactivated Clubs are excluded. Note that Club prices (minPrice, maxPrice, and currency) are derived ONLY from active packages. If an optional bearer token is provided, each item will contain an `isWishlist` boolean indicator. Search centre and radius (T-034): the centre is lat and lng when both are sent, otherwise the lat/lng of the City named by cityId (any City row, launched or not; an unknown cityId returns 404, a malformed one 422; lat/lng win when both are sent). radiusKm must be one of 10, 20, 30, 40, 50 (anything else 422); the server default is 20 km when it is omitted, so requests without radiusKm behave as before. When a centre exists every item carries distanceKm (km, 1 decimal). Day grouping and date range (T-035): dateFilter accepts this_week (Monday to Sunday of the week that contains now); from and to are inclusive ISO dates YYYY-MM-DD compared with the local start date (a bad date or from after to returns 422); group=day returns [{label, date, items}] with the fixed bucket order Today, Tomorrow, This Weekend, Upcoming (empty buckets omitted, events only: type omitted leaves clubs out, type=CLUB returns 422; paging applies to the flat chronological list first). Days are the local calendar date of the event start, computed in the zone of the City when cityId is sent, otherwise in each event Event.timezone (default UTC; nothing is inferred from city or coordinates). Order is unchanged (createdAt DESC) unless group=day, from, to or this_week is sent, then startAt ASC (sort and isPopular still override). sort=trending (T-042) ranks events by views plus Interested taps over the last 7 days. meta.total is the count of all matches ignoring page and limit. Club-only filters (isPopular, ratings, isVip) return 422 with type=EVENT. Requests without the new parameters get the old response shape.'
       parameters:
         - name: type
           in: query
           schema:
             type: string
-            enum: [CLUB, EVENT]
+            enum:
+              - CLUB
+              - EVENT
         - name: date
           in: query
           schema:
@@ -5801,50 +5922,162 @@ paths:
           in: query
           schema:
             type: number
+            minimum: -90
+            maximum: 90
         - name: lng
           in: query
           schema:
             type: number
+            minimum: -180
+            maximum: 180
         - name: minPrice
           in: query
           schema:
             type: number
+            minimum: 0
         - name: maxPrice
           in: query
           schema:
             type: number
+            minimum: 0
         - name: isPopular
           in: query
           schema:
             type: boolean
+            description: '''true''/''false'' string accepted (preprocessed); other values -> 422'
+          description: club only
         - name: ratings
           in: query
           schema:
             type: number
+            minimum: 0
+            maximum: 5
+          description: club only; min average rating
         - name: isVip
           in: query
           schema:
             type: boolean
+            description: '''true''/''false'' string accepted (preprocessed); other values -> 422'
+          description: club only
         - name: search
           in: query
           schema:
             type: string
+          description: ILIKE on club name / event name
         - name: page
           in: query
           schema:
             type: integer
+            minimum: 1
             default: 1
         - name: limit
           in: query
           schema:
             type: integer
-            default: 10
+            minimum: 1
             maximum: 50
+            default: 10
         - name: sort
           in: query
           schema:
             type: string
-            enum: [newest, oldest]
+            enum:
+              - newest
+              - oldest
+              - trending
+          description: 'trending (T-042) ranks EVENTS by views + Interested taps over the last 7 UTC days, ties startAt ASC then id ASC; clubs score 0 and follow the events (ties by id). isPopular still wins over sort. Omitted, newest or oldest: unchanged. RANKING RULES (T-042, our proposal, open question for the client to confirm): windows are whole UTC days that end with the UTC day of now (today included), 7 days for trending and 30 days for most viewed. Trending score = views (EventViewDaily.views summed over the 7 days) + Interested taps (EventInterest.createdAt inside the same 7 days), weight 1 each. Most viewed score = views over the 30 days. Ties: startAt ascending, then id ascending. Until history exists (no EventViewDaily row on or before the first day of the window) the lifetime Event.viewCount replaces the windowed views (taps still count for trending). Every open counts (no per-user de-duplication). Nobody is identified: only counts are used and no endpoint shows who viewed or who is interested.'
+        - name: dateFilter
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - today
+              - tomorrow
+              - this_weekend
+              - next_weekend
+              - this_week
+          description: events only. this_week (T-035) = Monday to Sunday of the current week in the zone rule described on the operation.
+        - name: city
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: isFree
+          in: query
+          required: false
+          schema:
+            type: boolean
+            description: '''true''/''false'' string accepted (preprocessed); other values -> 422'
+          description: events only
+        - name: genres
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated, e.g. 'Techno,House'
+        - name: mood
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated mood chips
+        - name: categoryType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - CLUB
+              - CONCERT
+              - FESTIVAL
+              - OPEN_AIR
+              - WAREHOUSE
+          description: events only
+        - name: radiusKm
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum:
+              - 10
+              - 20
+              - 30
+              - 40
+              - 50
+            default: 20
+          description: 'Search radius in km around lat/lng (or around the city centre when cityId is sent). Allowed values 10, 20, 30, 40, 50; any other value returns 422. Implemented in T-034. The SERVER default when radiusKm is omitted stays 20 (the old fixed value), so live clients are unchanged. The client answered (Q6a, 2026-11-22) that the app INITIAL selection is 30 km: the new Flutter screens send radiusKm=30 explicitly, the server default is NOT 30. Without a search centre the radius has no effect.'
+        - name: cityId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: City from GET /cities; centre used when lat/lng are absent. Works without GPS permission.
+        - name: group
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - none
+              - day
+            default: none
+          description: 'day = response data is grouped: [{label: Today|Tomorrow|This Weekend|Upcoming, date, items:[...]}] chronologically. Default keeps the flat array. Implemented in T-035: bucket rules, zone rule and the type=CLUB 422 are in the operation description. Weekend = Friday 18:00 to the end of Sunday in the zone.'
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Start of date range (CR-10), ISO date YYYY-MM-DD, inclusive, compared with the LOCAL date of the event start (zone rule on the operation). Implemented in T-035. Must not be after to (422).
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: End of date range (CR-10), ISO date YYYY-MM-DD, inclusive. Implemented in T-035.
       responses:
         '200':
           description: Data retrieved successfully
@@ -5860,11 +6093,16 @@ paths:
                   meta:
                     $ref: '#/components/schemas/ExplorePaginationMeta'
                   data:
-                    type: array
-                    items:
-                      oneOf:
-                        - $ref: '#/components/schemas/ExploreClubListItem'
-                        - $ref: '#/components/schemas/ExploreEventListItem'
+                    description: A flat list of items, or day buckets when group=day.
+                    oneOf:
+                      - type: array
+                        items:
+                          oneOf:
+                            - $ref: '#/components/schemas/ExploreClubListItem'
+                            - $ref: '#/components/schemas/ExploreEventListItem'
+                      - type: array
+                        items:
+                          $ref: '#/components/schemas/ExploreGroupedDay'
                   traceId:
                     type: string
                     format: uuid
@@ -5886,8 +6124,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Unknown cityId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       operationId: getExploreList
-  '/api/v1/explore/{id}':
+  /api/v1/explore/{id}:
     get:
       tags:
         - Explore
@@ -5907,7 +6151,9 @@ paths:
           required: true
           schema:
             type: string
-            enum: [CLUB, EVENT]
+            enum:
+              - CLUB
+              - EVENT
       responses:
         '200':
           description: Data retrieved successfully
@@ -5952,13 +6198,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: getExploreDetail
+      description: 'type=EVENT additions: interestedCount (live count of Interested taps, always present), isInterested (only with a valid bearer token), mapUrl and club (T-040, T-045; see the schema), and timezone. View tracking (T-041): opening an existing, active, non-canceled event records a best-effort view (a Redis day counter flushed by the worker into the lifetime viewCount) and, with a valid bearer token, adds the event to the caller recently viewed list (the 20 newest are kept). Tracking never delays or fails the response. Event detail does not filter by eventStatus.'
 
   /api/v1/explore/feed:
     get:
       tags:
         - Explore
       summary: Get Explore Feed (Customer / Mobile App)
-      description: '**Target Audience: Public / Customer Mobile App.** Returns organized explore sections including today''s events, tomorrow''s events, trending events, popular organizers, and active genres for the mobile app discover/explore tab.'
+      description: '**Target Audience: Public / Customer Mobile App.** Returns organized explore sections including today''s events, tomorrow''s events, trending events, popular organizers, and active genres for the mobile app discover/explore tab. Radius (T-036): with a centre (lat and lng both sent, else the City centre of cityId; lat/lng win; an unknown cityId returns 404, a malformed one 422) every module (today, tomorrow, blowingUp, popularOrganizers and genres) only contains events and clubs within radiusKm (10, 20, 30, 40, 50 else 422; default 20 when omitted). city (ILIKE on location) still applies on top. Without lat/lng/cityId the response is exactly as before (radiusKm alone changes nothing). The response shape is unchanged and items carry no distanceKm. 401 is returned only when an Authorization header is sent and the token is invalid; the token is not used for personalisation.'
       security:
         - {}
         - bearerAuth: []
@@ -5971,10 +6218,36 @@ paths:
           in: query
           schema:
             type: number
+            minimum: -90
+            maximum: 90
+          description: Search centre together with lng. Honoured by every module since T-036.
         - name: lng
           in: query
           schema:
             type: number
+            minimum: -180
+            maximum: 180
+          description: Search centre together with lat. Honoured by every module since T-036.
+        - name: radiusKm
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum:
+              - 10
+              - 20
+              - 30
+              - 40
+              - 50
+            default: 20
+          description: Radius in km around the centre; any other value returns 422. Server default 20 when omitted (the new app sends 30 explicitly). Implemented in T-036.
+        - name: cityId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: City centre used when lat/lng are absent; any City row (launched or not). Unknown returns 404. Implemented in T-036.
       responses:
         '200':
           description: Explore feed retrieved successfully
@@ -6018,6 +6291,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: 'Zod validation failure from validateReq* middleware (NOTE: status is 422, not 400). Message is one of: Request query validation failed. Unknown keys on `.strict` bodies also fail. Body failures include traceId and per-issue `code`; query/params failures omit traceId. (Malformed JSON body -> 400 {success,message:''Invalid JSON Payload'',traceId} from global handler.)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '401':
+          description: |-
+            - Only when an Authorization header IS sent: TOKEN_INVALID: 'Token not found' / 'Token is invalid' (missing/malformed Bearer header or bad JWT)
+            - Only when an Authorization header IS sent: TOKEN_EXPIRED: 'Token has been expired'
+            - Only when an Authorization header IS sent: TOKEN_BLACKLISTED: 'Token has been revoked'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Unknown cityId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
       operationId: getExploreFeed
 
   /api/v1/explore/genres:
@@ -8178,3 +8472,436 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ValidationErrorResponse'
+
+  /api/v1/explore/filters:
+    get:
+      operationId: getExploreFilters
+      tags:
+        - Explore
+      summary: Filter vocabulary for a type
+      description: Single source for chips and pickers so the Events and Clubs modes show different options, and manager tags match customer filters. Lists are admin-editable. Implemented in T-037. genres and moods are the ACTIVE FilterOption rows in sortOrder (then label, then id), as the English label (FilterOption has one label column; the Italian labels are not stored, open gap). categories is the EventCategoryType list for type=EVENT and an empty list for type=CLUB (club venue attributes are not defined yet). dateShortcuts, radiusSteps and incompatibleWhenSwitching are NOT returned yet. A missing or unknown type gives 422.
+      security: []
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - CLUB
+              - EVENT
+      responses:
+        '200':
+          description: Vocabulary
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      categories:
+                        type: array
+                        items:
+                          type: string
+                        description: 'type=EVENT: CLUB, CONCERT, FESTIVAL, OPEN_AIR, WAREHOUSE, ...; type=CLUB: venue attributes'
+                      genres:
+                        type: array
+                        items:
+                          type: string
+                      moods:
+                        type: array
+                        items:
+                          type: string
+                      dateShortcuts:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - today
+                          - tomorrow
+                          - this_weekend
+                          - this_week
+                          - next_weekend
+                      radiusSteps:
+                        type: array
+                        items:
+                          type: integer
+                        example:
+                          - 10
+                          - 20
+                          - 30
+                          - 40
+                          - 50
+                      incompatibleWhenSwitching:
+                        type: array
+                        items:
+                          type: string
+                        description: Filter keys the client must clear when switching to this type
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/explore/map:
+    get:
+      operationId: getExploreMap
+      tags:
+        - Explore
+      summary: Map pins with the same filters as /explore
+      description: 'Implemented in T-038. Accepts the filter query parameters of GET /explore (same validation, same code builds the WHERE clauses, so list and map cannot disagree) but no page, limit, sort or group (ignored). type is required. Centre and radius follow T-034: lat+lng, else the cityId centre (unknown cityId gives 404), radiusKm 10, 20, 30, 40 or 50 (anything else 422), default 20. No pagination; at most 300 pins, nearest first when a centre exists, otherwise newest first. meta.total is the full match count and meta.truncated is true when it exceeds the pins returned. Pins carry only id, type, name, lat, lng, startAt, thumbnail, minPrice and distanceKm (only with a centre).'
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - CLUB
+              - EVENT
+          description: Required.
+        - name: lat
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: lng
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: radiusKm
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum:
+              - 10
+              - 20
+              - 30
+              - 40
+              - 50
+            default: 20
+        - name: cityId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: genres
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: mood
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: dateFilter
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - today
+              - tomorrow
+              - this_weekend
+              - next_weekend
+              - this_week
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: minPrice
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: maxPrice
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: isFree
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: categoryType
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Pins
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  meta:
+                    type: object
+                    required:
+                      - total
+                      - returned
+                      - maxPins
+                      - truncated
+                    properties:
+                      total:
+                        type: integer
+                      returned:
+                        type: integer
+                      maxPins:
+                        type: integer
+                        enum:
+                          - 300
+                      truncated:
+                        type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - type
+                        - lat
+                        - lng
+                        - name
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        type:
+                          type: string
+                          enum:
+                            - CLUB
+                            - EVENT
+                        name:
+                          type: string
+                        lat:
+                          type: number
+                        lng:
+                          type: number
+                        thumbnail:
+                          type: string
+                        minPrice:
+                          type: number
+                          description: Club cheapest active package price (null without one); event ticket price (0 is free).
+                          nullable: true
+                        startAt:
+                          type: string
+                          format: date-time
+                          nullable: true
+                        distanceKm:
+                          type: number
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Unknown cityId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/explore/most-viewed:
+    get:
+      operationId: getExploreMostViewed
+      tags:
+        - Explore
+      summary: Most viewed events in a city
+      description: 'City-wide ranking of events over the last 30 days (Q6c), distinct from the personal recently-viewed list. T-042 implemented. Centre: lat+lng when both are sent, otherwise the City centre for cityId (any City row, whatever isLaunched; unknown id 404, malformed id 422); radiusKm is one of 10, 20, 30, 40, 50 (default 20). With neither centre there is no radius limit. Same event rows as GET /explore type=EVENT (not deactivated, not canceled, status UPCOMING, not ended). Events with no views in the window are left out. Order: views DESC, startAt ASC, id ASC. limit 1 to 20 (default 10), no paging, response has data only. Item = the GET /explore event item (distanceKm when a centre exists). RANKING RULES (T-042, our proposal, open question for the client to confirm): windows are whole UTC days that end with the UTC day of now (today included), 7 days for trending and 30 days for most viewed. Trending score = views (EventViewDaily.views summed over the 7 days) + Interested taps (EventInterest.createdAt inside the same 7 days), weight 1 each. Most viewed score = views over the 30 days. Ties: startAt ascending, then id ascending. Until history exists (no EventViewDaily row on or before the first day of the window) the lifetime Event.viewCount replaces the windowed views (taps still count for trending). Every open counts (no per-user de-duplication). Nobody is identified: only counts are used and no endpoint shows who viewed or who is interested.'
+      security: []
+      parameters:
+        - name: cityId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: lat
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: lng
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: radiusKm
+          in: query
+          required: false
+          schema:
+            type: integer
+            enum:
+              - 10
+              - 20
+              - 30
+              - 40
+              - 50
+            default: 20
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 10
+      responses:
+        '200':
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ExploreEventListItem'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '404':
+          description: Unknown cityId
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+
+  /api/v1/me/recently-viewed:
+    get:
+      operationId: getMeRecentlyViewed
+      tags:
+        - Explore
+      summary: My recently viewed events
+      description: 'Last 20 distinct events the user opened (GET /explore/{id}?type=EVENT with a bearer token records a view). Newest first (lastViewedAt DESC). Deactivated events are skipped. PERSONAL: only the rows of the token user are ever returned (the user id comes from the database user row of the token, never from a parameter). At most 20 items in total (the table keeps 20 rows per user), then paged with page and limit (limit max 50, default 10); meta.total is at most 20. Item = the GET /explore event item (id, name, lat, lng, location, type EVENT, thumbnail, currency, price, isWishlist) plus viewedAt (ISO). T-042 implemented.'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                properties:
+                  success:
+                    type: boolean
+                    enum:
+                      - true
+                  message:
+                    type: string
+                  traceId:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/ExploreEventListItem'
+                        - type: object
+                          properties:
+                            viewedAt:
+                              type: string
+                              format: date-time
+                  meta:
+                    $ref: '#/components/schemas/PageMeta'
+        '401':
+          description: Token missing, invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
