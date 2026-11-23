@@ -6,7 +6,7 @@ import {
   dbTestSkipReason,
   withRollback,
 } from '@/testing/testDb';
-import { createEvent, createTier, createUser } from '@/testing/fixtures';
+import { createEvent, createOrder, createTier, createUser } from '@/testing/fixtures';
 import {
   reconcileEventTicketTiers,
   type TierInput,
@@ -240,5 +240,72 @@ describe('reconcileEventTicketTiers (T-004, ADR-004)', { skip: dbTestSkipReason(
         (await tx.eventTicketTier.findUniqueOrThrow({ where: { id: a.id } })).soldCount,
         3
       );
+    }));
+
+  const buy = async (tx: Tx, eventId: string, tierId: string) => {
+    const buyer = await createUser(tx);
+    const seller = await createUser(tx, { accountRole: 'CLUB_OWNER' });
+    const order = await createOrder(tx, buyer.id, seller.id);
+    const now = new Date();
+    return tx.eventPurchase.create({
+      data: {
+        orderId: order.id,
+        eventId,
+        personCount: 1,
+        eventName: 'E',
+        eventLocation: 'L',
+        eventStartAt: now,
+        eventEndAt: new Date(now.getTime() + 3600000),
+        pricePerPerson: 10,
+        transferEligibleAt: new Date(now.getTime() - 6 * 3600000),
+        ticketTierId: tierId,
+        ticketTierName: 'x',
+      },
+    });
+  };
+
+  it('T-006: missing tier with soldCount = 0 but a purchase row is kept inactive, not deleted', () =>
+    withRollback(async (tx) => {
+      const { event } = await setup(tx);
+      const a = await createTier(tx, event.id, { tierName: 'A', soldCount: 0 });
+      await createTier(tx, event.id, { tierName: 'B' });
+      await buy(tx, event.id, a.id);
+      await reconcile(tx, event.id, [tier('B')]);
+      const kept = await tx.eventTicketTier.findUnique({ where: { id: a.id } });
+      assert.ok(kept, 'tier referenced by a purchase must survive');
+      assert.equal(kept.isActive, false);
+      const purchase = await tx.eventPurchase.findFirstOrThrow({ where: { eventId: event.id } });
+      assert.equal(purchase.ticketTierId, a.id);
+    }));
+
+  it('T-006: missing tier with soldCount = 0 and no purchase is still deleted', () =>
+    withRollback(async (tx) => {
+      const { event } = await setup(tx);
+      const a = await createTier(tx, event.id, { tierName: 'A', soldCount: 0 });
+      await createTier(tx, event.id, { tierName: 'B' });
+      await reconcile(tx, event.id, [tier('B')]);
+      assert.equal(await tx.eventTicketTier.findUnique({ where: { id: a.id } }), null);
+    }));
+
+  it('T-006: removed section whose child has a purchase (soldCount 0) is kept inactive with its child', () =>
+    withRollback(async (tx) => {
+      const { event } = await setup(tx);
+      const parent = await createTier(tx, event.id, { tierName: 'Sec', groupName: 'G', soldCount: 0 });
+      const child = await createTier(tx, event.id, { tierName: 'C', parentId: parent.id, soldCount: 0 });
+      await createTier(tx, event.id, { tierName: 'Other' });
+      await buy(tx, event.id, child.id);
+      await reconcile(tx, event.id, [tier('Other')]);
+      assert.equal((await tx.eventTicketTier.findUniqueOrThrow({ where: { id: child.id } })).isActive, false);
+      assert.equal((await tx.eventTicketTier.findUniqueOrThrow({ where: { id: parent.id } })).isActive, false);
+    }));
+
+  it('T-006: removed section that itself has a purchase (soldCount 0) is kept inactive', () =>
+    withRollback(async (tx) => {
+      const { event } = await setup(tx);
+      const parent = await createTier(tx, event.id, { tierName: 'Sec', groupName: 'G', soldCount: 0 });
+      await createTier(tx, event.id, { tierName: 'Other' });
+      await buy(tx, event.id, parent.id);
+      await reconcile(tx, event.id, [tier('Other')]);
+      assert.equal((await tx.eventTicketTier.findUniqueOrThrow({ where: { id: parent.id } })).isActive, false);
     }));
 });
