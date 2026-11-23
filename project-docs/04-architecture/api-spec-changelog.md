@@ -25,10 +25,10 @@ Totals: 47 added, 33 changed, 6 deprecated. The spec grows from 151 to 198 opera
 | DELETE | `/event/{eventId}/extras/{id}` | CR-07 | additive (new endpoint) | Delete or deactivate an extra |
 | GET | `/owner/analytics` | CR-08 | additive (new endpoint) | Club overview analytics |
 | GET | `/owner/events/{eventId}/analytics` | CR-08 | additive (new endpoint) | Per-event analytics |
-| GET | `/cities` | CR-09 | additive (new endpoint) | Search cities |
-| GET | `/admin/cities` | CR-09 | additive (new endpoint) | List cities (admin) |
-| POST | `/admin/cities` | CR-09 | additive (new endpoint) | Create a city |
-| PATCH | `/admin/cities/{id}` | CR-09 | additive (new endpoint) | Update a city (launch / unlaunch) |
+| GET | `/cities` | CR-09 | additive (new endpoint) | Search cities. **Implemented in T-033** (public, tested locally, not deployed) |
+| GET | `/admin/cities` | CR-09 | additive (new endpoint) | List cities (admin). **Implemented in T-033** |
+| POST | `/admin/cities` | CR-09 | additive (new endpoint) | Create a city. **Implemented in T-033** |
+| PATCH | `/admin/cities/{id}` | CR-09 | additive (new endpoint) | Update a city (launch / unlaunch). **Implemented in T-033** |
 | GET | `/explore/filters` | CR-10 | additive (new endpoint) | Filter vocabulary for a type |
 | GET | `/explore/map` | CR-10 | additive (new endpoint) | Map pins with the same filters as /explore |
 | GET | `/admin/filter-options` | CR-10 | additive (new endpoint) | List genre and mood vocabulary |

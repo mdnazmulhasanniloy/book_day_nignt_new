@@ -24834,11 +24834,10 @@ paths:
       tags:
       - cities
       summary: Search cities
-      description: City selector source. Works without location permission. `isLaunched=false` cities are returned so the app can show a "not live yet" state instead of an empty list.
+      description: "City selector source. Works without location permission. Implemented in T-033 (tested locally, not deployed). Returns launched and unlaunched cities by default so the app can show a not-live-yet state; launchedOnly=true returns only isLaunched=true. q is a case-insensitive name prefix. Sorted by name. 422 for limit above 50 or a non-boolean launchedOnly."
       x-auth: public (no auth middleware)
       security: *id017
       x-requirement: CR-09
-      x-status: planned
       x-change: added
       parameters:
       - name: q
@@ -24906,12 +24905,11 @@ paths:
       tags:
       - admin
       summary: List cities (admin)
-      description: Includes unlaunched cities.
+      description: "Includes unlaunched cities. q is a case-insensitive name prefix. Implemented in T-033 (reads need no CSRF header, like GET /admin/profile)."
       x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
       security: &id028
       - adminCookie: []
       x-requirement: CR-09
-      x-status: planned
       x-change: added
       parameters:
       - name: q
@@ -24968,13 +24966,12 @@ paths:
       tags:
       - admin
       summary: Create a city
-      description: Name + coordinates + timezone. isLaunched defaults to false.
+      description: "Name + coordinates + timezone. isLaunched defaults to false, timezone to UTC, countryCode is stored upper-case. Duplicate (name, countryCode) gives 409, a missing country counts as one value for this check. Implemented in T-033."
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
       security: &id020
       - adminCookie: []
         csrfHeader: []
       x-requirement: CR-09
-      x-status: planned
       x-change: added
       requestBody:
         required: true
@@ -25052,11 +25049,10 @@ paths:
       tags:
       - admin
       summary: Update a city (launch / unlaunch)
-      description: Toggle isLaunched, rename, fix coordinates.
+      description: "Toggle isLaunched, rename, fix coordinates. At least one field is required (422 otherwise). Unlaunching never deletes the row. Renaming onto an existing (name, countryCode) gives 409. Implemented in T-033."
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
       security: *id020
       x-requirement: CR-09
-      x-status: planned
       x-change: added
       parameters:
       - name: id
