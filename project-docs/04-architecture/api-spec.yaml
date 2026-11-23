@@ -22872,7 +22872,7 @@ paths:
       tags:
       - bookings
       summary: List the buyer's bookings
-      description: 'Only PAID orders. tab UPCOMING (default) | COMPLETED | CANCELED (event canceled; includes refunded). Runs syncSucceededPaymentsForBuyer first. page/limit are preprocessed: non-numeric or 0 falls back to 1 / 10 (no max on limit). TO-BE (CR-14): New optional `bucket` filter (FUTURE|PENDING|PAST) and items gain `bookingStatus` (CONFIRMED | GUEST_LIST_PENDING | PAYMENT_PROCESSING | CANCELED | REFUNDED). `tab` is unchanged.'
+      description: 'Only PAID orders. tab UPCOMING (default) | COMPLETED | CANCELED (event canceled; includes refunded). Runs syncSucceededPaymentsForBuyer first. page/limit are preprocessed: non-numeric or 0 falls back to 1 / 10 (no max on limit). CR-14 (T-046, tested locally, not deployed): new optional `bucket` filter (FUTURE|PENDING|PAST) and items gain `bookingStatus` (CONFIRMED | GUEST_LIST_PENDING | PAYMENT_PROCESSING | CANCELED | REFUNDED). `tab` is unchanged. Mapping table (T-046). Rules apply top to bottom, first match wins. Order: (1) a Refund row exists, any Order.status and any Refund.status -> REFUNDED / PAST; (2) PENDING_PAYMENT with an EXPIRED club booking or module hold -> CANCELED / PAST; (3) PENDING_PAYMENT -> PAYMENT_PROCESSING / PENDING; (4) PAYMENT_FAILED -> CANCELED / PAST; (5) PAID and the event is CANCELED -> CANCELED / PAST; (6) PAID and end <= now -> CONFIRMED / PAST; (7) PAID and end > now -> CONFIRMED / FUTURE. Guest-list entry (EventGuestListEntry.status, found by its userId): PENDING -> GUEST_LIST_PENDING / PENDING; REJECTED -> CANCELED / PAST; CONFIRMED on a CANCELED event -> CANCELED / PAST; CONFIRMED with end <= now -> CONFIRMED / PAST; CONFIRMED with end > now -> CONFIRMED / FUTURE. End = club booking endAt, EventPurchase.eventEndAt, or Event.endAt (module purchase and guest list), compared with the same clock as tab (fixed CST wall clock), so FUTURE and tab UPCOMING agree; nothing is inferred from Event.timezone. Without bucket the list is the old one (PAID orders, tab rules, guest-list entries never listed) and only gains bookingStatus. With bucket the list is every order of the buyer (any status) plus the guest-list entries of the buyer, newest first. Guest-list items have id = entry id, orderId null (no order exists), type EVENT, eventStartAt, eventEndAt, name, lat, lng, location, thumbnail, currency and no price.'
       x-auth: user bearer
       security:
       - userBearer: []
@@ -22910,7 +22910,7 @@ paths:
           - FUTURE
           - PENDING
           - PAST
-        description: CR-14. FUTURE = confirmed and not finished; PENDING = guest-list request or payment still processing; PAST = finished, canceled or refunded. If both `tab` and `bucket` are sent, `bucket` wins. `tab` keeps working unchanged.
+        description: 'CR-14 (T-046, tested locally, not deployed). FUTURE = confirmed and not finished; PENDING = guest-list request or payment still processing; PAST = finished, canceled or refunded (also failed or expired payments and rejected guest-list requests). If both `tab` and `bucket` are sent, `bucket` wins. Any other value (including lower case or empty) returns 422. `tab` keeps working unchanged. See the mapping table in the operation description.'
       responses:
         '200':
           description: Bookings page
@@ -22958,10 +22958,11 @@ paths:
                         id:
                           type: string
                           format: uuid
-                          description: Booking id (ClubBooking / EventPurchase / EventModulePurchase)
+                          description: Booking id (ClubBooking / EventPurchase / EventModulePurchase); the guest-list entry id for a guest-list item (bucket only)
                         orderId:
                           type: string
                           format: uuid
+                          description: 'T-046: null for a guest-list item, which only appears when `bucket` is sent (no order exists). Never null without `bucket`.'
                         purchaseDate:
                           type: string
                           format: date-time
@@ -23017,6 +23018,7 @@ paths:
                           description: EVENT only - pricePerPerson or module unitPrice
                         bookingStatus:
                           type: string
+                          description: 'T-046 (tested locally, not deployed): additive. Derived from Order status, Refund row and guest-list entry status; see the mapping table in the operation description. Present on every item, with and without `bucket`.'
                           enum:
                           - CONFIRMED
                           - GUEST_LIST_PENDING
@@ -23036,14 +23038,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: Query validation failed (e.g. invalid tab)
+          description: Query validation failed (e.g. invalid tab or invalid bucket)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: bookings_get_bookings
       x-requirement: CR-14
-      x-status: planned
       x-change: modified
   /bookings/{id}:
     get:

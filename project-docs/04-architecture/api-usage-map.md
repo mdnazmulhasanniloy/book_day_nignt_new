@@ -314,7 +314,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 
 | Endpoint | Used by Flutter | Used by Admin | Status |
 |---|---|---|---|
-| `GET /bookings` | `flutter_app/lib/app/modules/user_side/booking/repository/booking_repository.dart:29` | - | Flutter only |
+| `GET /bookings` | `flutter_app/lib/app/modules/user_side/booking/repository/booking_repository.dart:29` | - | Flutter only. T-046 (tested locally, not deployed): additive `bucket` query parameter and `bookingStatus` item field; the app still sends only `tab`, `page`, `limit`, so its results are unchanged (extra key ignored). |
 | `GET /bookings/{id}` | `flutter_app/lib/app/modules/user_side/booking/repository/booking_repository.dart:49` | - | Flutter only |
 | `GET /bookings/{id}/ticket` | `flutter_app/lib/app/modules/user_side/booking/repository/booking_repository.dart:71` | - | Flutter only |
 | `GET /bookings/{id}/ticket/file` | `flutter_app/lib/app/modules/user_side/booking/repository/booking_repository.dart:66` | - | Flutter only |
