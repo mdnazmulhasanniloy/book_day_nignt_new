@@ -152,7 +152,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 | `POST /event/{eventId}/modules/reorder` | - | - | **UNUSED** |
 | `POST /event/{eventId}/modules/{id}/duplicate` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:239` | - | Flutter only |
 | `PUT /event/{eventId}/modules/{id}` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:212` | - | Flutter only |
-| `DELETE /event/{eventId}/modules/{id}` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:229` | - | Flutter only |
+| `DELETE /event/{eventId}/modules/{id}` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:229` | - | Flutter only. T-013: a module with purchases is now 409 (was 500); the app maps 4xx to a validation error with the server message, so no client depended on the 500 |
 
 ### guestList
 
@@ -216,7 +216,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 
 | Endpoint | Used by Flutter | Used by Admin | Status |
 |---|---|---|---|
-| `POST /wishlist` | `flutter_app/lib/app/modules/user_side/favorite/repository/wishlist_repository.dart:40` | - | Flutter only |
+| `POST /wishlist` | `flutter_app/lib/app/modules/user_side/favorite/repository/wishlist_repository.dart:40` | - | Flutter only. T-013: a missing or unavailable target is now 404 NOT_FOUND (was 500); no client depended on the 500 (the admin app does not call the wishlist) |
 | `GET /wishlist` | `flutter_app/lib/app/modules/user_side/favorite/repository/wishlist_repository.dart:24` | - | Flutter only |
 | `DELETE /wishlist/{type}/{targetId}` | `flutter_app/lib/app/modules/user_side/favorite/repository/wishlist_repository.dart:58` | - | Flutter only |
 

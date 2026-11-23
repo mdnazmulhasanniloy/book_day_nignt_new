@@ -12718,7 +12718,7 @@ paths:
       - eventModule
       summary: Delete a module
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + validateReqParams(eventModuleIdParamsSchema)'
-      description: 'Service assertOwnedEvent: event must exist and not be deactivated (404 ''Event not found''), and event.userId must equal caller (403 ''You do not own this event''). Hard delete (prisma.eventModule.delete). Quote rows cascade-delete, but EventModulePurchase.module is onDelete: Restrict, so deleting a module that has purchases raises an unmapped Prisma FK error -> 500 ''Internal Server Error'' (no pre-check in the service). TO-BE (CR-17, BUG-B26): Module referenced by purchases returns 409 (was 500, FK Restrict).'
+      description: 'Service assertOwnedEvent: event must exist and not be deactivated (404 ''Event not found''), and event.userId must equal caller (403 ''You do not own this event''). Hard delete (prisma.eventModule.delete). Quote rows cascade-delete, but EventModulePurchase.module is onDelete: Restrict, so deleting a module that has purchases returns 409 {success:false, message:''Module has purchases and cannot be deleted; deactivate it instead'', errorType:''FOREIGN_KEY_CONFLICT'', traceId} via mapPrismaError (T-013, tested locally, not deployed; was an unmapped Prisma FK error -> 500). The module is not deleted. A module that disappears between the lookup and the delete returns 404 ''Module not found'' (NOT_FOUND).'
       security:
       - userBearer: []
       parameters:
@@ -12826,14 +12826,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Module has purchases and cannot be deleted; deactivate it instead (TO-BE; was 500)
+          description: "FOREIGN_KEY_CONFLICT: 'Module has purchases and cannot be deleted; deactivate it instead' (was 500; implemented in T-013)"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: eventModule_delete_event_eventId_modules_id
       x-requirement: CR-17, BUG-B26
-      x-status: planned
       x-change: modified
   /event/{eventId}/guest-list:
     get:
@@ -18291,7 +18290,7 @@ paths:
       - wishlist
       summary: Add a club or event to my wishlist (idempotent)
       x-auth: 'user bearer: checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus (any role) + validateReqBody(createWishlistSchema)'
-      description: 'Club must be active; event must be active AND eventStatus=UPCOMING. If already present nothing changes. Response carries no `data`. Internal Server Error (CODE BUG, as coded): the service throws `{status: 404, message}` (key `status`, not `statusCode`), which globalErrorMiddleware does not recognise, so a missing/deactivated target yields 500 instead of the intended 404. TO-BE (CR-17, BUG-B27): Target not found returns 404 (service threw the wrong error shape and returned 500).'
+      description: 'Club must be active; event must be active AND eventStatus=UPCOMING. If already present nothing changes. Response carries no `data`. A missing or deactivated club, or a missing, deactivated or non-UPCOMING event, returns 404 {success:false, message:''Club not found or unavailable'' or ''Event not found or unavailable'', errorType:''NOT_FOUND'', traceId} (T-013, tested locally, not deployed; the service used to throw the wrong key `status` and returned 500).'
       security:
       - userBearer: []
       requestBody:
@@ -18382,14 +18381,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Event or club not found (TO-BE; was 500)
+          description: "NOT_FOUND: 'Club not found or unavailable' or 'Event not found or unavailable' (was 500; implemented in T-013)"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: wishlist_post_wishlist
       x-requirement: CR-17, BUG-B27
-      x-status: planned
       x-change: modified
     get:
       tags:
