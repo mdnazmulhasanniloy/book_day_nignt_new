@@ -17252,7 +17252,7 @@ paths:
                           type:
                           - object
                           - 'null'
-                          description: "T-045 (tested locally, not deployed), always present on type=EVENT. Identity of the club the event is linked to through Event.clubId (the event row still returns clubId and clubHostStatus unchanged), or null when the event has no club or that club is deactivated. Not filtered by clubHostStatus. Public identity only, no description, owner or contact data. Separate from `organizer` (unchanged, the owner's first active club), which T-052 may extend."
+                          description: "T-045 (tested locally, not deployed), always present on type=EVENT. Identity of the club the event is linked to through Event.clubId (the event row still returns clubId and clubHostStatus unchanged). W-05: shown only when clubHostStatus is APPROVED; null when the event has no club, when clubHostStatus is NONE, PENDING or REJECTED, or when the club is deactivated. Public identity only, no description, owner or contact data. Separate from `organizer` (unchanged, the owner's first active club), which T-052 may extend."
                           properties:
                             id:
                               type: string

@@ -2599,7 +2599,7 @@ components:
     ExploreEventClubIdentity:
       type: object
       nullable: true
-      description: Identity of the club the event is linked to through Event.clubId; null when the event has no club or that club is deactivated.
+      description: Identity of the club the event is linked to through Event.clubId. Shown only when the host request is APPROVED (clubHostStatus APPROVED); null when the event has no club, the host status is NONE, PENDING or REJECTED, or the club is deactivated.
       properties:
         id:
           type: string
