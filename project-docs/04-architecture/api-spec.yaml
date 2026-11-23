@@ -1760,7 +1760,7 @@ paths:
       tags:
       - admin
       summary: Rotate admin tokens
-      description: 'No body. Needs cookies refresh_token and admin_csrf_token (+ X-CSRF-Token header). Atomically consumes the refresh session in Redis and sets new cookies. Response body contains only csrfToken (no data). Already-consumed refresh token currently yields 500 (see 500). TO-BE (CR-01, CR-17, BUG-B17): Invalid or expired refresh token returns 401 (errorType TOKEN_INVALID / TOKEN_EXPIRED) instead of 500. Admin client already logs out on any refresh failure, so no client change is needed.'
+      description: 'No body. Needs cookies refresh_token and admin_csrf_token (+ X-CSRF-Token header). Atomically consumes the refresh session in Redis and sets new cookies. Response body contains only csrfToken (no data). Already-consumed refresh token currently yields 500 (see 500). TO-BE (CR-01, CR-17, BUG-B17): Invalid or expired refresh token returns 401 (errorType TOKEN_INVALID / TOKEN_EXPIRED) instead of 500. Admin client already logs out on any refresh failure, so no client change is needed. Implemented in T-010 (tested locally, not deployed): the service now throws statusCode 401 (was the wrong key status), so a validly signed refresh token whose session is missing or already consumed returns 401 TOKEN_INVALID instead of 500. A missing, garbage or expired cookie already returned 401 from the middleware. Success shape unchanged.'
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminRefreshToken (cookie refresh_token, NOT access_token) + checkAdminExistence'
       security:
       - adminCookie: []
@@ -1831,7 +1831,6 @@ paths:
                     errorType: USER_NOT_FOUND
       operationId: admin_post_admin_auth_refresh
       x-requirement: CR-01, CR-17, BUG-B17
-      x-status: planned
       x-change: modified
   /admin/auth/logout:
     post:
@@ -3131,7 +3130,7 @@ paths:
       tags:
       - admin
       summary: List users and club owners (paginated)
-      description: 'CSRF header required on this GET. Only roles USER and CLUB_OWNER are listed. Default excludes DELETED accounts; pass status=DELETED to list them. page/limit are plain strings in Zod (no numeric validation): non-numeric values give NaN (⚠️ UNVERIFIED outcome, likely 500). search matches name or email, case-insensitive. Each item includes the password hash (security bug). TO-BE (CR-17, BUG-S17, BUG-B22): Response no longer contains `password` (bcrypt hash leak). This is the only field removal in this release, accepted as a security fix; only the Admin client calls this endpoint and it does not read the field. page/limit that are not positive integers now return 422 instead of NaN behaviour.'
+      description: 'CSRF header required on this GET. Only roles USER and CLUB_OWNER are listed. Default excludes DELETED accounts; pass status=DELETED to list them. page/limit are plain strings in Zod (no numeric validation): non-numeric values give NaN (⚠️ UNVERIFIED outcome, likely 500). search matches name or email, case-insensitive. Each item includes the password hash (security bug). TO-BE (CR-17, BUG-S17, BUG-B22): Response no longer contains `password` (bcrypt hash leak). This is the only field removal in this release, accepted as a security fix; only the Admin client calls this endpoint and it does not read the field. page/limit that are not positive integers now return 422 instead of NaN behaviour. Implemented in T-010 (tested locally, not deployed): page and limit must match ^[1-9][0-9]*$ (positive integer, safe-integer range) and limit is at most 100; anything else (abc, 0, -1, 1.5, empty, 101) returns 422 with errors[]. Absent values keep the defaults 1 and 10; they stay strings in the schema. Success shape unchanged.'
       x-auth: 'admin cookie + csrf: checkCsrfToken (cookie admin_csrf_token must equal header X-CSRF-Token) + checkAdminAccessToken (cookie access_token) + checkAdminExistence (role ADMIN, status ACTIVE) + validateReqQuery(getAdminUsersQuerySchema)'
       security:
       - adminCookie: []
@@ -3142,12 +3141,15 @@ paths:
         required: false
         schema:
           type: string
+          pattern: '^[1-9][0-9]*
           default: '1'
       - name: limit
         in: query
         required: false
         schema:
           type: string
+          pattern: '^[1-9][0-9]*
+          description: Positive integer, at most 100 (T-010)
           default: '10'
       - name: role
         in: query
@@ -3446,7 +3448,7 @@ paths:
       tags:
       - admin
       summary: Toggle suspend (BLOCKED <-> ACTIVE)
-      description: 'Toggle: BLOCKED -> ACTIVE, any other status (including DELETED/INACTIVE and ADMIN accounts) -> BLOCKED. Response does not include the new status, only the message differs. Sessions are not revoked here. TO-BE (CR-17, BUG-B18): Unknown user id returns 404 (was 500).'
+      description: 'Toggle: BLOCKED -> ACTIVE, any other status (including DELETED/INACTIVE and ADMIN accounts) -> BLOCKED. Response does not include the new status, only the message differs. Sessions are not revoked here. Implemented in T-010 (tested locally, not deployed; CR-17, BUG-B18): unknown user id returns 404 { success:false, message:"User not found" } (was 500). Success shape unchanged.'
       x-auth: 'admin cookie + csrf: checkCsrfToken (cookie admin_csrf_token must equal header X-CSRF-Token) + checkAdminAccessToken (cookie access_token) + checkAdminExistence (role ADMIN, status ACTIVE) + validateReqParams(adminUserIdParamsSchema)'
       security:
       - adminCookie: []
@@ -3583,7 +3585,6 @@ paths:
                 - errors
       operationId: admin_patch_admin_users_id_suspend
       x-requirement: CR-17, BUG-B18
-      x-status: planned
       x-change: modified
   /admin/users/{id}/delete:
     patch:
@@ -3934,7 +3935,7 @@ paths:
       tags:
       - admin
       summary: Admin earnings (commission) overview
-      description: 'CSRF header required on this GET. Only PAID orders are listed. status is "Canceled" if a refund exists else "Completed" (Pending cannot occur). Not in backend/openapi.yaml. Decimal fields (price/commission/earning) are Prisma Decimals; serialized as strings (⚠️ UNVERIFIED). TO-BE (CR-17, BUG-B22): page/limit that are not positive integers return 422 (was NaN behaviour).'
+      description: 'CSRF header required on this GET. Only PAID orders are listed. status is "Canceled" if a refund exists else "Completed" (Pending cannot occur). Not in backend/openapi.yaml. Decimal fields (price/commission/earning) are Prisma Decimals; serialized as strings (⚠️ UNVERIFIED). TO-BE (CR-17, BUG-B22): page/limit that are not positive integers return 422 (was NaN behaviour). Implemented in T-010 (tested locally, not deployed): page and limit must match ^[1-9][0-9]*$ and limit is at most 100, else 422 with errors[]; defaults 1 and 10 unchanged; success shape unchanged.'
       x-auth: 'admin cookie + csrf: checkCsrfToken (cookie admin_csrf_token must equal header X-CSRF-Token) + checkAdminAccessToken (cookie access_token) + checkAdminExistence (role ADMIN, status ACTIVE) + validateReqQuery(earningsQuerySchema)'
       security:
       - adminCookie: []
@@ -3945,12 +3946,15 @@ paths:
         required: false
         schema:
           type: string
+          pattern: '^[1-9][0-9]*
           default: '1'
       - name: limit
         in: query
         required: false
         schema:
           type: string
+          pattern: '^[1-9][0-9]*
+          description: Positive integer, at most 100 (T-010)
           default: '10'
       - name: serviceType
         in: query

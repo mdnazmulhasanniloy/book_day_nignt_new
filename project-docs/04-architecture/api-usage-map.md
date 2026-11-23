@@ -49,7 +49,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 |---|---|---|---|
 | `POST /admin/auth/login` | - | `admin/src/features/login/api/login.api.ts:15` | Admin only |
 | `POST /admin/auth/check` | - | `admin/src/apis/auth.api.ts:20` | Admin only |
-| `POST /admin/auth/refresh` | - | `admin/src/configs/axios.configs.ts:66` | Admin only |
+| `POST /admin/auth/refresh` | - | `admin/src/configs/axios.configs.ts:66` | Admin only. T-010: now 401 (was 500) when the session is consumed; the Admin client logs out on any refresh failure, so no behaviour change |
 | `POST /admin/auth/logout` | - | `admin/src/apis/auth.api.ts:25` | Admin only |
 | `GET /admin/profile` | - | - | **UNUSED** |
 | `PATCH /admin/profile` | - | `admin/src/apis/auth.api.ts:85` | Admin only |
@@ -57,11 +57,11 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 | `GET /admin/commission` | - | `admin/src/apis/commission.api.ts:32` | Admin only |
 | `PATCH /admin/commission` | - | `admin/src/apis/commission.api.ts:37` | Admin only |
 | `GET /admin/dashboard` | - | `admin/src/apis/dashboard.api.ts:34` | Admin only |
-| `GET /admin/users` | - | `admin/src/apis/users.api.ts:67` | Admin only |
-| `PATCH /admin/users/{id}/suspend` | - | `admin/src/apis/users.api.ts:82` | Admin only |
+| `GET /admin/users` | - | `admin/src/apis/users.api.ts:67` | Admin only. T-010: page/limit validated (422); the Admin client sends limit 10 or 5 and a positive page, so no behaviour change |
+| `PATCH /admin/users/{id}/suspend` | - | `admin/src/apis/users.api.ts:82` | Admin only. T-010: unknown id is 404 (was 500); the Admin client treats both as an error |
 | `PATCH /admin/users/{id}/delete` | - | `admin/src/apis/users.api.ts:95` | Admin only |
 | `PATCH /admin/users/{id}/restore` | - | - | **UNUSED** |
-| `GET /admin/earnings` | - | `admin/src/apis/earnings.api.ts:30` | Admin only |
+| `GET /admin/earnings` | - | `admin/src/apis/earnings.api.ts:30` | Admin only. T-010: page/limit validated (422) |
 
 ### legal
 

@@ -70,10 +70,10 @@ Totals: 47 added, 33 changed, 6 deprecated. The spec grows from 151 to 198 opera
 | Method | Path | Requirement | Compatibility | What changes |
 |---|---|---|---|---|
 | POST | `/auth/social` | CR-01 | additive | Request accepts optional `dateOfBirth`. Response `data` gains `profileComplete` (boolean; false while date of birth is missing) so clients can ask for it before purchase. Retried calls with the same provider subject never create ... |
-| POST | `/admin/auth/refresh` | CR-01, CR-17, BUG-B17 | additive | Invalid or expired refresh token returns 401 (errorType TOKEN_INVALID / TOKEN_EXPIRED) instead of 500. Admin client already logs out on any refresh failure, so no client change is needed. |
+| POST | `/admin/auth/refresh` | CR-01, CR-17, BUG-B17 | additive | Invalid or expired refresh token returns 401 (errorType TOKEN_INVALID / TOKEN_EXPIRED) instead of 500. Admin client already logs out on any refresh failure, so no client change is needed. Implemented in T-010 (tested locally). |
 | GET | `/admin/users` | CR-17, BUG-B22, BUG-S17 | security exception | Response no longer contains `password` (bcrypt hash leak). This is the only field removal in this release, accepted as a security fix; only the Admin client calls this endpoint and it does not read the field. page/limit that are ... |
-| GET | `/admin/earnings` | CR-17, BUG-B22 | additive | page/limit that are not positive integers return 422 (was NaN behaviour). |
-| PATCH | `/admin/users/{id}/suspend` | CR-17, BUG-B18 | additive | Unknown user id returns 404 (was 500). |
+| GET | `/admin/earnings` | CR-17, BUG-B22 | additive | page/limit that are not positive integers return 422 (was NaN behaviour). Implemented in T-010 (tested locally): limit is also capped at 100. |
+| PATCH | `/admin/users/{id}/suspend` | CR-17, BUG-B18 | additive | Unknown user id returns 404 (was 500). Implemented in T-010 (tested locally). |
 | POST | `/owner/verify-ticket` | CR-17, BUG-B15 | additive | Business failures return real statuses with errorType instead of 500: not found OR not your order -> 404 (existence of other sellers' orders is not revealed); not PAID or refunded -> 422 TICKET_NOT_VALID; already used -> 409 ... |
 | GET | `/club/{id}` | CR-17, BUG-B26 | additive | Club not found or not owned returns 404 (was 500 from unmapped Prisma P2025). |
 | PUT | `/club/{id}` | CR-17, BUG-B26 | additive | Club not found or not owned returns 404 (was 500 from unmapped Prisma P2025). |
