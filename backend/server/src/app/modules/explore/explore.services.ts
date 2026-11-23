@@ -25,6 +25,7 @@ import { EXPLORE_DEFAULT_RADIUS_KM, EXPLORE_MAP_MAX_PINS } from '@/app/modules/e
 import { buildExploreFilters, exploreNeedsZone } from '@/app/modules/explore/explore.filters';
 import { groupItemsByDay } from '@/app/modules/explore/explore.grouping';
 import { trackEventView, RECENT_EVENT_VIEWS_LIMIT } from '@/app/modules/explore/explore.viewTracking';
+import { buildEventMapUrl } from '@/app/modules/explore/explore.mapUrl';
 import {
   MOST_VIEWED_WINDOW_DAYS,
   TRENDING_WINDOW_DAYS,
@@ -540,6 +541,14 @@ export const exploreDetailService = async ({ id, query, userId }: IExploreDetail
       },
     });
 
+    // T-045 (CR-13): identity of the host club (only an active club; null when the event has none).
+    const hostClub = event.clubId
+      ? await prisma.club.findFirst({
+          where: { id: event.clubId, deactivatedAt: null },
+          select: { id: true, name: true, thumbnail: true, location: true, followerCount: true },
+        })
+      : null;
+
     const {
       userId: ownerUserId,
       createdAt,
@@ -607,6 +616,8 @@ export const exploreDetailService = async ({ id, query, userId }: IExploreDetail
       ...(isWishlist !== undefined ? { isWishlist } : {}),
       interestedCount,
       ...(isInterested !== undefined ? { isInterested } : {}),
+      mapUrl: buildEventMapUrl({ name: event.eventName, lat: event.lat, lng: event.lng }),
+      club: hostClub,
     };
   }
 };

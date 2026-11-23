@@ -173,7 +173,8 @@ describe('explore event detail fields (T-045)', { skip: dbTestSkipReason() }, ()
     const body = await detail(SPECIAL_ID);
     const url = String(body.mapUrl);
     assert.match(url, /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=[A-Za-z0-9%._~-]+$/);
-    for (const bad of ['<', '>', '"', ' ', '&query=Rock', '&Roll']) assert.ok(!url.includes(bad), `url contains ${bad}`);
+    for (const bad of ['<', '>', '"', ' ']) assert.ok(!url.includes(bad), `url contains ${bad}`);
+    assert.equal(url.split('&').length, 2, 'the name cannot add parameters');
     const q = new URL(url).searchParams.get('query');
     assert.equal(q, `${body.eventName} -12.5,130.25`);
   });
