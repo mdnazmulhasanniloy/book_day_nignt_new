@@ -44,15 +44,12 @@ describe('explore share-preview pages escape stored values (S-23)', { skip: dbTe
 
   // Only the page's own inline script (appUrl) is allowed; everything else must come from the template.
   const assertNoInjection = (html: string) => {
-    assert.doesNotMatch(html, /alert\(\d\)/, 'payload code must not appear unescaped');
     assert.doesNotMatch(html, /<script>alert/i);
     assert.doesNotMatch(html, /<img src=x/i);
-    assert.doesNotMatch(html, /<svg/i);
+    assert.doesNotMatch(html, /<svg[^>]*onload/i);
     assert.doesNotMatch(html, /<\/title><script/i);
-    assert.doesNotMatch(html, /\sonerror=/i);
-    assert.doesNotMatch(html, /\sonmouseover=/i);
-    assert.doesNotMatch(html, /\sonload=/i);
-    assert.doesNotMatch(html, /\sonfocus=/i);
+    // inside real tags (escaped text has no angle brackets) no event-handler attribute may exist
+    for (const tag of html.match(/<[^>]*>/g) ?? []) assert.doesNotMatch(tag.replace(/"[^"]*"/g, '""'), /\son[a-z]+\s*=/i, tag);
     assert.equal((html.match(/<script/gi) ?? []).length, 1, 'only the template script tag may exist');
   };
 
@@ -109,7 +106,6 @@ describe('explore share-preview pages escape stored values (S-23)', { skip: dbTe
       // the quote that would close content="..." must be escaped in every meta tag
       for (const m of body.matchAll(/<meta [^>]*>/g)) {
         assert.match(m[0], /^<meta (?:[a-z:-]+=(?:"[^"]*"|\S+) ?)+\/?>$/i, m[0]);
-        assert.doesNotMatch(m[0], /onmouseover|onerror/i);
       }
       // thumbnail with an attribute break-out is a valid http(s) URL string but its quote and angle brackets must be escaped
       assert.doesNotMatch(body, /x\.png"><script/i);

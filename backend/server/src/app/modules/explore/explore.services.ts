@@ -26,6 +26,7 @@ import { buildExploreFilters, exploreNeedsZone } from '@/app/modules/explore/exp
 import { groupItemsByDay } from '@/app/modules/explore/explore.grouping';
 import { trackEventView, RECENT_EVENT_VIEWS_LIMIT } from '@/app/modules/explore/explore.viewTracking';
 import { buildEventMapUrl } from '@/app/modules/explore/explore.mapUrl';
+import { escapeHtml, jsStringLiteral, safeHttpUrl } from '@/app/utils/htmlEscape';
 import {
   MOST_VIEWED_WINDOW_DAYS,
   TRENDING_WINDOW_DAYS,
@@ -974,14 +975,16 @@ export const getSharePreviewHtmlService = async ({ id, type }: { id: string, typ
 
   if (!data) return null;
   const preview = data as unknown as ISharePreviewData;
-  const name = String(preview.name || preview.eventName || 'BookDiaNight');
-  const description = String(preview.description || 'Join us on BookDiaNight!');
-  const location = String(preview.location || 'Dhaka, Bangladesh');
-  const thumbnail = String(preview.thumbnail || preview.coverImage || '');
+  const name = escapeHtml(String(preview.name || preview.eventName || 'BookDiaNight'));
+  const description = escapeHtml(String(preview.description || 'Join us on BookDiaNight!'));
+  const location = escapeHtml(String(preview.location || 'Dhaka, Bangladesh'));
+  const thumbnail = escapeHtml(safeHttpUrl(String(preview.thumbnail || preview.coverImage || '')));
   const typeLabel = type === 'CLUB' ? 'Club' : 'Event';
   
-  const shareUrl = `${env.SERVER_URL.replace(/\/+$/, '')}/explore/${type.toLowerCase()}/${id}`;
-  const appSchemeUrl = `bookdianight://${type.toLowerCase()}/${id}`;
+  const shareUrl = escapeHtml(`${env.SERVER_URL.replace(/\/+$/, '')}/explore/${type.toLowerCase()}/${id}`);
+  const rawAppSchemeUrl = `bookdianight://${type.toLowerCase()}/${id}`;
+  const appSchemeUrl = escapeHtml(rawAppSchemeUrl);
+  const appSchemeJs = jsStringLiteral(rawAppSchemeUrl);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1117,7 +1120,7 @@ export const getSharePreviewHtmlService = async ({ id, type }: { id: string, typ
  
   <script>
     (function () {
-      var appUrl = "${appSchemeUrl}";
+      var appUrl = ${appSchemeJs};
       if (!appUrl) return;
       var timer = setTimeout(function () {}, 1200);
       window.location.href = appUrl;

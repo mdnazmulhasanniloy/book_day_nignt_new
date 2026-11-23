@@ -67,9 +67,9 @@ describe('safeHttpUrl', () => {
 
 describe('jsStringLiteral', () => {
   it('produces a literal that cannot close a script element or break out of the string', () => {
-    for (const p of PAYLOADS.concat(['a2028b2029c', '<!-- x'])) {
+    for (const p of PAYLOADS.concat(['a\u2028b\u2029c', '<!-- x'])) {
       const out = jsStringLiteral(p);
-      assert.doesNotMatch(out, /[<>&20282029]/, p);
+      assert.doesNotMatch(out, /[<>&\u2028\u2029]/, p);
       assert.equal(eval(out), p); // round-trips to the original string
     }
   });
