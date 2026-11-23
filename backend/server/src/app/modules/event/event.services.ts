@@ -14,7 +14,7 @@ import { getEmailQueue } from '@/app/queues/email/email.queue';
 import { QUEUE_JOBS } from '@/const';
 import { sendPushNotification, getUsersNearby } from '@/app/modules/notification/notification.helpers';
 import { mapPrismaError } from '@/app/utils/prismaError.utils';
-import { ensureArtistForLineup } from '@/app/modules/artists/artists.helpers';
+import { ensureArtistForLineup, resolveLineupArtistId } from '@/app/modules/artists/artists.helpers';
 import {
   mapTicketTierTree,
   reconcileEventTicketTiers,
@@ -84,12 +84,12 @@ export const createEventService = async ({
     if (lineup && lineup.length > 0) {
       for (const artist of lineup) {
         const { id: _lineupId, ...artistData } = artist;
-        const ensured = await ensureArtistForLineup(tx, artistData);
+        const linkedArtistId = await resolveLineupArtistId(tx, artistData);
         await tx.eventLineup.create({
           data: {
             ...artistData,
             eventId: newEvent.id,
-            artistId: ensured.id,
+            artistId: linkedArtistId,
           },
         });
       }
@@ -287,12 +287,12 @@ export const updateEventService = async ({
         await tx.eventLineup.deleteMany({ where: { eventId } });
         for (const artist of lineup) {
           const { id: _lineupId, ...artistData } = artist;
-          const ensured = await ensureArtistForLineup(tx, artistData);
+          const linkedArtistId = await resolveLineupArtistId(tx, artistData);
           await tx.eventLineup.create({
             data: {
               ...artistData,
               eventId,
-              artistId: ensured.id,
+              artistId: linkedArtistId,
             },
           });
         }

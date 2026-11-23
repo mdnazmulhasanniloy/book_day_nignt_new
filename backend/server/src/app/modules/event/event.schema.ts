@@ -67,6 +67,8 @@ export const eventTicketTierSchema = eventTicketTierBaseSchema.extend({
 
 export const eventLineupSchema = z.object({
   id: z.string().uuid().optional(),
+  // T-044: optional link to an existing Artist (404 when unknown). artistName stays required.
+  artistId: z.string().uuid().optional(),
   artistName: z.string().min(1),
   artistAvatar: z.string().url().nullable().optional(),
   audioPreviewUrl: z.string().url().nullable().optional(),

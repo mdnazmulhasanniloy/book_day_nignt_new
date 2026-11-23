@@ -15,6 +15,77 @@ export const mapArtist = (artist: Artist) => ({
   followerCount: artist.followerCount,
 });
 
+/** Column Artist.socialLinks (Json?) as the API object; anything that is not a plain object is null. */
+const toSocialLinks = (value: Prisma.JsonValue | null): Record<string, string> | null => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (typeof v === 'string') out[k] = v;
+  }
+  return out;
+};
+
+export type TUpcomingEventItem = {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  location: string;
+  type: 'EVENT';
+  thumbnail: string;
+  currency: string;
+  price: number;
+  startAt: Date;
+};
+
+/**
+ * T-044 profile shape (new endpoints only). `photo` is Artist.avatar. `isFollowing`,
+ * `upcomingEvents` and `upcomingEventCount` are only present when the caller supplies them.
+ */
+export const mapArtistProfile = (
+  artist: Artist,
+  extra: {
+    isFollowing?: boolean;
+    upcomingEvents?: TUpcomingEventItem[];
+    upcomingEventCount?: number;
+  } = {}
+) => ({
+  id: artist.id,
+  name: artist.name,
+  photo: artist.avatar,
+  bio: artist.bio,
+  socialLinks: toSocialLinks(artist.socialLinks),
+  spotifyUrl: artist.spotifyUrl,
+  soundcloudUrl: artist.soundcloudUrl,
+  audioPreviewUrl: artist.audioPreviewUrl,
+  isVerified: artist.isVerified,
+  followerCount: artist.followerCount,
+  ...extra,
+});
+
+/**
+ * Lineup item with an optional `artistId` (T-044): links that existing Artist as is (the shared row
+ * is never overwritten from a lineup item) and answers 404 when it does not exist. Without
+ * `artistId` the legacy upsert by name runs, unchanged.
+ */
+export const resolveLineupArtistId = async (
+  tx: Prisma.TransactionClient | typeof prisma,
+  input: { artistId?: string } & Parameters<typeof ensureArtistForLineup>[1]
+): Promise<string> => {
+  const { artistId, ...rest } = input;
+  if (artistId !== undefined) {
+    const found = await tx.artist.findUnique({
+      where: { id: artistId },
+      select: { id: true },
+    });
+    if (!found) {
+      throw { statusCode: 404, message: 'Artist not found' };
+    }
+    return found.id;
+  }
+  return (await ensureArtistForLineup(tx, rest)).id;
+};
+
 export const ensureArtistForLineup = async (
   tx: Prisma.TransactionClient | typeof prisma,
   input: {

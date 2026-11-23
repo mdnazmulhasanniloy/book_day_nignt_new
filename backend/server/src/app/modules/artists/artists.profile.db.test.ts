@@ -102,6 +102,7 @@ describe('artists list, profile, owner edit, follow snapshot (T-044)', { skip: d
     await mkArtist('Bravo');
     await mkArtist('Charlie');
     await mkArtist('Delta');
+    await mkArtist('Echo');
 
     const mkEvent = async (
       key: string,
@@ -125,6 +126,8 @@ describe('artists list, profile, owner edit, follow snapshot (T-044)', { skip: d
         },
       });
       ev[key] = e.id;
+      // The city filter reads Event.geog (set by the app via syncGeogFromLatLng).
+      await db().$executeRaw`UPDATE "Event" SET geog = ST_SetSRID(ST_MakePoint(${e.lng}, ${e.lat}), 4326)::geography WHERE id = ${e.id}`;
       for (const [i, a] of artists.entries()) {
         await db().eventLineup.create({
           data: { eventId: e.id, artistId: art[a], artistName: a, sortOrder: i },
@@ -136,6 +139,7 @@ describe('artists list, profile, owner edit, follow snapshot (T-044)', { skip: d
     await mkEvent('E1', 'ownerA', ['Alpha']);
     await mkEvent('E2', 'ownerA', ['Alpha', 'Bravo'], { startAt: new Date(Date.now() + 3 * DAY), endAt: new Date(Date.now() + 4 * DAY) });
     await mkEvent('E3', 'ownerA', ['Charlie'], { deactivatedAt: new Date() });
+    await mkEvent('E6', 'ownerA', ['Echo'], { deactivatedAt: new Date() });
     await mkEvent('E4', 'ownerA', ['Charlie'], { eventStatus: 'CANCELED' });
     await mkEvent('E5', 'ownerA', ['Charlie'], { startAt: new Date(Date.now() - 3 * DAY), endAt: new Date(Date.now() - 2 * DAY), eventStatus: 'COMPLETED' });
 
@@ -234,9 +238,9 @@ describe('artists list, profile, owner edit, follow snapshot (T-044)', { skip: d
       const anon = await json(await call('GET', `/artists?search=${P}`));
       for (const a of anon.data) assert.ok(!('isFollowing' in a), 'no isFollowing without a token');
       const c = await json(await call('GET', `/artists?search=${P}`, { token: tok.custC }));
-      assert.deepEqual(c.data.map((a: { isFollowing: boolean }) => a.isFollowing), [true, false]);
+      assert.deepEqual(c.data.map((a) => a.isFollowing), [true, false]);
       const d = await json(await call('GET', `/artists?search=${P}`, { token: tok.custD }));
-      assert.deepEqual(d.data.map((a: { isFollowing: boolean }) => a.isFollowing), [false, false]);
+      assert.deepEqual(d.data.map((a) => a.isFollowing), [false, false]);
     });
 
     it('search is case-insensitive, treats % and _ literally; paging works', async () => {
@@ -324,8 +328,9 @@ describe('artists list, profile, owner edit, follow snapshot (T-044)', { skip: d
       assert.equal(a.bio, 'Alpha bio');
     });
 
-    it('an owner whose deactivated or non-lineup events only exist cannot edit; unknown artist 404', async () => {
-      assert.equal((await call('PATCH', `/artists/${art.Charlie}`, { token: tok.ownerA, body })).status, 404);
+    it('no lineup link, only a deactivated event, or unknown artist: 404; canceled or past events still count', async () => {
+      assert.equal((await call('PATCH', `/artists/${art.Echo}`, { token: tok.ownerA, body })).status, 404);
+      assert.equal((await call('PATCH', `/artists/${art.Charlie}`, { token: tok.ownerB, body })).status, 404);
       assert.equal((await call('PATCH', `/artists/${art.Delta}`, { token: tok.ownerA, body })).status, 404);
       assert.equal((await call('PATCH', `/artists/${randomUUID()}`, { token: tok.ownerA, body })).status, 404);
     });
