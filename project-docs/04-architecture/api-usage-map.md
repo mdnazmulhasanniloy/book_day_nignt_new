@@ -232,7 +232,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 | `DELETE /events/{eventId}/interested` | - | - | New (CR-11); no client calls it yet |
 | `GET /me/recently-viewed` | - | - | New (CR-11, T-042, tested locally, not deployed); no client calls it yet. User bearer, the caller's own rows only |
 | `GET /explore/most-viewed` | - | - | New (CR-11, T-042, tested locally, not deployed); no client calls it yet. Public, ranking by 30 day views in a city radius |
-| `GET /explore/{id}` (type=EVENT) | unchanged | - | Gains additive `interestedCount` and `isInterested` (bearer only); Flutter parses by hand and ignores unknown keys. T-041 (tested locally): no response change; `viewCount` is now filled by a flush job (up to about a minute behind) and a view is also kept in Redis and, with a token, in the user's recent views |
+| `GET /explore/{id}` (type=EVENT) | unchanged | - | Gains additive `interestedCount` and `isInterested` (bearer only); T-045 (tested locally) adds `mapUrl` and `club` (all other page fields were already returned); Flutter parses by hand and ignores unknown keys. T-041 (tested locally): no response change; `viewCount` is now filled by a flush job (up to about a minute behind) and a view is also kept in Redis and, with a token, in the user's recent views |
 
 ### wishlist
 

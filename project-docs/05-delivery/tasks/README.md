@@ -93,7 +93,7 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 | [T-042](T-042.md) | Recently viewed, most viewed and sort=trending | backend | T-040, T-041, T-034 | done in code (tested locally) |
 | [T-043](T-043.md) | Migration 12: artist bio and social links | backend (database) | T-002 | done in code (tested locally) |
 | [T-044](T-044.md) | Artists: list, profile, owner edit, admin endpoints, lineup artistId | backend | T-043, T-017 | done in code (tested locally) |
-| [T-045](T-045.md) | Public event page fields on GET /explore/{id} | backend | T-040, T-041, T-017 | not started |
+| [T-045](T-045.md) | Public event page fields on GET /explore/{id} | backend | T-040, T-041, T-017 | done in code (tested locally) |
 | [T-046](T-046.md) | Customer tickets: bucket filter and bookingStatus | backend | T-003 | not started |
 | [REL-M4](REL-M4.md) | Release checkpoint: M4 discovery backend | release | T-029, T-030, T-031, T-032, T-033, T-034, T-035, T-036, T-037, T-038, T-039, T-040, T-041, T-042, T-043, T-044, T-045, T-046 | not started |
 
