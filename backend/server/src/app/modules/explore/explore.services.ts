@@ -542,8 +542,8 @@ export const exploreDetailService = async ({ id, query, userId }: IExploreDetail
       },
     });
 
-    // T-045 (CR-13): identity of the host club (only an active club; null when the event has none).
-    const hostClub = event.clubId
+    // T-045 (CR-13): identity of the host club (only an active club whose host request is APPROVED; null otherwise).
+    const hostClub = event.clubId && event.clubHostStatus === 'APPROVED'
       ? await prisma.club.findFirst({
           where: { id: event.clubId, deactivatedAt: null },
           select: { id: true, name: true, thumbnail: true, location: true, followerCount: true },

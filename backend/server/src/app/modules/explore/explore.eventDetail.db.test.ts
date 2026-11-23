@@ -169,6 +169,26 @@ describe('explore event detail fields (T-045)', { skip: dbTestSkipReason() }, ()
     }
   });
 
+  it('the host club is shown only when clubHostStatus is APPROVED (NONE, PENDING and REJECTED hide it)', async () => {
+    const setStatus = (status: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED') =>
+      db().event.update({ where: { id: CLUBEVENT_ID }, data: { clubHostStatus: status } });
+    try {
+      for (const status of ['NONE', 'PENDING', 'REJECTED'] as const) {
+        await setStatus(status);
+        const body = await detail(CLUBEVENT_ID);
+        assert.equal(body.club, null, `clubHostStatus ${status} must not expose the club`);
+        // the raw status and the clubId stay in the response as before (existing fields unchanged)
+        assert.equal(body.clubHostStatus, status);
+        assert.equal(body.clubId, HOST_CLUB_ID);
+      }
+      await setStatus('APPROVED');
+      const approved = await detail(CLUBEVENT_ID);
+      assert.equal((approved.club as { id: string }).id, HOST_CLUB_ID, 'APPROVED shows the club');
+    } finally {
+      await setStatus('APPROVED');
+    }
+  });
+
   it('mapUrl URL-encodes special characters and never carries raw markup', async () => {
     const body = await detail(SPECIAL_ID);
     const url = String(body.mapUrl);
