@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   exploreListController,
+  exploreMapController,
   exploreDetailController,
   exploreFeedController,
   exploreGenresController,
@@ -10,6 +11,7 @@ import {
 } from '@/app/modules/explore/explore.controllers';
 import {
   exploreQuerySchema,
+  exploreMapQuerySchema,
   exploreDetailQuerySchema,
   exploreIdParamsSchema,
   exploreFeedQuerySchema,
@@ -34,6 +36,14 @@ router.get(
   optionalUserAccessTokenMiddleware,
   validateReqQuery(exploreFeedQuerySchema),
   exploreFeedController
+);
+
+// Map pins (T-038). Registered before /explore/:id.
+router.get(
+  '/explore/map',
+  optionalUserAccessTokenMiddleware,
+  validateReqQuery(exploreMapQuerySchema),
+  exploreMapController
 );
 
 // Public vocabulary (T-037). Registered before /explore/:id.

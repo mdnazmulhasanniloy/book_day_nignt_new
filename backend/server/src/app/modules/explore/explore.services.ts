@@ -5,6 +5,8 @@ import {
   IExploreDetailService,
   ILightweightExploreItem,
   IExploreFeedService,
+  IExploreMapService,
+  IExploreMapPin,
   IExploreClubEventsService,
   IExploreClubArtistsService,
 } from '@/app/modules/explore/explore.types';
@@ -17,7 +19,8 @@ import {
   mapArtist,
 } from '@/app/modules/artists/artists.helpers';
 import { Prisma } from '@prisma/client';
-import { EXPLORE_DEFAULT_RADIUS_KM } from '@/app/modules/explore/explore.schema';
+import { EXPLORE_DEFAULT_RADIUS_KM, EXPLORE_MAP_MAX_PINS } from '@/app/modules/explore/explore.schema';
+import { buildExploreFilters, exploreNeedsZone } from '@/app/modules/explore/explore.filters';
 import { groupItemsByDay } from '@/app/modules/explore/explore.grouping';
 
 /**
@@ -72,20 +75,9 @@ export const exploreListService = async ({ query, userId, now: clockOverride }: 
     type,
     lat,
     lng,
-    minPrice,
-    maxPrice,
     isPopular,
-    ratings,
-    isVip,
-    search,
     sort,
-    date,
     dateFilter,
-    isFree,
-    genres,
-    mood,
-    categoryType,
-    city,
     radiusKm,
     cityId,
     group,
@@ -97,7 +89,7 @@ export const exploreListService = async ({ query, userId, now: clockOverride }: 
   const skip = (page - 1) * limit;
 
   const dayGrouping = group === 'day';
-  const needsZone = dayGrouping || from !== undefined || to !== undefined || dateFilter === 'this_week';
+  const needsZone = exploreNeedsZone({ query, dayGrouping });
 
   const { centre, cityTimezone, radiusMetres } = await resolveExploreCentre({
     lat,
@@ -117,141 +109,13 @@ export const exploreListService = async ({ query, userId, now: clockOverride }: 
     : Prisma.empty;
   const selectDistance = centrePoint ? Prisma.sql`, "distanceKm"` : Prisma.empty;
 
-  // Build Club Conditions
-  const clubConditions: Prisma.Sql[] = [Prisma.sql`c."deactivatedAt" IS NULL`];
-  
-  if (centrePoint) {
-    clubConditions.push(Prisma.sql`ST_DWithin(c.geog, ${centrePoint}, ${radiusMetres})`);
-  }
-  if (isVip !== undefined) {
-    clubConditions.push(Prisma.sql`c."isVip" = ${isVip}`);
-  }
-  if (search) {
-    clubConditions.push(Prisma.sql`c."name" ILIKE ${`%${search}%`}`);
-  }
-  if (minPrice !== undefined || maxPrice !== undefined) {
-    const minP = minPrice ?? 0;
-    const maxP = maxPrice ?? 999999999;
-    clubConditions.push(Prisma.sql`
-      EXISTS (
-        SELECT 1 FROM "ClubPackage" cp 
-        WHERE cp."clubId" = c.id 
-        AND cp."isActive" = true 
-        AND cp.price >= ${minP} 
-        AND cp.price <= ${maxP}
-      )
-    `);
-  }
-  if (date) {
-    const d = new Date(date);
-    const dayOfWeek = d.getUTCDay();
-    clubConditions.push(Prisma.sql`
-      EXISTS (
-        SELECT 1 FROM "ClubOpeningHour" coh 
-        WHERE coh."clubId" = c.id 
-        AND coh."dayOfWeek" = ${dayOfWeek} 
-        AND coh."isClosed" = false
-      )
-    `);
-  }
-
-  const clubWhere = clubConditions.length ? Prisma.sql`WHERE ${Prisma.join(clubConditions, ' AND ')}` : Prisma.empty;
-  const clubHaving = ratings ? Prisma.sql`HAVING COALESCE(AVG(r.rating), 0) >= ${ratings}` : Prisma.empty;
-
-  // Build Event Conditions
-  const eventConditions: Prisma.Sql[] = [
-    Prisma.sql`e."deactivatedAt" IS NULL`,
-    Prisma.sql`e."eventStatus" = 'UPCOMING'`,
-    Prisma.sql`e."endAt" > ${clock}`
-  ];
-  
-  if (centrePoint) {
-    eventConditions.push(Prisma.sql`ST_DWithin(e.geog, ${centrePoint}, ${radiusMetres})`);
-  }
-  if (search) {
-    eventConditions.push(Prisma.sql`e."eventName" ILIKE ${`%${search}%`}`);
-  }
-  if (minPrice !== undefined) {
-    eventConditions.push(Prisma.sql`e."eventPrice" >= ${minPrice}`);
-  }
-  if (maxPrice !== undefined) {
-    eventConditions.push(Prisma.sql`e."eventPrice" <= ${maxPrice}`);
-  }
-  if (date) {
-    const d = new Date(date);
-    eventConditions.push(Prisma.sql`e."startAt" <= ${d} AND e."endAt" >= ${d}`);
-  }
-  if (dateFilter && dateFilter !== 'this_week') {
-    const now = clock;
-    let filterStart: Date;
-    let filterEnd: Date;
-
-    if (dateFilter === 'today') {
-      filterStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-      filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-    } else if (dateFilter === 'tomorrow') {
-      const tom = new Date(now.getTime() + 86400000);
-      filterStart = new Date(tom.getFullYear(), tom.getMonth(), tom.getDate(), 0, 0, 0);
-      filterEnd = new Date(tom.getFullYear(), tom.getMonth(), tom.getDate(), 23, 59, 59);
-    } else if (dateFilter === 'this_weekend') {
-      const day = now.getDay();
-      const daysUntilFriday = (5 - day + 7) % 7;
-      const friday = new Date(now.getTime() + daysUntilFriday * 86400000);
-      filterStart = new Date(friday.getFullYear(), friday.getMonth(), friday.getDate(), 0, 0, 0);
-      const sunday = new Date(filterStart.getTime() + 2 * 86400000);
-      filterEnd = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate(), 23, 59, 59);
-    } else {
-      const day = now.getDay();
-      const daysUntilNextFriday = ((5 - day + 7) % 7) + 7;
-      const friday = new Date(now.getTime() + daysUntilNextFriday * 86400000);
-      filterStart = new Date(friday.getFullYear(), friday.getMonth(), friday.getDate(), 0, 0, 0);
-      const sunday = new Date(filterStart.getTime() + 2 * 86400000);
-      filterEnd = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate(), 23, 59, 59);
-    }
-
-    eventConditions.push(Prisma.sql`e."startAt" <= ${filterEnd} AND e."endAt" >= ${filterStart}`);
-  }
-  // T-035: this_week, from and to compare the LOCAL calendar date of startAt (AT TIME ZONE, DST-safe).
-  // Zone = the city zone when cityId is given, else the event's own zone (default UTC).
-  const eventZone = cityTimezone !== undefined ? Prisma.sql`${cityTimezone}::text` : Prisma.sql`e."timezone"`;
-  const localStartDate = Prisma.sql`((e."startAt" AT TIME ZONE 'UTC') AT TIME ZONE ${eventZone})::date`;
-  if (dateFilter === 'this_week') {
-    const weekStart = Prisma.sql`date_trunc('week', (${clock.toISOString()}::timestamptz AT TIME ZONE ${eventZone}))::date`;
-    eventConditions.push(Prisma.sql`${localStartDate} >= ${weekStart} AND ${localStartDate} < ${weekStart} + 7`);
-  }
-  if (from !== undefined) {
-    eventConditions.push(Prisma.sql`${localStartDate} >= ${from}::date`);
-  }
-  if (to !== undefined) {
-    eventConditions.push(Prisma.sql`${localStartDate} <= ${to}::date`);
-  }
-  if (isFree === true) {
-    eventConditions.push(Prisma.sql`e."eventPrice" = 0`);
-  }
-  if (categoryType) {
-    eventConditions.push(Prisma.sql`e."categoryType" = ${categoryType}::"EventCategoryType"`);
-  }
-  if (genres) {
-    const list = genres.split(',').map((g) => g.trim().toUpperCase()).filter(Boolean);
-    if (list.length > 0) {
-      eventConditions.push(Prisma.sql`e."musicGenres" && ${list}::text[]`);
-    }
-  }
-  if (mood) {
-    const list = mood
-      .split(',')
-      .map((m) => m.trim())
-      .filter(Boolean);
-    if (list.length > 0) {
-      eventConditions.push(Prisma.sql`e."moodTags" && ${list}::text[]`);
-    }
-  }
-  if (city) {
-    eventConditions.push(Prisma.sql`e."location" ILIKE ${`%${city}%`}`);
-    clubConditions.push(Prisma.sql`c."location" ILIKE ${`%${city}%`}`);
-  }
-
-  const eventWhere = eventConditions.length ? Prisma.sql`WHERE ${Prisma.join(eventConditions, ' AND ')}` : Prisma.empty;
+  const { clubWhere, clubHaving, eventWhere } = buildExploreFilters({
+    query,
+    clock,
+    centrePoint,
+    radiusMetres,
+    cityTimezone,
+  });
 
   const wishlistSubqueryClub = userId
     ? Prisma.sql`, EXISTS(SELECT 1 FROM "Wishlist" w WHERE w."clubId" = c.id AND w."userId" = ${userId}) as "isWishlist"`
@@ -405,6 +269,117 @@ export const exploreListService = async ({ query, userId, now: clockOverride }: 
   }
 
   return { data: formattedData, total };
+};
+
+/**
+ * GET /explore/map (T-038): lightweight pins for the same filters, centre and radius as GET /explore.
+ * Filters come from buildExploreFilters (shared with exploreListService). No paging; at most
+ * `maxPins` rows (default EXPLORE_MAP_MAX_PINS), nearest first when a centre exists, otherwise newest first.
+ * meta.total is the full match count, so the client can tell when the map is truncated.
+ */
+export const exploreMapService = async ({ query, now: clockOverride, maxPins }: IExploreMapService) => {
+  const clock = clockOverride ?? new Date();
+  const cap = maxPins ?? EXPLORE_MAP_MAX_PINS;
+  const { type, lat, lng, radiusKm, cityId } = query;
+
+  const { centre, cityTimezone, radiusMetres } = await resolveExploreCentre({
+    lat,
+    lng,
+    cityId,
+    radiusKm,
+    needsZone: exploreNeedsZone({ query, dayGrouping: false }),
+  });
+  const centrePoint = centre
+    ? Prisma.sql`ST_SetSRID(ST_MakePoint(${centre.lng}, ${centre.lat}), 4326)`
+    : undefined;
+  const clubDistance = centrePoint
+    ? Prisma.sql`, ROUND((ST_Distance(c.geog, ${centrePoint}::geography) / 1000)::numeric, 1) as "distanceKm"`
+    : Prisma.empty;
+  const eventDistance = centrePoint
+    ? Prisma.sql`, ROUND((ST_Distance(e.geog, ${centrePoint}::geography) / 1000)::numeric, 1) as "distanceKm"`
+    : Prisma.empty;
+  const selectDistance = centrePoint ? Prisma.sql`, "distanceKm"` : Prisma.empty;
+
+  const { clubWhere, clubHaving, eventWhere } = buildExploreFilters({
+    query,
+    clock,
+    centrePoint,
+    radiusMetres,
+    cityTimezone,
+  });
+
+  // Same row sets as exploreListService, narrower columns. Club price-from is NULL without an active package.
+  const combinedQuery =
+    type === 'CLUB'
+      ? Prisma.sql`
+          SELECT
+            c.id, c.name, c.lat, c.lng, 'CLUB' as "type", c.thumbnail, c."createdAt",
+            NULL::timestamp(3) as "startAt",
+            (SELECT MIN(price) FROM "ClubPackage" WHERE "clubId" = c.id AND "isActive" = true) as "minPrice"
+            ${clubDistance}
+          FROM "Club" c
+          LEFT JOIN "ClubReview" r ON c.id = r."clubId"
+          ${clubWhere}
+          GROUP BY c.id
+          ${clubHaving}
+        `
+      : Prisma.sql`
+          SELECT
+            e.id, e."eventName" as name, e.lat, e.lng, 'EVENT' as "type", e.thumbnail, e."createdAt",
+            e."startAt" as "startAt", e."eventPrice" as "minPrice"
+            ${eventDistance}
+          FROM "Event" e
+          ${eventWhere}
+        `;
+
+  const orderBy = centrePoint
+    ? Prisma.sql`ORDER BY "distanceKm" ASC, "createdAt" DESC, id ASC`
+    : Prisma.sql`ORDER BY "createdAt" DESC, id ASC`;
+
+  const countResult = await prisma.$queryRaw<{ count: bigint }[]>`
+    WITH combined AS (${combinedQuery})
+    SELECT COUNT(*) as count FROM combined
+  `;
+  const total = Number(countResult[0]?.count || 0);
+
+  const rows = await prisma.$queryRaw<{
+    id: string;
+    name: string;
+    lat: number;
+    lng: number;
+    type: 'CLUB' | 'EVENT';
+    thumbnail: string;
+    startAt: Date | null;
+    minPrice: string | number | null;
+    distanceKm?: string | number | null;
+  }[]>`
+    WITH combined AS (${combinedQuery})
+    SELECT id, name, lat, lng, "type", thumbnail, "startAt", "minPrice"${selectDistance} FROM combined
+    ${orderBy}
+    LIMIT ${cap}
+  `;
+
+  const data: IExploreMapPin[] = rows.map((row) => {
+    const pin: IExploreMapPin = {
+      id: row.id,
+      type: row.type,
+      name: row.name,
+      lat: Number(row.lat),
+      lng: Number(row.lng),
+      startAt: row.startAt ? new Date(row.startAt).toISOString() : null,
+      thumbnail: row.thumbnail,
+      minPrice: row.minPrice === null || row.minPrice === undefined ? null : Number(row.minPrice),
+    };
+    if (centre !== undefined && row.distanceKm !== undefined && row.distanceKm !== null) {
+      pin.distanceKm = Number(row.distanceKm);
+    }
+    return pin;
+  });
+
+  return {
+    data,
+    meta: { total, returned: data.length, maxPins: cap, truncated: total > data.length },
+  };
 };
 
 /**

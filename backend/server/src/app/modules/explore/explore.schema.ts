@@ -27,7 +27,7 @@ const isoDateQuery = z
     return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
   }, 'must be a real calendar date');
 
-export const exploreQuerySchema = z.object({
+const exploreQueryBase = z.object({
   type: z.enum(['CLUB', 'EVENT']).optional(),
   date: z.string().datetime().optional(),
   dateFilter: z.enum(['today', 'tomorrow', 'this_weekend', 'next_weekend', 'this_week']).optional(),
@@ -52,7 +52,10 @@ export const exploreQuerySchema = z.object({
   group: z.enum(['none', 'day']).optional(),
   from: isoDateQuery.optional(),
   to: isoDateQuery.optional(),
-}).superRefine((data, ctx) => {
+});
+
+/** Cross-field rules shared by GET /explore and GET /explore/map (T-038). */
+const refineExploreQuery = (data: z.infer<typeof exploreQueryBase>, ctx: z.RefinementCtx) => {
   if (data.from !== undefined && data.to !== undefined && data.from > data.to) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -90,7 +93,21 @@ export const exploreQuerySchema = z.object({
       });
     }
   }
-});
+};
+
+export const exploreQuerySchema = exploreQueryBase.superRefine(refineExploreQuery);
+
+/** Fixed pin cap for GET /explore/map (api-spec: capped at 300 pins). */
+export const EXPLORE_MAP_MAX_PINS = 300;
+
+/**
+ * GET /explore/map: the /explore filters, no paging fields (page, limit, sort, group are dropped).
+ * type is required by the api-spec.
+ */
+export const exploreMapQuerySchema = exploreQueryBase
+  .omit({ page: true, limit: true, sort: true, group: true })
+  .extend({ type: z.enum(['CLUB', 'EVENT']) })
+  .superRefine((data, ctx) => refineExploreQuery({ ...data, page: 1, limit: 10 }, ctx));
 
 export const exploreDetailQuerySchema = z.object({
   type: z.enum(['CLUB', 'EVENT'])
@@ -110,6 +127,7 @@ export const explorePaginationQuerySchema = z.object({
 });
 
 export type TExploreQuery = z.infer<typeof exploreQuerySchema>;
+export type TExploreMapQuery = z.infer<typeof exploreMapQuerySchema>;
 export type TExploreDetailQuery = z.infer<typeof exploreDetailQuerySchema>;
 export type TExploreFeedQuery = z.infer<typeof exploreFeedQuerySchema>;
 export type TExplorePaginationQuery = z.infer<typeof explorePaginationQuerySchema>;

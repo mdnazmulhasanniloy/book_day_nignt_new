@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import { getTraceId } from '@/app/configs/requestContext.configs';
 import { asyncHandler } from '@/app/utils/system.utils';
-import { exploreListService, exploreDetailService, getSharePreviewHtmlService } from '@/app/modules/explore/explore.services';
-import { TExploreQuery, TExploreDetailQuery, TExploreFeedQuery } from '@/app/modules/explore/explore.schema';
+import { exploreListService, exploreMapService, exploreDetailService, getSharePreviewHtmlService } from '@/app/modules/explore/explore.services';
+import { TExploreQuery, TExploreDetailQuery, TExploreFeedQuery, TExploreMapQuery } from '@/app/modules/explore/explore.schema';
 import { buildPaginationLinks } from '@/app/modules/explore/explore.helpers';
 import { JwtPayload } from 'jsonwebtoken';
 
@@ -33,6 +33,22 @@ export const exploreListController = asyncHandler(
         links
       },
       data: groups ?? data,
+      traceId,
+    });
+  }
+);
+
+/** GET /explore/map: capped lightweight pins (T-038). */
+export const exploreMapController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const traceId = getTraceId();
+    const query = (req.validatedQuery || req.query) as unknown as TExploreMapQuery;
+    const { data, meta } = await exploreMapService({ query });
+    res.status(200).json({
+      success: true,
+      message: 'Map pins retrieved successfully',
+      meta,
+      data,
       traceId,
     });
   }

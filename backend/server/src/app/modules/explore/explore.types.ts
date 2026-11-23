@@ -1,4 +1,4 @@
-import { TExploreQuery, TExploreDetailQuery, TExploreFeedQuery } from './explore.schema';
+import { TExploreQuery, TExploreDetailQuery, TExploreFeedQuery, TExploreMapQuery } from './explore.schema';
 
 export interface IExploreListService {
   query: TExploreQuery;
@@ -16,6 +16,27 @@ export interface IExploreDetailService {
 export interface IExploreFeedService {
   query: TExploreFeedQuery;
   userId?: string;
+}
+
+export interface IExploreMapService {
+  query: TExploreMapQuery;
+  /** Clock override for tests; defaults to the current time. */
+  now?: Date;
+  /** Pin cap override for tests; defaults to EXPLORE_MAP_MAX_PINS (300). */
+  maxPins?: number;
+}
+
+/** Lightweight pin of GET /explore/map (T-038). */
+export interface IExploreMapPin {
+  id: string;
+  type: 'CLUB' | 'EVENT';
+  name: string;
+  lat: number;
+  lng: number;
+  startAt: string | null;
+  thumbnail: string;
+  minPrice: number | null;
+  distanceKm?: number;
 }
 
 export interface IExploreClubEventsService {
