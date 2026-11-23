@@ -38,7 +38,7 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 | [T-005](T-005.md) | Migration 5: tier on purchase (add_tier_on_purchase) | backend (database) | T-002, T-003 | done in code (tested locally) |
 | [T-006](T-006.md) | Store the chosen tier on each event purchase | backend | T-005 | done in code (tested locally) |
 | [T-007](T-007.md) | Release soldCount when a payment fails or is canceled | backend | T-006 | done in code (tested locally) |
-| [T-008](T-008.md) | Release soldCount when an unpaid order expires (new job) | backend (server, worker) | T-007 | not started |
+| [T-008](T-008.md) | Release soldCount when an unpaid order expires (new job) | backend (server, worker) | T-007 | done in code (tested locally) |
 | [T-009](T-009.md) | Social sign-in: date of birth and profileComplete, retry-safe | backend | T-003 | not started |
 | [T-010](T-010.md) | Admin status codes: refresh 401, suspend 404, page/limit 422 | backend | T-003 | not started |
 | [T-011](T-011.md) | verify-ticket business errors return real status codes | backend | T-003 | not started |

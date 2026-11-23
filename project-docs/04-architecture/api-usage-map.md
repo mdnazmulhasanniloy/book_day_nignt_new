@@ -23,7 +23,7 @@
 | **UNUSED** | 7 |
 | **Total** | 151 |
 
-Field additions on existing routes (no new routes): T-006 added `ticketTierId` and `ticketTierName` to `POST /purchase/event` (`data.eventPurchase`) and to `GET /bookings/{id}` (`data.booking.eventPurchase`). Both are additive and null for no-tier and old purchases. The route table below is unchanged: Flutter parses by hand and ignores unknown keys (not every model was read).
+Field additions on existing routes (no new routes): T-006 added `ticketTierId` and `ticketTierName` to `POST /purchase/event` (`data.eventPurchase`) and to `GET /bookings/{id}` (`data.booking.eventPurchase`). Both are additive and null for no-tier and old purchases. T-008 adds no route or field: after commit `POST /purchase/event` also enqueues the worker job `expire-event-ticket-hold` (15 min) that releases the tier stock of an order still unpaid. The route table below is unchanged: Flutter parses by hand and ignores unknown keys (not every model was read).
 
 ## 3. Route table
 

@@ -87,7 +87,7 @@
 
 | ID | Sev | Location | Issue |
 |---|---|---|---|
-| D-01 | Med | `schema.prisma` `EventPurchase` | No link to the ticket tier purchased; `EventTicketTier.soldCount` is a denormalised counter with nothing tying sales to tiers. T-005: columns `ticketTierId`/`ticketTierName` added (nullable, old rows stay NULL); filled by `POST /purchase/event` since T-006 (no-tier purchases stay NULL). T-007: failed or canceled payments release the stock of tier-linked orders (`releaseEventTierStock`); old orders and no-tier purchases still release nothing. |
+| D-01 | Med | `schema.prisma` `EventPurchase` | No link to the ticket tier purchased; `EventTicketTier.soldCount` is a denormalised counter with nothing tying sales to tiers. T-005: columns `ticketTierId`/`ticketTierName` added (nullable, old rows stay NULL); filled by `POST /purchase/event` since T-006 (no-tier purchases stay NULL). T-007: failed or canceled payments release the stock of tier-linked orders (`releaseEventTierStock`); old orders and no-tier purchases still release nothing. T-008: unpaid orders still PENDING_PAYMENT after 15 minutes are released by the worker job `expire-event-ticket-hold` (no scheduler sweep: a lost delayed job leaks stock until one exists; `reports/stock-leak.sql` detects it). |
 | D-02 | Med | `schema.prisma:920` | `EventGuestListEntry.userId` has no relation, FK or index. |
 | D-03 | Low | `schema.prisma:908` | `EventGuestListFallback.targetId` is polymorphic with no FK; can point at deleted rows. |
 | D-04 | Med | `schema.prisma:326,416` vs `:485,498,500,539,564,843` | Deleting a User cascades to Club and Event but is Restricted by Orders, purchases and Stripe account, so a hard delete fails partway. Deletion works only as soft delete (`AccountStatus.DELETED`). |

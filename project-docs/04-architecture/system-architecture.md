@@ -259,7 +259,7 @@ Queues (3 attempts with backoff, `*/configs/queue.configs.ts`); workers auto-loa
 |---|---|
 | `email-queue` | signup OTP, resend OTP, signup success (x2), recover OTP, recover resend, recover reset success, host contact, club waiting list, event cancellation, ticket PDF email |
 | `notification-queue` | `send-fcm-notification` |
-| `system-queue` | expire club booking hold, expire event module hold, generate ticket PDF, make event ongoing, make event completed, process seller transfer, process refund |
+| `system-queue` | expire club booking hold, expire event module hold, expire event ticket hold (T-008), generate ticket PDF, make event ongoing, make event completed, process seller transfer, process refund |
 
 Cron jobs (`scheduler/src/app/jobs/*/*.tasks.ts`, auto-registered):
 
