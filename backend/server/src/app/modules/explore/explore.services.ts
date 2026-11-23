@@ -497,6 +497,12 @@ export const exploreDetailService = async ({ id, query, userId }: IExploreDetail
       isWishlist = Boolean(wishlistEntry);
     }
 
+    // CR-11 (T-040): live COUNT(*), caller own state only with a bearer token.
+    const interestedCount = await prisma.eventInterest.count({ where: { eventId: id } });
+    const isInterested = userId
+      ? Boolean(await prisma.eventInterest.findUnique({ where: { userId_eventId: { userId, eventId: id } }, select: { id: true } }))
+      : undefined;
+
     // Fetch organizer info
     const organizerClub = await prisma.club.findFirst({
       where: { userId: event.userId, deactivatedAt: null },
@@ -574,6 +580,8 @@ export const exploreDetailService = async ({ id, query, userId }: IExploreDetail
         followerCount: 0,
       },
       ...(isWishlist !== undefined ? { isWishlist } : {}),
+      interestedCount,
+      ...(isInterested !== undefined ? { isInterested } : {}),
     };
   }
 };
