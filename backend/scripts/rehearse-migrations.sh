@@ -191,6 +191,18 @@ echo "$FI" | grep -q "|FAIL" && fail "filter_options idempotency sql reported FA
 echo "$FI" | grep -q "ERROR" && fail "filter_options idempotency sql raised an error"
 echo "$FI" | grep -q "FILTERTEST" || fail "filter_options idempotency sql produced no result"
 
+say; say "## 9. Migration 11 (T-039): engagement tables empty, unique and primary key constraints, cascades"
+for T in EventInterest UserRecentEventView EventViewDaily; do
+  say "- $T rows after migrate: $(psqlc -d "$REHEARSAL_DB" -At -c "SELECT count(*) FROM \"$T\";")"
+done
+ET="$(psqlc -d "$REHEARSAL_DB" -At < "$ROOT/backend/prisma/tests/engagement_constraints.sql" 2>&1)" || fail "engagement_constraints.sql errored"
+say '```'
+echo "$ET" | grep -E "ENGAGETEST|ERROR" | tee -a "$OUT"
+say '```'
+echo "$ET" | grep -q "|FAIL" && fail "engagement_constraints.sql reported FAIL"
+echo "$ET" | grep -q "ERROR" && fail "engagement_constraints.sql raised an error"
+echo "$ET" | grep -q "ENGAGETEST" || fail "engagement_constraints.sql produced no result"
+
 say; say "## Summary"
 if [[ ${#FAILS[@]} -eq 0 ]]; then
   say "RESULT: PASS"
