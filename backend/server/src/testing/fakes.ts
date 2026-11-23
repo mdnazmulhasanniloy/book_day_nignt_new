@@ -5,7 +5,8 @@ import { getRedisClient, initializeRedis } from '@/app/configs/redis.configs';
 
 /** In-memory stand-in for the ioredis methods the server uses. */
 export class FakeRedis {
-  private store = new Map<string, { v: string; exp?: number }>();
+  // String values use `v`; hashes (T-041) use `h`. Both share expiry handling.
+  private store = new Map<string, { v: string; h?: Map<string, string>; exp?: number }>();
   private live(key: string) {
     const e = this.store.get(key);
     if (e?.exp && e.exp <= Date.now()) {
@@ -32,6 +33,24 @@ export class FakeRedis {
     this.store.set(key, { v: String(n), exp: this.store.get(key)?.exp });
     return n;
   }
+  async hincrby(key: string, field: string, by: number) {
+    const e = this.live(key) ?? { v: '', h: new Map<string, string>() };
+    e.h = e.h ?? new Map<string, string>();
+    const n = Number(e.h.get(field) ?? 0) + by;
+    e.h.set(field, String(n));
+    this.store.set(key, e);
+    return n;
+  }
+  async hgetall(key: string) {
+    return Object.fromEntries(this.live(key)?.h ?? []);
+  }
+  async rename(from: string, to: string) {
+    const e = this.live(from);
+    if (!e) throw new Error('ERR no such key');
+    this.store.delete(from);
+    this.store.set(to, e);
+    return 'OK';
+  }
   async expire(key: string, seconds: number) {
     const e = this.live(key);
     if (!e) return 0;
@@ -55,7 +74,7 @@ export const installFakeRedis = (): FakeRedis => {
   const fake = new FakeRedis();
   initializeRedis();
   const client = getRedisClient() as unknown as Record<string, unknown>;
-  for (const m of ['get', 'set', 'del', 'incr', 'expire', 'ttl'] as const) {
+  for (const m of ['get', 'set', 'del', 'incr', 'expire', 'ttl', 'hincrby', 'hgetall', 'rename'] as const) {
     client[m] = fake[m].bind(fake);
   }
   return fake;
