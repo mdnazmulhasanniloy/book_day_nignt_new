@@ -25219,11 +25219,10 @@ paths:
       tags:
       - explore
       summary: Map pins with the same filters as /explore
-      description: Accepts exactly the filter query parameters of GET /explore (type, city/cityId, lat, lng, radiusKm, dates, price, genres, mood, categoryType, search ...) so list and map never disagree. No pagination; capped at 300 pins; sorted by distance when a centre exists.
+      description: "Implemented in T-038 (tested locally, not deployed). Accepts the filter query parameters of GET /explore (same validation, same code builds the WHERE clauses, so list and map cannot disagree) but no page, limit, sort or group (ignored). type is required. Centre and radius follow T-034: lat+lng, else the cityId centre (unknown cityId gives 404), radiusKm 10, 20, 30, 40 or 50 (anything else 422), default 20. No pagination; at most 300 pins, nearest first when a centre exists, otherwise newest first. meta.total is the full match count and meta.truncated is true when it exceeds the pins returned. Pins carry only id, type, name, lat, lng, startAt, thumbnail, minPrice and distanceKm (only with a centre)."
       x-auth: 'optional user bearer: optionalUserAccessToken'
       security: *id027
       x-requirement: CR-10
-      x-status: planned
       x-change: added
       parameters:
       - name: type
@@ -25249,8 +25248,12 @@ paths:
         required: false
         schema:
           type: integer
-          minimum: 1
-          maximum: 50
+          enum:
+          - 10
+          - 20
+          - 30
+          - 40
+          - 50
           default: 20
       - name: cityId
         in: query
@@ -25273,18 +25276,24 @@ paths:
         required: false
         schema:
           type: string
+          enum:
+          - today
+          - tomorrow
+          - this_weekend
+          - next_weekend
+          - this_week
       - name: from
         in: query
         required: false
         schema:
           type: string
-          format: date-time
+          format: date
       - name: to
         in: query
         required: false
         schema:
           type: string
-          format: date-time
+          format: date
       - name: minPrice
         in: query
         required: false
@@ -25328,6 +25337,23 @@ paths:
                     type: string
                   traceId:
                     type: string
+                  meta:
+                    type: object
+                    required:
+                    - total
+                    - returned
+                    - maxPins
+                    - truncated
+                    properties:
+                      total:
+                        type: integer
+                      returned:
+                        type: integer
+                      maxPins:
+                        type: integer
+                        const: 300
+                      truncated:
+                        type: boolean
                   data:
                     type: array
                     items:
@@ -25359,6 +25385,7 @@ paths:
                           type:
                           - number
                           - 'null'
+                          description: "Club cheapest active package price (null without one); event ticket price (0 is free)."
                         startAt:
                           type:
                           - string

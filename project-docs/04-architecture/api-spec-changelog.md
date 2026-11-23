@@ -30,7 +30,7 @@ Totals: 47 added, 33 changed, 6 deprecated. The spec grows from 151 to 198 opera
 | POST | `/admin/cities` | CR-09 | additive (new endpoint) | Create a city. **Implemented in T-033** |
 | PATCH | `/admin/cities/{id}` | CR-09 | additive (new endpoint) | Update a city (launch / unlaunch). **Implemented in T-033** |
 | GET | `/explore/filters` | CR-10 | additive (new endpoint) | Filter vocabulary for a type. **Implemented in T-037** (public, tested locally, not deployed; returns categories, genres, moods only) |
-| GET | `/explore/map` | CR-10 | additive (new endpoint) | Map pins with the same filters as /explore |
+| GET | `/explore/map` | CR-10 | additive (new endpoint) | Map pins with the same filters as /explore. **Implemented in T-038** (tested locally, not deployed): required `type`, shared filter builder, cap 300, `meta` {total, returned, maxPins, truncated} |
 | GET | `/admin/filter-options` | CR-10 | additive (new endpoint) | List genre and mood vocabulary. **Implemented in T-037** |
 | POST | `/admin/filter-options` | CR-10 | additive (new endpoint) | Add a genre or mood. **Implemented in T-037** |
 | PATCH | `/admin/filter-options/{id}` | CR-10 | additive (new endpoint) | Edit or deactivate a genre or mood. **Implemented in T-037** |
