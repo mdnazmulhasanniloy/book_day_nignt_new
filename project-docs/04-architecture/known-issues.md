@@ -100,8 +100,8 @@
 | D-10 | Low | `schema.prisma:305` | `LegalContent.legalContentType` is indexed but not unique; duplicate "current" documents are possible. |
 | D-11 | Low | `schema.prisma:294-295, 781` | No `(userId, createdAt)` index on `Notification`; `PromoCode @@index([code, isActive])` is redundant with `code @unique`. |
 | D-12 | Low | `schema.prisma:343,707,433` | `Club.followerCount`, `Artist.followerCount`, `Event.viewCount` are denormalised with no trigger keeping them in sync. |
-| D-13 | Low | `schema.prisma:434` | `Event.eventPrice` is a legacy single price that coexists with `EventTicketTier` prices. T-015 added `Event.pricingMode` (backfilled once from tiers and `eventPrice`); it is not maintained by the current create and update code until T-017. |
-| D-14 | Low | `schema.prisma` `Event.timezone` | T-015 added `Event.timezone` with default `UTC`; every existing event is UTC and no backfill from city or location was done (client has not answered how existing events get a time zone). Open question. Until an owner or admin sets it, day-based logic that will use it (T-060 and others) treats existing events as UTC. |
+| D-13 | Low | `schema.prisma:434` | `Event.eventPrice` is a legacy single price that coexists with `EventTicketTier` prices. T-015 added `Event.pricingMode` (backfilled once from tiers and `eventPrice`); since T-017 (tested locally, not deployed) create and update derive or validate it (see data-model.md 8.3). `eventPrice` still exists next to the tiers. |
+| D-14 | Low | `schema.prisma` `Event.timezone` | T-015 added `Event.timezone` with default `UTC`; every existing event is UTC and no backfill from city or location was done (client has not answered how existing events get a time zone). Open question. Until an owner or admin sets it, day-based logic that will use it (T-060 and others) treats existing events as UTC. T-017 lets owners set `timezone` on create and update (validated IANA name, default UTC) but does NOT infer it from city or coordinates: the task text said to derive it with `geo-tz`, which was not done because the client has not answered this question. |
 
 ## 5. Dead and unused code
 

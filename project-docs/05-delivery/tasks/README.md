@@ -53,7 +53,7 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 |---|---|---|---|---|
 | [T-015](T-015.md) | Migration 4: event timezone, pricing mode, tier type | backend (database) | T-002, T-003 | done in code (tested locally) |
 | [T-016](T-016.md) | Ticket tier presets endpoint and tierType on tiers | backend | T-015, T-004 | done in code (tested locally) |
-| [T-017](T-017.md) | Event create and update: timezone, pricingMode, optional descriptions | backend | T-015, T-004 | not started |
+| [T-017](T-017.md) | Event create and update: timezone, pricingMode, optional descriptions | backend | T-015, T-004 | done in code (tested locally) |
 | [T-018](T-018.md) | Promo management: role and ownership checks, 404 for unknown target | backend | T-003, T-012 | not started |
 | [T-019](T-019.md) | Rate limit POST /promo/validate | backend | T-003 | not started |
 | [T-020](T-020.md) | Block duplicate guest-list join | backend | T-003 | not started |
