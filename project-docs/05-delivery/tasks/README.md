@@ -79,7 +79,7 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 |---|---|---|---|---|
 | [T-029](T-029.md) | Migration 3: backfill geog on events and clubs | backend (database) | T-002 | done in code (tested locally) |
 | [T-030](T-030.md) | Keep geog in sync on event and club create, update and duplicate | backend | T-029, T-003 | done in code (tested locally) |
-| [T-031](T-031.md) | Migration 10: cities and filter options (with backfill from existing values) | backend (database) | T-002, T-003 | not started |
+| [T-031](T-031.md) | Migration 10: cities and filter options (with backfill from existing values) | backend (database) | T-002, T-003 | done in code (tested locally) |
 | [T-032](T-032.md) | Seed starter genre/mood lists and city list (needs client content) | backend (scripts) | T-031 | not started |
 | [T-033](T-033.md) | Cities: GET /cities and admin cities endpoints | backend | T-031 | not started |
 | [T-034](T-034.md) | Explore: radiusKm, cityId and distanceKm | backend | T-030, T-033 | not started |
