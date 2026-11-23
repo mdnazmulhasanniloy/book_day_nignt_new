@@ -6,7 +6,7 @@ Status: **proposal, nothing created or changed.** No server, workflow, secret, t
 
 - Today a `v*` tag builds three images (server, scheduler, worker) and deploys them **straight to the production droplet**. There is no staging stage (`backend/.github/workflows/deploy.yaml`).
 - The workflows sit under `backend/.github/` and `admin/.github/`. GitHub only reads `.github/` at the repository root, so **no workflow runs in this monorepo**, including the CI job prepared on `ci/backend-tests`.
-- The hotfix (`release/hotfix`, no migrations) and the backend queue (`dev/backend-queue`, 7 migrations) are both code complete locally and wait on this.
+- The hotfix (`release/hotfix`, no migrations) and the backend queue (`dev/backend-queue`, 6 migrations) are both code complete locally and wait on this.
 
 ## 2. Target shape
 
@@ -55,7 +55,7 @@ S1 can start at once and is risk free (it only runs tests). S2 to S5 need your a
 
 ## 6. Risks and rollback
 
-- Migrations have no down step. All seven on the queue branch are expand-only, so the previous image keeps working after a migration; rollback = previous `IMAGE_TAG`.
+- Migrations have no down step. All six on the queue branch are expand-only, so the previous image keeps working after a migration; rollback = previous `IMAGE_TAG`.
 - The tag workflow currently opens an SSH rule on the cloud firewall for the runner and closes it at the end (`if: always()`). Keep that.
 - A mistaken `v*` tag today deploys to production. Until S3 is in place, **do not create any tag**.
 
