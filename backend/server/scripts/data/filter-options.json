@@ -1,0 +1,30 @@
+{
+  "_comment": "Source: project-docs/01-discovery/client-answers-01.md sections C1 (genres) and C2 (moods), client response of 2026-11-22. Array order is the customer display order (sortOrder = index). labelKey is lower-case label, the same normalisation the T-031 backfill uses, so existing rows are matched, not duplicated. labelIt is NOT stored in the database: FilterOption has one label column (open gap, see known-issues.md). Where the client gave one label only, labelIt equals label (client: use the same label in both languages).",
+  "genres": [
+    { "labelKey": "house", "label": "House", "labelIt": "House" },
+    { "labelKey": "techno", "label": "Techno", "labelIt": "Techno" },
+    { "labelKey": "tech house", "label": "Tech House", "labelIt": "Tech House" },
+    { "labelKey": "deep house", "label": "Deep House", "labelIt": "Deep House" },
+    { "labelKey": "melodic house & techno", "label": "Melodic House & Techno", "labelIt": "Melodic House & Techno" },
+    { "labelKey": "afro house", "label": "Afro House", "labelIt": "Afro House" },
+    { "labelKey": "disco & nu-disco", "label": "Disco & Nu-Disco", "labelIt": "Disco e Nu-Disco" },
+    { "labelKey": "hip-hop & rap", "label": "Hip-Hop & Rap", "labelIt": "Hip-Hop e Rap" },
+    { "labelKey": "r&b", "label": "R&B", "labelIt": "R&B" },
+    { "labelKey": "reggaeton", "label": "Reggaeton", "labelIt": "Reggaeton" },
+    { "labelKey": "latin", "label": "Latin", "labelIt": "Latino" },
+    { "labelKey": "pop & commercial", "label": "Pop & Commercial", "labelIt": "Pop e Commerciale" },
+    { "labelKey": "edm", "label": "EDM", "labelIt": "EDM" },
+    { "labelKey": "drum & bass", "label": "Drum & Bass", "labelIt": "Drum & Bass" },
+    { "labelKey": "rock & indie", "label": "Rock & Indie", "labelIt": "Rock e Indie" }
+  ],
+  "moods": [
+    { "labelKey": "party", "label": "Party", "labelIt": "Festa" },
+    { "labelKey": "chill", "label": "Chill", "labelIt": "Relax" },
+    { "labelKey": "underground", "label": "Underground", "labelIt": "Underground" },
+    { "labelKey": "elegant", "label": "Elegant", "labelIt": "Elegante" },
+    { "labelKey": "exclusive", "label": "Exclusive", "labelIt": "Esclusivo" },
+    { "labelKey": "social", "label": "Social", "labelIt": "Social" },
+    { "labelKey": "romantic", "label": "Romantic", "labelIt": "Romantico" },
+    { "labelKey": "high energy", "label": "High Energy", "labelIt": "Alta energia" }
+  ]
+}
