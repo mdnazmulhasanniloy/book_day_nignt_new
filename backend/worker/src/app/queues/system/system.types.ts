@@ -14,6 +14,9 @@ export interface IProcessSellerTransfer {
   orderId: string;
 }
 
+/** Cron-enqueued flush of the Redis view counters (T-041). No payload. */
+export type IFlushEventViews = Record<string, never>;
+
 export interface IMakeEventOngoing {
   eventId: string;
 }

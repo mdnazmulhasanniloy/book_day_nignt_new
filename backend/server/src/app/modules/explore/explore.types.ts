@@ -13,6 +13,13 @@ export interface IExploreDetailService {
   userId?: string;
 }
 
+export interface ITrackEventView {
+  eventId: string;
+  /** Logged-in viewer; only then a personal recent view is kept. */
+  userId?: string;
+  now?: Date;
+}
+
 export interface IExploreFeedService {
   query: TExploreFeedQuery;
   userId?: string;

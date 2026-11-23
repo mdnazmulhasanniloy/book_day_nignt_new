@@ -22,6 +22,7 @@ import { Prisma } from '@prisma/client';
 import { EXPLORE_DEFAULT_RADIUS_KM, EXPLORE_MAP_MAX_PINS } from '@/app/modules/explore/explore.schema';
 import { buildExploreFilters, exploreNeedsZone } from '@/app/modules/explore/explore.filters';
 import { groupItemsByDay } from '@/app/modules/explore/explore.grouping';
+import { trackEventView } from '@/app/modules/explore/explore.viewTracking';
 
 /**
  * Shared by GET /explore and GET /explore/feed (T-034, T-036).
@@ -450,12 +451,6 @@ export const exploreDetailService = async ({ id, query, userId }: IExploreDetail
       ...(isFollowing !== undefined ? { isFollowing } : {}),
     };
   } else {
-    // Atomic view increment
-    await prisma.event.update({
-      where: { id },
-      data: { viewCount: { increment: 1 } },
-    }).catch(() => null);
-
     const event = await prisma.event.findUnique({
       where: { id },
       include: {
@@ -487,6 +482,12 @@ export const exploreDetailService = async ({ id, query, userId }: IExploreDetail
 
     if (!event || (event as Record<string, unknown>).deactivatedAt !== null) {
       return null;
+    }
+
+    // T-041: Redis counter (+ recent view for a logged-in user), never on the DB hot row.
+    // Event.viewCount is increased by the worker flush, not per request. Canceled events are not counted.
+    if (event.eventStatus !== 'CANCELED') {
+      trackEventView({ eventId: id, userId });
     }
 
     let isWishlist: boolean | undefined = undefined;

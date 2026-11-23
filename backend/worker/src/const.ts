@@ -44,5 +44,6 @@ export const QUEUE_JOBS = {
   PROCESS_REFUND: 'process-refund',
   SEND_EVENT_CANCELLATION_EMAIL: 'send-event-cancellation-email',
   SEND_TICKET_PDF_EMAIL: 'send-ticket-pdf-email',
+  FLUSH_EVENT_VIEWS: 'flush-event-views',
   // AUTO-GENERATED-JOBS-END
 } as const;
