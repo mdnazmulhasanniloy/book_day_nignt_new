@@ -1,6 +1,6 @@
 # ADR-002: Organizer is a profile on a club-owner account, not a new role
 
-- **Status:** Accepted (spec diff approved 2026-11-21)
+- **Status:** Accepted (spec diff approved 2026-11-21). Amended 2026-11-24 (proposed, awaiting product owner confirmation): see 'Amendment 2026-11-24'.
 - **Requirements:** CR-02 (approved part: organizer identity, profile, follow, collaboration request). Owner approval (CR-01 / D1) is deferred until the client answers.
 - **Related:** `data-model.md` 8.2 (`OrganizerProfile`, `CollaborationRequest`), `api-spec.yaml` `/organizer/*`, `/organizers/*`, `/collaboration-requests`
 
@@ -22,3 +22,12 @@ The tracker (C1 to C6) asks for an organizer role that manages its own events, h
 - Organizers and club owners share screens and the Stripe Connect onboarding path; the UI distinguishes them by profile presence, not role.
 - "Club owner who is also an organizer" is natural (one account, one profile) and needs no special case.
 - If the Flutter app later gets role-aware navigation, revisit: adding `ORGANIZER` then is a deliberate migration with a client release first.
+
+## Amendment 2026-11-24 (client answers-02, Q22-Q24, Q12-13, Q25)
+Original decision unchanged: no `ORGANIZER` value in `AccountRole`; an organizer is a `CLUB_OWNER` account with an `OrganizerProfile`. What changes:
+- **Owner approval is no longer deferred.** New club owners and organizers start `PENDING` and see only the club-area home; the server answers partner endpoints with HTTP 423 `PARTNER_APPROVAL_PENDING` (ADR-010, CR-18). Existing owners are backfilled `APPROVED` (Q23).
+- **Staff model now exists.** The gap "ADR-002 has no staff or per-club permission model" is closed by ADR-008: club team members and platform staff live in separate tables; `AccountRole` still has only `USER | ADMIN | CLUB_OWNER`.
+- **Organizer permissions.** Quotes, chat and refunds are OFF by default and granted one by one by the owner, with grantor, time and revocation kept (`PermissionGrant`, `PUT /v2/owner/organizers/{organizerId}/permissions`).
+- **Unregistered venues and payout split** (out of scope of the original decision) are now decided in CR-23 (venue authorization, evidence and admin approval before sales) and ADR-006 (settlement); the organizer of an approved unregistered venue receives the seller proceeds.
+- **Assigned events.** The Event Manager and Reservations Staff scope ("assigned events") is part of ADR-008, not of the organizer profile.
+- The live Flutter app is unaffected: no new `accountRole` values, additive fields only.

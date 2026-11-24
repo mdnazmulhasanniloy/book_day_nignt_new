@@ -6,7 +6,11 @@ How "breaking for the live Flutter app" was judged: the Flutter app in `flutter_
 
 Totals: 33 changed v1 operations, 6 deprecated, 47 added (5 under `/api/v2`). Spec operations: 151 to 198.
 
+**Update 2026-11-24 (client answers 2026-11-24, CR-18 to CR-28):** 50 more operations added (47 under `/api/v2`), 8 existing operations changed additively (rows marked 2026-11-24 in section 1), plus a 423 response added to the 50 partner (club owner) operations, no new deprecations. Spec operations: 198 to 247. The result of the Flutter check is in the paragraph before section 1.
+
 **Result: no change to an existing v1 operation is breaking for the live Flutter app.** One operation is breaking for other clients in general: `GET /admin/users` (password hash removed, a security fix; only the Admin client calls it). The closest call was the free-order path in `POST /purchase/event`: as first drafted it would have broken the live app, so it is now opt-in (`freeCheckout`).
+
+**Update 2026-11-24 result: nothing in this update is breaking for the live Flutter app, on three conditions.** (1) The new fee model (Technical Fee 5 percent plus a fixed part) is switched on only after the force-update gate (ADR-012): the live app loads the flat `/service-charge` and adds it to the price on the device (`flutter_app/lib/app/modules/user_side/club_details_view/controllers/buy_ticker_controller.dart:88-96`), so a different server-side fee would show a total that differs from the charge. (2) Pending club owners and organizers are answered with HTTP 423 `PARTNER_APPROVAL_PENDING`, never 401 or 403, because the live app treats 401 and 403 as a dead session (`flutter_app/lib/app/core/network/api_error_handler.dart:68`, `base_client.dart:492`) and shows the server message for other 4xx (ADR-010). (3) Staff and platform roles are separate tables and additive response fields; no value is added to `AccountRole` (ADR-008), because the app compares the role string (`sign_in_controller.dart:157,166,394,401`).
 
 ## 1. Changed v1 operations
 
@@ -45,6 +49,16 @@ Totals: 33 changed v1 operations, 6 deprecated, 47 added (5 under `/api/v2`). Sp
 | GET | `/bookings` | CR-14 | New optional `bucket` filter (FUTURE/PENDING/PAST) and items gain `bookingStatus` (CONFIRMED / GUEST_LIST_PENDING / PAYMENT_PROCESSING / CANCELED / REFUNDED). `tab` is unchanged. | No. `bucket` is optional and `tab` keeps working. New item field `bookingStatus` is ignored. | No |
 | POST | `/webhooks/payment/stripe` | CR-16, BUG-B16 | Missing or invalid Stripe signature returns 400 (was 500, which makes Stripe retry for days). Payment webhook also handles refund events (refund created/updated/failed) to update Refund.status; duplicates are ignored via WebhookEvent.stripeEventId. | No. Called by Stripe, not by Flutter. A bad signature now returns 400 instead of 500. | No |
 | POST | `/connect/webhook` | CR-16, BUG-B16 | Missing or invalid Stripe signature returns 400 (was 500). | No. Called by Stripe, not by Flutter. A bad signature now returns 400 instead of 500. | No |
+| POST | `/auth/login` | CR-18, CR-19 (2026-11-24) | Session response `data` gains additive `partnerStatus` (PENDING, APPROVED, REJECTED or null), `teamRole` and `permissions`. | No. New optional fields only; Flutter parses by hand and reads `role`, which is unchanged (`sign_in_controller.dart:157`). | No |
+| POST | `/auth/social` | CR-18, CR-19 (2026-11-24) | Response `data` gains the same three additive fields. Still always creates a USER. | No. New optional fields only. | No |
+| POST | `/auth/check` | CR-18, CR-19 (2026-11-24) | `data` gains the same three additive fields so the app can show the pending screen. | No. New optional fields only. | No |
+| (50 partner operations) | every `CLUB_OWNER` or `/owner/*` operation, for example `POST /club`, `POST /event`, `POST /owner/verify-ticket`, `GET /owner/dashboard` | CR-18 (2026-11-24) | New response `423` `PARTNER_APPROVAL_PENDING` for an owner or organizer whose application is not approved. Existing owners are backfilled as APPROVED (migration 1), so they never see it. | No for existing owners. For a NEW owner on an old app version: 423 is a 4xx, so the app shows the server message and does NOT log out (401 and 403 would: `api_error_handler.dart:68`). The old signup screen still offers `CLUB_OWNER` (`sign_up_model.dart:3`); that account is now PENDING instead of active. | No |
+| GET | `/service-charge` | CR-15, CR-26 (2026-11-24) | Unchanged and kept for old app versions. New apps use `POST /v2/checkout/preview`. | No, on condition (1) above: the fee model v2 stays off until the minimum version gate is on (ADR-012). | No |
+| POST | `/purchase/event` | CR-25, CR-26 (2026-11-24) | Limit of 5 tickets per order plus 10 per customer per event (configurable per event): over-limit returns 409 `PURCHASE_LIMIT_EXCEEDED`. The charged total comes from the same calculation as the preview. | No. A new 4xx on a path that already fails; shown as a message. Under the gate the charged total matches what new apps show. | No |
+| GET | `/explore/{id}` | CR-04 (2026-11-24) | `type=EVENT` gains additive `startingPrice` and `availability` (LAST_TICKETS at 20 percent or less). Exact stock counts stay hidden in the v2 shape; v1 fields stay. | No. New optional fields only. | No |
+| GET | `/cities` | CR-24 (2026-11-24) | Items gain additive `kind` (CITY or AREA) and `areaId` for the Cote d Azur destination area. | No. New optional fields only. | No |
+| POST | `/promo` | CR-06 (2026-11-24) | Optional `purpose`, `eventId`, `expiresAt`, `maxUses` for access codes; default purpose DISCOUNT. | No. All optional; existing requests behave as before. | No |
+| POST | `/owner/verify-ticket` | CR-05 (2026-11-24) | Unchanged. Multi-day passes and per-day scanning use `POST /v2/owner/scan`. | No. Same behaviour; the old per-order check-in stays. | No |
 
 ## 2. Deprecated v1 operations (still served, behaviour unchanged unless stated)
 
@@ -112,9 +126,59 @@ New paths cannot break a client that does not call them. v2 paths are served und
 | GET | `/admin/refund-requests` | CR-16 | v1 (additive) | List refund requests |
 | PATCH | `/admin/refund-requests/{id}` | CR-16 | v1 (additive) | Approve or reject a refund request |
 | GET | `/admin/refunds` | CR-16 | v1 (additive) | List refunds |
+| GET | `/v2/app/version-policy` | CR-26 (2026-11-24) | v2 (new) | App version policy (force-update gate) |
+| POST | `/v2/checkout/preview` | CR-26, CR-15, Q1, Q2 (2026-11-24) | v2 (new) | Server-calculated total for a basket (tickets, tables, extras) |
+| GET | `/admin/partner-applications` | CR-18, Q22 (2026-11-24) | additive (new endpoint) | List partner (club owner and organizer) applications |
+| POST | `/admin/partner-applications/{id}/approve` | CR-18, Q22 (2026-11-24) | additive (new endpoint) | Approve a partner application |
+| POST | `/admin/partner-applications/{id}/reject` | CR-18, Q22 (2026-11-24) | additive (new endpoint) | Reject a partner application |
+| GET | `/v2/clubs/{clubId}/team` | CR-19, Q24 (2026-11-24) | v2 (new) | List club team members and pending invitations |
+| POST | `/v2/clubs/{clubId}/team` | CR-19, Q24 (2026-11-24) | v2 (new) | Invite a manager or staff member |
+| POST | `/v2/team/invitations/{token}/accept` | CR-19, Q24 (2026-11-24) | v2 (new) | Accept a team invitation |
+| PATCH | `/v2/clubs/{clubId}/team/{memberId}` | CR-19, Q24 (2026-11-24) | v2 (new) | Change role, assigned events or suspend a team member |
+| DELETE | `/v2/clubs/{clubId}/team/{memberId}` | CR-19, Q24 (2026-11-24) | v2 (new) | Remove a team member |
+| PATCH | `/v2/admin/team-members/{id}/suspend` | CR-19, Q24 (2026-11-24) | v2 (new) | Suspend any club team account (platform) |
+| GET | `/v2/admin/platform-staff` | CR-19, Q24 (2026-11-24) | v2 (new) | List platform staff |
+| POST | `/v2/admin/platform-staff` | CR-19, Q24 (2026-11-24) | v2 (new) | Create a platform staff account |
+| GET | `/v2/admin/role-permissions` | CR-19, Q24 (2026-11-24) | v2 (new) | Read the role-permission matrix |
+| GET | `/v2/admin/audit-log` | CR-19, Q24 | v2 | Read-only audit log of sensitive actions (admin only) |
+| PUT | `/v2/admin/role-permissions` | CR-19, Q24 (2026-11-24) | v2 (new) | Replace the role-permission matrix (editable page) |
+| PUT | `/v2/owner/organizers/{organizerId}/permissions` | CR-19, Q24, Q12 (2026-11-24) | v2 (new) | Grant or revoke organizer permissions (quotes, chat, refunds) |
+| POST | `/v2/table-requests` | CR-07, CR-16, Q3 (2026-11-24) | v2 (new) | Create a table request |
+| GET | `/v2/table-requests/{id}` | CR-07, Q3 (2026-11-24) | v2 (new) | Read a table request |
+| POST | `/v2/table-requests/{id}/quote` | CR-07, Q4 (2026-11-24) | v2 (new) | Issue a quote |
+| POST | `/v2/table-requests/{id}/withdraw-quote` | CR-07, Q4 (2026-11-24) | v2 (new) | Withdraw an unpaid quote |
+| POST | `/v2/table-requests/{id}/accept` | CR-07, Q3, Q4 (2026-11-24) | v2 (new) | Accept (club) or accept and pay (customer) |
+| POST | `/v2/table-requests/{id}/reject` | CR-07, Q3 (2026-11-24) | v2 (new) | Reject a pending request (club) |
+| POST | `/v2/table-requests/{id}/cancel` | CR-07, CR-22, Q14 (2026-11-24) | v2 (new) | Cancel a table request or confirmed table |
+| POST | `/v2/table-requests/{id}/payments` | CR-07, Q5 (2026-11-24) | v2 (new) | Pay the second online instalment |
+| GET | `/v2/events/{eventId}/settlement` | CR-21, Q7 (2026-11-24) | v2 (new) | Read the settlement arrangement and split preview |
+| PUT | `/v2/events/{eventId}/settlement` | CR-21, Q7 (2026-11-24) | v2 (new) | Propose the settlement split (owner) |
+| POST | `/v2/events/{eventId}/settlement/accept` | CR-21, Q7 (2026-11-24) | v2 (new) | Accept the proposed split (organizer) |
+| GET | `/v2/owner/settlements` | CR-21, Q8 (2026-11-24) | v2 (new) | Settlement statements and share states (owner) |
+| GET | `/v2/admin/settlements` | CR-21, Q8, Q9 (2026-11-24) | v2 (new) | Settlements, transfers and failures (admin) |
+| POST | `/v2/admin/transfers/{id}/retry` | CR-21, Q9 (2026-11-24) | v2 (new) | Retry a failed transfer |
+| POST | `/v2/bookings/{id}/tickets/{ticketId}/cancel` | CR-22, Q12 (2026-11-24) | v2 (new) | Customer cancels one ticket |
+| POST | `/v2/owner/orders/{orderId}/refunds` | CR-22, Q12, Q13 (2026-11-24) | v2 (new) | Club exception refund or documented goodwill refund |
+| GET | `/v2/admin/refunds` | CR-22, Q10 (2026-11-24) | v2 (new) | Refund oversight (admin and platform staff) |
+| POST | `/v2/admin/partner-debits/{id}/waive` | CR-22, Q10 (2026-11-24) | v2 (new) | Waive part or all of Bookdia margin on a partner debit |
+| POST | `/v2/admin/charge-to-club` | CR-22, Q10 (2026-11-24) | v2 (new) | Charge to club (chargebacks from event cancellation or change) |
+| POST | `/v2/owner/events/{eventId}/restock` | CR-22, Q15 (2026-11-24) | v2 (new) | Manual restock of released capacity |
+| POST | `/v2/owner/events/{eventId}/change-notice` | CR-23, Q11 (2026-11-24) | v2 (new) | Announce a date or venue change |
+| POST | `/v2/owner/scan` | CR-05, Q17 (2026-11-24) | v2 (new) | Scan a credential (per covered day) |
+| GET | `/v2/events/{eventId}/days` | CR-05, Q20 (2026-11-24) | v2 (new) | Event days, per-day availability and entry cutoff |
+| GET | `/v2/bookings/{id}/chat` | CR-20, Q6 (2026-11-24) | v2 (new) | Read the booking chat |
+| POST | `/v2/bookings/{id}/chat` | CR-20, Q6 (2026-11-24) | v2 (new) | Send a message |
+| GET | `/v2/admin/chats` | CR-20, Q6 (2026-11-24) | v2 (new) | Chat review queue (flagged and disputed) |
+| POST | `/v2/admin/chats/{id}/intervene` | CR-20, Q6 (2026-11-24) | v2 (new) | Intervene in a conversation |
+| POST | `/v2/venue-authorizations` | CR-23, Q25 (2026-11-24) | v2 (new) | Submit the venue authorization form and evidence |
+| GET | `/v2/admin/venue-authorizations` | CR-23, Q25 (2026-11-24) | v2 (new) | Venue authorization review queue |
+| POST | `/v2/admin/venue-authorizations/{id}/decision` | CR-23, Q25 (2026-11-24) | v2 (new) | Approve or reject a venue authorization |
+| POST | `/v2/admin/events/{eventId}/venue-dispute` | CR-23, Q25 (2026-11-24) | v2 (new) | Open a venue dispute (suspend sales) |
+| GET | `/v2/admin/destination-areas` | CR-24, Q26, Q27 (2026-11-24) | v2 (new) | List destination areas |
+| POST | `/v2/admin/destination-areas` | CR-24, Q26, Q27 (2026-11-24) | v2 (new) | Create a destination area |
 
 ## 4. Removed from the draft (not in the contract)
 
-- CR-01 owner approval gate, decision 2026-11-21: deferred until D1 is answered. Removed: `GET /admin/owner-applications`, `PATCH /admin/owner-applications/{userId}`, `ownerApprovalStatus` on `GET /profile`, the signup note, and `403 OWNER_NOT_APPROVED` on `POST /club`, `POST /event`, `POST /connect/onboarding`.
-- CR-16 per-attendee partial refunds: not modelled (Q8). One refund per order.
+- (Superseded 2026-11-24: D1 answered, the gate is now CR-18 with `GET /admin/partner-applications`, `partnerStatus` and the 423 status; names differ from the removed draft. Original note follows.) CR-01 owner approval gate, decision 2026-11-21: deferred until D1 is answered. Removed: `GET /admin/owner-applications`, `PATCH /admin/owner-applications/{userId}`, `ownerApprovalStatus` on `GET /profile`, the signup note, and `403 OWNER_NOT_APPROVED` on `POST /club`, `POST /event`, `POST /connect/onboarding`.
+- (Superseded 2026-11-24: per-ticket cancellation and several refunds per order are modelled by CR-22, migration 17. Original note follows.) CR-16 per-attendee partial refunds: not modelled (Q8). One refund per order.
 

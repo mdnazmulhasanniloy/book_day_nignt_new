@@ -1,6 +1,6 @@
 # ADR-003: Fee and commission rules with effective dates
 
-- **Status:** Accepted for the structure; rule VALUES wait for client answer Q2 (spec diff approved 2026-11-21)
+- **Status:** Accepted for the structure (spec diff approved 2026-11-21). Rule values received 2026-11-24 (client answers-02 Q1-Q2). Structure amended 2026-11-24 (proposed, awaiting product owner confirmation): see 'Amendment 2026-11-24'. Migration 6 (T-022) is not written yet and must follow the amendment.
 - **Requirements:** CR-15 (partial), CR-06 (free orders), CR-16 (refund treatment). Tracker E2 to E5.
 - **Related:** `data-model.md` 8.2 (`PricingRule`), 8.5, migration 6; `api-spec.yaml` `/v2/admin/pricing-rules`, `/v2/admin/financials`
 
@@ -26,3 +26,25 @@ Today there is one flat `ServiceCharge` (`id = 'GLOBAL'`, `purchase.services.ts:
 - Checkout gets a rule-resolution step (one extra query per order); needs an index (`data-model.md` 8.4).
 - Two sources of truth exist until v1 is sunset; the write-through must ship in the same release as migration 6.
 - Open: who pays commission (club vs customer), fee on tables/extras, minimums (Q2). The structure supports each answer without a schema change.
+
+## Amendment 2026-11-24 (client answers-02, Q1, Q2; Section 8 Technical Fee and accounting)
+Terminology (client): **Technical Fee** is the customer booking fee; **Service Fee** is the partner commission included in the base price. Earlier documents called the customer fee "service fee" and the partner share "commission". Docs and admin labels follow the client; API and DB names (`serviceChargeAmount`, `/service-charge`, `ApplicationCharge`, `ruleType` FEE and COMMISSION) are NOT renamed because the live app uses them. Mapping: FEE rule = Technical Fee; COMMISSION rule = Service Fee.
+
+Launch values (Italy, France, Monaco, Spain, US; changeable by admin per country and category):
+- Technical Fee: 5% of the eligible paid subtotal plus the local-currency equivalent of EUR 0.50 once per order. EUR 20 ticket costs EUR 21.50; two cost EUR 42.50. Free tickets and guest lists: the guest pays zero.
+- Service Fee: 10% tickets and passes; 15% tables, sunbeds and extras. Partner pays zero on free admissions unless admin sets an agreed fixed amount.
+
+Changes to the structure (migration 6 and the resolver):
+1. **A rule can carry a percent part and a fixed part** (`percentValue`, `fixedValue`, `fixedCurrency`) instead of one `valueType`. The fixed part is charged **once per order, on the first online payment**; later online payments (deposit then balance) carry only the percent part; a balance paid at the venue carries no Technical Fee.
+2. **Fixed amount per currency** (no live FX conversion): admin stores the amount for each currency; EUR 0.50 is the reference. The USD amount is a client input.
+3. **New scopes and precedence:** COUNTRY and category defaults, then client (club/partner), VENUE, EVENT, and finally an individual TABLE_QUOTE override. Winner order: TABLE_QUOTE > EVENT > VENUE > CLIENT > COUNTRY > GLOBAL, then `priority`, then later `effectiveFrom`. Admin may lower either fee or set it to zero.
+4. **Display mode** per market and category (`ITEMIZED` | `INCLUDED`), returned by the server preview (ADR-012).
+5. **Rates used are saved on each sale** (order and each `OrderPayment`), later changes apply to new orders only; in mixed baskets the fixed part is charged once and its **allocation per item** is recorded for partial refunds.
+6. **Processor cost** (actual Stripe cost per payment, and provider cost per issued ticket where relevant) is stored separately from the partner Service Fee and the platform margin.
+7. **Partner-side fixed charge on free admissions:** optional, admin-enabled, never charged to the free guest.
+8. **Preview before saving:** the admin sees the resulting price and sample orders per market (Gap 2, the pricing-rule preview, is now required: task T-096 and the admin calculator).
+9. **Commission shortfall** when less is paid online than the commission due is a receivable from the partner (ADR-005, ADR-006, ADR-007).
+10. Refund treatment of the Technical Fee follows ADR-007 (retained on customer-initiated cancellation; partner-funded refund on partner cancellation with admin waiver). `Refund.returnServiceFee` is superseded by `RefundItem` fields in migration 17.
+
+Backward compatibility: v1 `/admin/commission`, `/admin/service-charge` and `/service-charge` keep working and write through to the rules; the live app total comes from the legacy flat fee until the force-update gate and the preview endpoint ship together (ADR-012).
+The earlier test figure 1.5% + EUR 0.26 is not a price and is not used.
