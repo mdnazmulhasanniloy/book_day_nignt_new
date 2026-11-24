@@ -78,9 +78,25 @@ export const getDashboardQuerySchema = z.object({
  */
 export type TGetDashboardQuery = z.infer<typeof getDashboardQuerySchema>;
 
+/**
+ * page/limit stay strings (services parse them) so the parsed output type is
+ * unchanged. Values must be positive integers; limit is capped at 100 (T-010).
+ */
+const positiveIntString = (field: string) =>
+  z
+    .string()
+    .regex(/^[1-9]\d*$/, `${field} must be a positive integer`)
+    .refine((v) => Number.isSafeInteger(Number(v)), `${field} is too large`);
+
+const pageQuerySchema = positiveIntString('page').optional().default('1');
+const limitQuerySchema = positiveIntString('limit')
+  .refine((v) => Number(v) <= 100, 'limit must be at most 100')
+  .optional()
+  .default('10');
+
 export const getAdminUsersQuerySchema = z.object({
-  page: z.string().optional().default('1'),
-  limit: z.string().optional().default('10'),
+  page: pageQuerySchema,
+  limit: limitQuerySchema,
   role: z.enum(['USER', 'CLUB_OWNER']).optional(),
   search: z.string().optional(),
   /** Default excludes DELETED. Pass DELETED to list soft-deleted accounts for restore. */
@@ -96,8 +112,8 @@ export const adminUserIdParamsSchema = z.object({
 export type TAdminUserIdParams = z.infer<typeof adminUserIdParamsSchema>;
 
 export const earningsQuerySchema = z.object({
-  page: z.string().optional().default('1'),
-  limit: z.string().optional().default('10'),
+  page: pageQuerySchema,
+  limit: limitQuerySchema,
   serviceType: z.enum(['EVENT', 'CLUB']).optional(),
 });
 

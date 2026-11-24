@@ -194,6 +194,23 @@ enum GuestListFallbackType {
   WAITING_LIST
 }
 
+enum PricingMode {
+  SINGLE
+  TIERED
+  FREE
+  MIXED
+}
+
+enum TierType {
+  TICKET
+  PASS
+}
+
+enum FilterOptionKind {
+  GENRE
+  MOOD
+}
+
 enum ClubHostStatus {
   NONE
   PENDING
@@ -230,6 +247,8 @@ model User {
   vipHosts       VipHost[]
   artistFollows  ArtistFollower[]
   oauthIdentities OAuthIdentity[]
+  eventInterests  EventInterest[]
+  recentEventViews UserRecentEventView[]
 
   @@index([accountRole])
   @@index([accountStatus])
@@ -431,6 +450,8 @@ model Event {
   moodTags         String[]          @default([])
   isResaleEnabled  Boolean           @default(false)
   viewCount        Int               @default(0)
+  timezone         String            @default("UTC")
+  pricingMode      PricingMode       @default(SINGLE)
   eventPrice       Decimal           @db.Decimal(10, 2)
   currency         String
   clubId           String?
@@ -453,6 +474,9 @@ model Event {
   guestList            EventGuestList?
   vipHosts             EventVipHost[]
   hostContacts         HostContact[]
+  interests            EventInterest[]
+  recentViews          UserRecentEventView[]
+  viewsDaily           EventViewDaily[]
 
   @@index([userId])
   @@index([clubId, clubHostStatus])
@@ -569,6 +593,9 @@ model EventPurchase {
   eventEndAt         DateTime
   pricePerPerson     Decimal             @db.Decimal(10, 2)
   transferEligibleAt DateTime
+  ticketTierId       String?
+  ticketTier         EventTicketTier?    @relation(fields: [ticketTierId], references: [id], onDelete: SetNull)
+  ticketTierName     String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -576,6 +603,7 @@ model EventPurchase {
 
   @@index([eventId, createdAt])
   @@index([transferEligibleAt])
+  @@index([ticketTierId])
 }
 
 model EventPurchaseAttendee {
@@ -678,6 +706,7 @@ model EventTicketTier {
   parentId    String?
   parent      EventTicketTier?  @relation("TierChildren", fields: [parentId], references: [id], onDelete: Cascade)
   children    EventTicketTier[] @relation("TierChildren")
+  purchases   EventPurchase[]
   tierName    String
   groupName   String?
   description String?
@@ -685,6 +714,7 @@ model EventTicketTier {
   capacity    Int
   soldCount   Int       @default(0)
   sortOrder   Int       @default(0)
+  tierType    TierType  @default(TICKET)
   startAt     DateTime?
   endAt       DateTime?
   isActive    Boolean   @default(true)
@@ -693,6 +723,7 @@ model EventTicketTier {
 
   @@index([eventId, isActive, sortOrder])
   @@index([parentId])
+  @@index([eventId, groupName, tierName])
 }
 
 model Artist {
@@ -703,6 +734,8 @@ model Artist {
   audioPreviewUrl String?
   spotifyUrl      String?
   soundcloudUrl   String?
+  bio             String?
+  socialLinks     Json?
   isVerified      Boolean  @default(false)
   followerCount   Int      @default(0)
   createdAt       DateTime @default(now())
@@ -996,4 +1029,72 @@ model HostContact {
 
   @@index([hostId, createdAt])
   @@index([eventId, createdAt])
+}
+
+model City {
+  id          String   @id @default(uuid())
+  name        String
+  countryCode String?
+  lat         Float
+  lng         Float
+  timezone    String   @default("UTC")
+  isLaunched  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([name, countryCode])
+  @@index([isLaunched])
+  @@index([name])
+}
+
+model FilterOption {
+  id        String           @id @default(uuid())
+  kind      FilterOptionKind
+  label     String
+  labelKey  String
+  sortOrder Int              @default(0)
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([kind, labelKey])
+  @@index([kind, isActive, sortOrder])
+}
+
+// T-039 (migration 11, CR-11): engagement tracking. Written by later tasks (T-040, T-041).
+// EventInterest links a user and an event; it stores no name or display preference.
+model EventInterest {
+  id        String   @id @default(uuid())
+  userId    String
+  eventId   String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@index([eventId, createdAt])
+}
+
+model UserRecentEventView {
+  id           String   @id @default(uuid())
+  userId       String
+  eventId      String
+  lastViewedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@index([userId, lastViewedAt(sort: Desc)])
+}
+
+model EventViewDaily {
+  eventId String
+  day     DateTime @db.Date
+  views   Int      @default(0)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, day])
 }

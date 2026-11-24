@@ -15,6 +15,11 @@ import { TResetRecoverUserOtpPayload } from '@/app/modules/recover/recover.schem
 import { hashPassword } from '@/app/utils/password.utils';
 import { JwtPayload } from 'jsonwebtoken';
 import prisma from '@/app/configs/db.configs';
+import {
+  clearRecoverVerified,
+  markRecoverVerified,
+} from '@/app/modules/recover/recover.verified.helpers';
+import { verifyResetPasswordPageToken as decodeRecoverPageToken } from '@/app/utils/jwt.utils';
 import { sendPushNotification } from '@/app/modules/notification/notification.helpers';
 
 /**
@@ -64,12 +69,25 @@ export const findRecoverUserService = async ({
  */
 export const verifyRecoverUserService = async ({
   user,
+  token,
 }: {
   user: User;
+  token?: string;
 }): Promise<void> => {
   try {
     const redisClient = getRedisClient();
     await redisClient.del(createRedisKey(REDIS_PREFIXES.otp, user.id));
+    // WHY: reset must prove the OTP step happened (BUG-S19). Marker lives as long as the page token.
+    const exp = token
+      ? ((decodeRecoverPageToken(token)?.data as JwtPayload | undefined)?.exp as
+          | number
+          | undefined)
+      : undefined;
+    await markRecoverVerified({
+      redis: redisClient,
+      userId: user.id,
+      ttlSeconds: exp ? Math.floor(exp - Date.now() / 1000) : undefined,
+    });
     return;
   } catch (error) {
     throw error;
@@ -110,6 +128,7 @@ export const recoverUserPasswordResetService = async ({
       data: { password: hashedPassword },
       where: { id: user.id },
     });
+    await clearRecoverVerified({ redis: redisClient, userId: user.id });
     const emailData = { email: user.email, name: user.name, traceId };
     await emailQueue.add(
       QUEUE_JOBS.RECOVER_USER_PASSWORD_RESET_SUCCESSFUL,

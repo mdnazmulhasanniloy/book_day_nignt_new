@@ -130,6 +130,11 @@ async function main() {
     },
   });
 
+  // T-030: geog is an Unsupported column Prisma cannot set. Fill it for the demo rows (only where
+  // it is NULL, so a re-run changes nothing).
+  await prisma.$executeRaw`UPDATE "Club" SET geog = ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography WHERE id = ${club.id} AND geog IS NULL`;
+  await prisma.$executeRaw`UPDATE "Event" SET geog = ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography WHERE id = ${event.id} AND geog IS NULL`;
+
   const tiers = [
     { tierName: 'Demo Paid', price: 25, sortOrder: 1 },
     { tierName: 'Demo Free', price: 0, sortOrder: 2 },

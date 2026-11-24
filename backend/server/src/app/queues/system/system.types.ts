@@ -6,6 +6,10 @@ export interface IExpireEventModuleHold {
   bookingId: string;
 }
 
+export interface IExpireEventTicketHold {
+  orderId: string;
+}
+
 export interface IMakeEventOngoing {
   eventId: string;
 }

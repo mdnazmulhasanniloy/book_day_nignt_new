@@ -239,20 +239,48 @@ export const joinGuestListService = async ({
     throw { statusCode: 409, message: 'Female guest list capacity reached' };
   }
 
-  const entry = await prisma.eventGuestListEntry.create({
-    data: {
-      guestListId: guestList.id,
-      userId: userId ?? null,
-      name: payload.name,
-      email: payload.email,
-      phone: payload.phone,
-      menCount: payload.menCount,
-      womenCount: payload.womenCount,
-      otherCount: payload.otherCount,
-      arrivalTime,
-      acceptedTerms: true,
-      status: 'PENDING',
-    },
+  // T-020 (B-29): one active (PENDING or CONFIRMED) request per user and
+  // event. Check and insert run in one transaction under a per-user-and-event
+  // advisory lock, so parallel identical joins cannot both pass the check.
+  // No unique index: userId is nullable, has no relation, and a partial index
+  // would be a migration (see known-issues B-29).
+  const entry = await prisma.$transaction(async (tx) => {
+    if (userId) {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`guest-list-join:${userId}:${eventId}`}, 0))`;
+
+      const existing = await tx.eventGuestListEntry.findFirst({
+        where: {
+          guestListId: guestList.id,
+          userId,
+          status: { in: ['PENDING', 'CONFIRMED'] },
+        },
+        select: { id: true },
+      });
+
+      if (existing) {
+        throw {
+          statusCode: 409,
+          message: 'You already have an active request for this guest list',
+          errorType: 'GUEST_LIST_DUPLICATE',
+        };
+      }
+    }
+
+    return tx.eventGuestListEntry.create({
+      data: {
+        guestListId: guestList.id,
+        userId: userId ?? null,
+        name: payload.name,
+        email: payload.email,
+        phone: payload.phone,
+        menCount: payload.menCount,
+        womenCount: payload.womenCount,
+        otherCount: payload.otherCount,
+        arrivalTime,
+        acceptedTerms: true,
+        status: 'PENDING',
+      },
+    });
   });
 
   return {

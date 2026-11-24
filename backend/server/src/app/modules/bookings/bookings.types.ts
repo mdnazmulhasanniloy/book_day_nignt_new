@@ -6,16 +6,35 @@ import { exploreDetailService } from '@/app/modules/explore/explore.services';
 import { ILightweightExploreItem } from '@/app/modules/explore/explore.types';
 import { Gender } from '@prisma/client';
 
-export type TBookingListItem = ILightweightExploreItem &
+import type { TBookingStatus } from '@/app/modules/bookings/bookings.bucket';
+
+export type TBookingListItemBase = ILightweightExploreItem &
   { purchaseDate: Date; orderId: string } &
   (
     | { type: 'CLUB'; startAt: Date; endAt: Date }
     | { type: 'EVENT'; eventStartAt: Date; eventEndAt: Date }
   );
 
+/** Existing item shape plus the additive bookingStatus (T-046). */
+export type TBookingListItem = TBookingListItemBase & {
+  bookingStatus: TBookingStatus;
+};
+
+/** Guest-list request (only returned with `bucket`): no order exists, so orderId is null. */
+export type TGuestListBookingListItem = Omit<ILightweightExploreItem, 'price'> & {
+  purchaseDate: Date;
+  orderId: null;
+  type: 'EVENT';
+  eventStartAt: Date;
+  eventEndAt: Date;
+  bookingStatus: TBookingStatus;
+};
+
 export interface IRetrieveLoggedInUserBookingsService {
   query: TRetrieveLoggedInUserBookingsQuery;
   userId: string;
+  /** Test seam; defaults to the existing fixed-CST wall clock. */
+  now?: Date;
 }
 
 export interface IRetrieveLoggedInUserSingleBookingsService {
@@ -65,6 +84,8 @@ export interface IBookingDetailResponse {
       pricePerPerson: number;
       eventStartAt: Date;
       eventEndAt: Date;
+      ticketTierId: string | null;
+      ticketTierName: string | null;
       attendees: Array<{
         id: string;
         name: string;

@@ -80,9 +80,9 @@ ID P0.1  |  Review clarification
 
 **Demonstrate:** Create a fresh customer account, enter and revise a birth date, trigger an invalid input, correct it and complete registration. Show the saved profile after reopening the app.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: social sign-in now accepts a date of birth, reports whether the profile is complete and creates one account even if the request is repeated; automated tests pass locally. Flutter app: the birth-date picker fix (it stops at 18 years before today, matching the server rule) is coded and tested locally on a separate working copy that is not yet merged, and has not been checked on a phone. Admin dashboard: not applicable. Not deployed and not yet demonstrated on a build. Remaining: merge the app fix, confirm entered data is kept after an error, and record the demonstration on a build; your answer on the minimum age (Q31) is still open. (ref: T-009)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## P0 2 Google and Apple sign in
@@ -94,9 +94,9 @@ ID P0.2  |  Review clarification
 
 **Demonstrate:** Record a successful new-account and returning-account flow for each provider, plus cancellation and retry. Confirm that login returns to the intended screen without losing the booking context.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Blocked   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: the stored sign-in identities for Google and Apple exist and the social sign-in changes from P0.1 are tested locally; the cause of the reported failures has not been identified yet. Flutter app and admin dashboard: no change for this item. We cannot reproduce or fix it without the Google and Apple configuration details and the minimum access to the TestFlight build, which the client's product owner is asked to send privately (C5). Next action: once received, the development team reproduces each provider flow and reports whether the cause was app logic, provider setup or the test environment. Nothing is deployed or demonstrated. (ref: T-009)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## P0 3 OTP and session recovery
@@ -110,9 +110,9 @@ Implementation detail: apply server-side expiry and retry limits; avoid duplicat
 
 **Demonstrate:** Demonstrate a valid code, an invalid or expired code, resend, app restart, logout and login. Supply diagnostic evidence without exposing live codes or credentials.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: security hardening of password recovery and sign-out is coded, and clearer sign-in and recovery error responses are in place; the existing code-expiry rules already have tests. Automated tests pass locally; none of this is deployed and the planned staging check has not been run. Flutter app: automatic session refresh and handling of an expired session are coded and tested locally on a separate working copy (not merged, not checked on a phone). Admin dashboard: no change needed. Remaining: staging check, a check of code delivery and resend on a real build, merge of the app fix and a demonstration. (ref: HF-003, HF-004, T-021)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## P0 4 Working roles and demonstration access
@@ -126,9 +126,9 @@ Recommended access check: verify that a manager or organizer cannot access anoth
 
 **Demonstrate:** Demonstrate each role and its relevant screens. A missing menu or missing permission must not be used as evidence that an inaccessible feature is complete.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Blocked   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No test accounts, staging environment or build have been set up yet and nothing has been demonstrated. This needs access to a server environment (promised for later) and the Apple and Google configuration details and minimum access described in C5. Responsible: the client's product owner for the access; the development team will then create labelled accounts for customer, club manager, organizer and admin and run the cross-account access checks. The automated cross-account tests are not written yet. (ref: T-069)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 # A1 Manager analytics
@@ -142,9 +142,9 @@ ID A1.1  |  Original request
 
 **Demonstrate:** Use sample bookings across several dates and show the chart and totals matching the underlying records. Pending, failed and cancelled bookings must not silently count as confirmed.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet. Backend, admin dashboard and Flutter app: not started; analytics is planned after the order, fee and refund work. Nothing is tested or deployed. Next action: build booking counts (confirmed bookings only, separate from revenue) in the analytics milestone. (ref: T-059, T-061)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A1 2 Temporal filters
@@ -158,9 +158,9 @@ Implementation detail: use the event or venue timezone and label it. Separate bo
 
 **Demonstrate:** Switch between all four required periods and confirm that charts, totals and lists update together. Demonstrate records around midnight and at the start/end of the period.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet for Today, Yesterday, Last Week and Month views. Backend, admin dashboard and Flutter app: not started. The event time zone now exists in the backend (see T4) and will be used for the date ranges. Next action: build the date filters with the analytics work. (ref: T-060, T-061)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A1 3 Scanned and used tickets
@@ -172,9 +172,9 @@ ID A1.3  |  Original request
 
 **Demonstrate:** Show a confirmed ticket before and after scanning. Scan the same entitlement again and show that attendance does not increase twice. For passes, demonstrate separate valid attendance for each included day.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet for counting scanned tickets per day and attendance for free and paid admission; only the existing single check-in exists. Your answer (Q5) sets one successful scan per ticket per entitlement, but the design and tasks are not written yet and a target date for scanning is still to be given to you. Still open: entry hours and guest-list waiting time (Q18). Backend, admin dashboard and Flutter app: not started.
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A1 4 No shows
@@ -188,9 +188,9 @@ Implementation detail: calculate no-shows per admission day/session. Do not subt
 
 **Demonstrate:** Close a sample admission window and reconcile used tickets plus eligible unused tickets to the confirmed eligible total. Show how a multi-day pass used on only one day is reported.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Blocked   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet. We cannot define when an unused admission becomes a no-show without your answer on multi-day passes (Q17, High) and on entry hours (Q18). Responsible: the client's product owner to answer; next action for the development team is to build no-show reporting after the scan work. Backend, admin dashboard and Flutter app: not started.
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A1 5 Free and paid filters
@@ -202,9 +202,9 @@ ID A1.5  |  Original request
 
 **Demonstrate:** Create paid, free and mixed-event data. Verify All equals the appropriate combined totals and that free attendance remains measurable after check-in.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet for the All, Free and Paid filters. Backend, admin dashboard and Flutter app: not started; the revenue part is planned with the analytics work. Attendance of free guests depends on the scan work (see A1.3). (ref: T-061, T-062)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A1 6 Tables and extras filters
@@ -216,9 +216,9 @@ ID A1.6  |  Original request
 
 **Demonstrate:** Demonstrate category-specific booking quantities, revenue and attendance where an attendance method exists. Explain whether tables/extras are checked in separately or through the associated admission.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet for the All, Tickets, Tables and Extras views. Backend, admin dashboard and Flutter app: not started. Extras themselves are not built yet (see A2.14). Next action: build the filters with the analytics work. (ref: T-061, T-062)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A1 7 Analytics for each event
@@ -230,9 +230,9 @@ ID A1.7  |  Review clarification
 
 **Demonstrate:** Open two different events, verify their separate data, then reconcile the club totals for the same period. Show how multi-day events can be inspected day by day.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet for analytics per event. Backend, admin dashboard and Flutter app: not started; the club-wide dashboard is unchanged. Next action: build event analytics using the same definitions as the club overview. (ref: T-062)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A1 8 Attendance rates and reconciliation
@@ -244,9 +244,9 @@ ID A1.8  |  Technical recommendation
 
 **Demonstrate:** Supply a small labelled sample dataset and expected totals. A zero denominator should display a meaningful empty value, and a refund or duplicate scan must not distort the report.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet. Attendance rates depend on the scan and no-show work (A1.3, A1.4) and the separate reporting of fees, refunds and commission depends on the fee work (see E4). Backend, admin dashboard and Flutter app: not started. (ref: T-028)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 # A2 Ticket creation and booking products
@@ -260,9 +260,9 @@ ID A2.1  |  Original request
 
 **Demonstrate:** Create and edit an event with multiple products; save, reopen and verify each product in the customer view and its corresponding booking record.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: several ticket types per event are supported; updating an event now keeps ticket types and their sold counts instead of recreating them, each purchase records which ticket type was bought, and the sold count is released when a payment fails, is cancelled or an unpaid order expires after 15 minutes. Automated tests pass locally. Not deployed and not yet demonstrated on a build. Admin dashboard and Flutter app: no changes yet. Remaining: an end-to-end purchase check on a build across paid, free, pass and table products; free, pass and table products depend on later work. (ref: T-004, T-005, T-006, T-007, T-008)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 2 Free tickets and guest lists
@@ -274,9 +274,9 @@ ID A2.2  |  Original request and review clarification
 
 **Demonstrate:** Configure both modes, submit an approval request, approve and reject separate requests, and verify that only confirmed admissions receive valid entry rights. Demonstrate continued paid sales after the free list closes.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: a second guest-list request from the same guest is refused while one is pending or confirmed; tests pass locally. Not started: free ticket checkout, instant versus approval-based guest lists and cutoffs (we proposed a 24-hour waiting time and are waiting for your answer on entry hours and waiting time, Q18). Admin dashboard and Flutter app: not started. Not deployed and not yet demonstrated on a build. (ref: T-020; free checkout planned as T-026)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 3 Discount codes and guest list access codes
@@ -290,9 +290,9 @@ Implementation detail: define eligible events/products, validity dates, usage li
 
 **Demonstrate:** Show a discount, an invalid/expired code and a guest-list code leading to Pending, Approved and Rejected outcomes. Confirm manager visibility of code usage.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: only owners and admins can create, change or delete promo codes and only for their own events and clubs, and checking a code is limited to 20 tries per minute to stop guessing; tests pass locally. Not started: guest-list access codes (we asked whether you want them at launch, Q19) and the promo field above ticket selection in the app. Open: whether codes that work on every event should stay (Q1 in our latest question list). Admin dashboard and Flutter app: not started. Not deployed and not yet demonstrated on a build. (ref: T-018, T-019)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 4 Passes valid across multiple days
@@ -304,9 +304,9 @@ ID A2.4  |  Original request
 
 **Demonstrate:** Purchase all three options and verify admission on the correct days. Reject a Friday-only ticket on Saturday and allow the same multi-day pass once on each included day under the agreed re-entry rules.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet for passes valid on several days; in the backend only a Ticket or Pass label on ticket types exists (tested locally). Real multi-day access needs a place on every included day and one scan credential per day (your Q5 answer); the design and tasks are not written yet and we still owe you a target date. Still open: when an unused day counts as a no-show (Q17). Admin dashboard and Flutter app: not started.
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 5 Separate sections for days and passes
@@ -318,9 +318,9 @@ ID A2.5  |  Original request
 
 **Demonstrate:** Show the hierarchy in both event creation/editing and customer selection. A single-day ticket inside a multi-day event must clearly state the day it covers.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: ticket types can be marked as Ticket or Pass, sections with price tiers inside them already existed, and a ticket type that already has sales cannot get sub-tiers added; tests pass locally. Admin dashboard and Flutter app: not started. Not deployed and not yet demonstrated on a build. Remaining: the screens, and the real multi-day behaviour of passes (see A2.4). (ref: T-015, T-016, T-017)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 6 Custom section names
@@ -332,9 +332,9 @@ ID A2.6  |  Original request
 
 **Demonstrate:** Create Friday, Saturday and 2-Day Pass sections; rename one without losing tiers, sales or the relationship between purchased tickets and valid dates.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: section names are stored with each ticket type (as before) and the new Ticket or Pass type is saved with them; tests pass locally. Admin dashboard and Flutter app: the clearer field labels and helper text are not started. Not deployed and not yet demonstrated on a build. (ref: T-016, T-017)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 7 Preset and custom tier names
@@ -346,9 +346,9 @@ ID A2.7  |  Latest product clarification
 
 **Demonstrate:** Create a ticket and a pass using presets, then a custom tier. Verify clear section names and consistent customer labels. The later review explicitly allows custom names; they are not deferred to a later phase.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: a public list of preset names for tickets and passes, plus a Custom option, is available; tests pass locally. Admin dashboard (preset picker) and Flutter app: not started. Not deployed and not yet demonstrated on a build. (ref: T-016)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 8 Price and quantity per tier
@@ -360,9 +360,9 @@ ID A2.8  |  Original request
 
 **Demonstrate:** Configure 10 passes at EUR 33 and 40 at EUR 44 as an illustrative example. Save and reopen them, buy from a tier and confirm the inventory and original purchase price remain accurate.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: updating an event no longer resets sold counts, each purchase records its ticket type and sold counts are released for failed or expired checkouts; tests pass locally. A read-only script that lists sales counts affected by stalled checkouts is prepared but has not been run on live data; it needs live-data access and your go-ahead first (Q28; also Q8 in our latest question list). Open: what may be edited once a ticket type has sales (Q3 in our latest list). Admin dashboard (allocation, sold and remaining view) and Flutter app: not started. Not deployed. (ref: T-004, T-005, T-006, T-007, T-008)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 9 Automatic progression between tiers
@@ -374,9 +374,9 @@ ID A2.9  |  Original request
 
 **Demonstrate:** Exhaust the first tier, verify the next tier becomes available, and show the all-sold-out state. Confirm that expired or manually closed tiers are not selected as the next available price.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Blocked   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Not built. We proposed that the next ticket type opens automatically when the active one sells out; your answers do not cover this, so we are waiting for your decision (Q20 in the clarifications file, which covers A2.9, A2.10, A2.17 and D5). Responsible: the client's product owner. Next action: build it as proposed once confirmed or changed. Backend, admin dashboard and Flutter app: not started.
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 10 Dynamic starting price
@@ -388,9 +388,9 @@ ID A2.10  |  Original request and review clarification
 
 **Demonstrate:** Sell out the cheapest tier and confirm prices update across all customer surfaces. Verify free-and-paid events, temporarily unavailable tiers and the final Sold Out state.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Blocked   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Not built. We proposed that the starting price shows the lowest ticket currently on sale on event cards, the event page and the ticket button; your answers do not cover this, so we are waiting for your decision (Q20 in the clarifications file, which covers A2.9, A2.10, A2.17 and D5). Responsible: the client's product owner. Next action: build it as proposed once confirmed. Backend, admin dashboard and Flutter app: not started.
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 11 Residual capacity and venue limits
@@ -404,9 +404,9 @@ Implementation detail: specify whether a table/sunbed includes admission and how
 
 **Demonstrate:** Demonstrate both allocation modes and a pass that consumes capacity on both days. Attempt to buy beyond the remaining capacity and show a controlled rejection.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet. Your answer (Q5) sets the declared venue capacity as the daily ceiling and says confirmed, offline and held places count once each; the design and tasks are not written yet, and per-day capacity depends on the multi-day pass design (A2.4). Backend, admin dashboard and Flutter app: not started.
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 12 Tables with fixed prices
@@ -418,9 +418,9 @@ ID A2.12  |  Original request
 
 **Demonstrate:** Create two table types, view them as a customer and complete the agreed reservation/payment flow. Verify table inventory, included guests, manager records and confirmation.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Blocked   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Not built. The existing app already has table (VIP) modules, but their purchase has not been checked, and the card-hold approval flow you described (Q1) is not built. Next action for the development team: a Stripe card-hold prototype and feasibility demonstration; it needs a Stripe test-mode key and account details from the client's product owner first (Q29). Admin dashboard and Flutter app: not started. (ref: T-056)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 13 Tables with starting prices
@@ -432,9 +432,9 @@ ID A2.13  |  Original request and open product decision
 
 **Demonstrate:** Demonstrate a request, quote, customer acceptance and confirmation, including a rejected or expired request. Address all payment/contact alternatives in Q1 before treating the flow as accepted.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Blocked   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Not built. We need your answers on how long a quote can be accepted (Q4), the chat or WhatsApp choice (Q6), deposits (Q5) and the Stripe account (Q29); we then demonstrate both payment routes, which also needs a Stripe test-mode key. Responsible: the client's product owner for the answers. Backend, admin dashboard and Flutter app: not started. (ref: T-058)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 14 Special products and purchasable extras
@@ -446,9 +446,9 @@ ID A2.14  |  Original request
 
 **Demonstrate:** Create normal entry plus a two-person sunbed with an included bottle and an optional paid extra. Verify customer selection, total, inventory and the manager’s product breakdown.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet for extras (for example a sunbed for two) with their own price and stock. Backend, admin dashboard and Flutter app: not started; planned in the organizer, tables and extras milestone. The fee on extras follows the fee rules (Q1, Q2 in the clarifications file). (ref: T-054, T-057)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 15 Optional ticket descriptions and terms
@@ -460,9 +460,9 @@ ID A2.15  |  Original request
 
 **Demonstrate:** Show a two-person product with a bottle included, a normal ticket with conditions and a ticket without a description. Confirm the purchased terms remain available with the booking.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: descriptions are optional for ticket types and a blank description is saved as empty; tests pass locally. Admin dashboard and Flutter app (showing the text before booking): not started. Not deployed and not yet demonstrated on a build. (ref: T-017)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 16 Clear event pricing mode
@@ -474,9 +474,9 @@ ID A2.16  |  Review clarification
 
 **Demonstrate:** Switch between supported modes, save and reopen the event, and verify that the customer is charged the intended price with no ambiguous fallback. Protect existing orders when configuration changes.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: events now have a pricing mode (single price, tiers, free or mixed) that is checked against the prices entered; tests pass locally. Admin dashboard (hiding irrelevant price fields, explaining the active price) and Flutter app: not started. Not deployed and not yet demonstrated on a build. (ref: T-015, T-017)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 17 Availability badges
@@ -488,9 +488,9 @@ ID A2.17  |  Review clarification
 
 **Demonstrate:** Demonstrate normal availability, low stock and sold out. Show the thresholds and their behavior after inventory changes. Use Selling Fast only if it is supported by an actual sales-rate rule, not merely low stock.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Blocked   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Not built. We proposed showing Last tickets when 20% or fewer remain instead of exact numbers; your answers do not cover this, so we are waiting for your decision (Q20 in the clarifications file, which covers A2.9, A2.10, A2.17 and D5). Responsible: the client's product owner. Next action: build it as proposed, added alongside the current response so the live app keeps working. Backend, admin dashboard and Flutter app: not started.
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 18 Optional modules during event creation
@@ -502,9 +502,9 @@ ID A2.18  |  Review clarification
 
 **Demonstrate:** Create an event with optional products and another without them. Add a module afterward, edit it and confirm the customer result. Explain the distinct purposes and expected sizes of Thumbnail Image and Event Image.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet. Backend, admin dashboard and Flutter app: not started; the signposting of optional modules and the creation checks are planned with the modules and quotes work. (ref: T-055)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 19 Hosts and Quotes workflow
@@ -516,9 +516,9 @@ ID A2.19  |  Review clarification
 
 **Demonstrate:** Supply a short navigation demonstration for each module, including create, edit and status changes. If a module does not belong in this flow, explain its purpose and present a clear proposed treatment rather than silently removing it.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet. Documenting hosts and their permissions (which you asked us to demonstrate, Q6f) and the quotes workflow is planned; quote handling depends on the table payment decisions (see A2.13). Backend, admin dashboard and Flutter app: not started. (ref: T-055, T-058)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## A2 20 Club association during creation
@@ -530,9 +530,9 @@ ID A2.20  |  Earlier review finding
 
 **Demonstrate:** Create and edit an event with an existing club, then test a manager without a club. Verify that messages and available actions match the actual account state.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet for the associated-club validation and messages. Backend, admin dashboard and Flutter app: not started; this is planned with the organizer work. Next action: align the form validation and the account-state messages. (ref: T-050, T-051, T-052, T-053)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 # B1 City selection and event discovery
@@ -546,9 +546,9 @@ ID B1.1  |  Original request
 
 **Demonstrate:** Search and select two supported cities, move between Home and Explore, then reopen the app and verify the intended persistence behavior.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: a public city list (search by name) and admin city management are done, and the 11 cities from your launch list are prepared as inactive; the loading script was tested on a test copy only, not on live data. Automated tests pass locally; not deployed. Admin dashboard (city management page) and Flutter app (selector in Home and Explore): not started. Remaining: which destinations go live (Q27) and how Côte d'Azur is covered (Q26; also Q5 in our latest list). (ref: T-031, T-032, T-033)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## B1 2 Adjustable search radius
@@ -560,9 +560,9 @@ ID B1.2  |  Original request and review clarification
 
 **Demonstrate:** Reduce the radius from 50 to 20 km and verify that results and counts change correctly. Include events just inside and just outside the selected boundary.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: search around a chosen city or point with 10, 20, 30, 40 or 50 km, with the distance returned on each result; the location data of clubs and events is kept in sync when they are created or changed, and a safe fill script for older records exists (nothing needed filling in our test copy of the data). Tests pass locally; not deployed. Admin dashboard: none needed. Flutter app (slider, with 30 km initially as you asked): not started. (ref: T-029, T-030, T-034, T-036)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## B1 3 Empty results and city availability
@@ -574,9 +574,9 @@ ID B1.3  |  Original request
 
 **Demonstrate:** Select a city with no events, apply an over-restrictive filter and trigger a network error. Confirm each state is clear and does not silently replace the chosen city with unrelated events.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet for the empty-result and city-not-available screens. The backend already gives clear errors for an unknown city; the Flutter app screens are not started and the admin dashboard is not involved. How cities that are not live yet are shown depends on which destinations go live (Q27). Not deployed.
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## B1 4 Chronological Explore sections
@@ -588,9 +588,9 @@ ID B1.4  |  Original request and review clarification
 
 **Demonstrate:** Show events across multiple days in chronological order. Define how overlapping labels such as Tomorrow and This Weekend avoid confusing duplication, and how overnight events are assigned to a date.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: Explore results can be grouped into Today, Tomorrow, This Weekend and Upcoming using the city's or the event's time zone; tests pass locally. Every existing event currently counts as UTC time until its time zone is set (Q21). Flutter app (visible date groups): not started. Not deployed and not yet demonstrated on a build. (ref: T-035)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## B1 5 Customer ticket categories
@@ -602,9 +602,9 @@ ID B1.5  |  Original request
 
 **Demonstrate:** After authentication is fixed, show a future paid ticket, a pending guest-list request, a current pass and a past ticket. Verify transitions and access to the relevant confirmation or entry code.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: customer bookings can be listed as Future, Pending or Past and each booking now carries a clear status, including pending guest-list requests; tests pass locally. Some readings (for example how failed payments are shown) are our conservative choices that we want you to confirm; multi-day passes staying findable depends on A2.4. Flutter app: not started. Not deployed and not yet demonstrated on a build. (ref: T-046)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 # B2 Contextual filters and map
@@ -618,9 +618,9 @@ ID B2.1  |  Review clarification
 
 **Demonstrate:** Select event-specific filters, switch to Clubs and verify that irrelevant choices disappear without leaving hidden active restrictions. Switch back and confirm predictable behavior.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: a public list of filter choices for events (categories, genres, moods) and for clubs, editable by an admin; tests pass locally. For clubs the category list is still empty, so club-specific choices are not complete. Admin dashboard page and Flutter app (switching between Events and Clubs): not started. Not deployed and not yet demonstrated on a build. (ref: T-037)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## B2 2 Music and mood choices
@@ -632,9 +632,9 @@ ID B2.2  |  Original request and review clarification
 
 **Demonstrate:** Create tagged events, filter by their music and mood, and show relevant results. Demonstrate multiple selections and reset. Propose the initial shared vocabulary for review.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: your 15 music styles and 8 moods are prepared as the editable choice lists (loading tested on a test copy only; the live run waits for you) and an admin can edit them through the backend. Italian names are not stored yet (Q6 in our latest list). Admin dashboard page and Flutter chips: not started. Tests pass locally; not deployed. (ref: T-031, T-032, T-037)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## B2 3 Date shortcuts and ranges
@@ -646,9 +646,9 @@ ID B2.3  |  Original request
 
 **Demonstrate:** Test each shortcut and a date range crossing a month boundary. Confirm inclusion/exclusion of an overnight event and a multi-day event according to the documented rule.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: This Week and a from-to date range are supported and all use the same local-date rules as the Explore groups; tests pass locally. Other shortcuts such as Next Weekend are not recorded as done. Flutter app: not started. Not deployed and not yet demonstrated on a build. (ref: T-035)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## B2 4 Price location rating and results count
@@ -660,9 +660,9 @@ ID B2.4  |  Original request and review clarification
 
 **Demonstrate:** Combine filters and verify the displayed count matches the returned results, including zero results. Check free events and events whose cheapest tier sells out.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: the number of matching results is returned with every search; tests pass locally. Rules for how price filters treat free entry, paid admission, tables and starting-from prices are not defined or built yet. Flutter app (showing the count, visible active filters, clearing them): not started. Not deployed and not yet demonstrated on a build. (ref: T-035)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## B2 5 Map quick filter chips
@@ -674,9 +674,9 @@ ID B2.5  |  Review clarification
 
 **Demonstrate:** Apply a filter in the map and switch to the list, then reverse the sequence. Verify matching event/club sets, counts and active chips.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: a map search that uses the same filters, city, radius and dates as the list search, capped at 300 pins and nearest first; tests pass locally. Flutter app (the chip row on the map and keeping it in step with the list): not started. Not deployed and not yet demonstrated on a build. (ref: T-038)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## B2 6 Recenter and location accuracy
@@ -688,9 +688,9 @@ ID B2.6  |  Review clarification
 
 **Demonstrate:** Test allowed and denied location permission, recentering, manual city selection and distance display. Investigate the distant result without assuming the screenshot alone proves a calculation defect.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet. The backend now returns the distance on results, but recentering the map and the reported distant results have not been investigated with real data. Flutter app: not started. Next action: investigate with real data, then add Recenter and its permission messages. (ref: T-034)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 # B3 Homepage and artist discovery
@@ -704,9 +704,9 @@ ID B3.1  |  Original request
 
 **Demonstrate:** Switch between two cities and verify trending events, nearby events, clubs and table offers update consistently, including loading and empty states.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: the homepage sections (feed) now follow the chosen city or location and radius; tests pass locally. Flutter app (labels showing the city actually used, no stale cards when the city changes): not started. Not deployed and not yet demonstrated on a build. (ref: T-036)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## B3 2 City specific trending sections
@@ -718,9 +718,9 @@ ID B3.2  |  Original request
 
 **Demonstrate:** Show the section in two cities and explain the ranking with sample data. Where activity is insufficient, use a meaningful alternative or empty state rather than inventing popularity.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: Trending ranks events for a city from views and Interested taps over the last 7 days; the weights are documented but are our proposal and wait for your confirmation (Q7 in our latest list). Tests pass locally. Flutter app (city-labelled module): not started. Not deployed and not yet demonstrated on a build. (ref: T-042)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## B3 3 Recently viewed and most viewed
@@ -732,9 +732,9 @@ ID B3.3  |  Original request
 
 **Demonstrate:** View several events, revisit one and return Home. Show the intended history/order, the behavior after a city change and the no-history state.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: event opens are counted in a fast counter that is saved every minute, a personal Recently Viewed list (up to 20) and a city Most Viewed list (30 days) are available; tests pass locally, but the view counting has not been run against the live counting service and scheduler yet. Flutter app (compact modules): not started. Not deployed and not yet demonstrated on a build. (ref: T-041, T-042)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## B3 4 Artist section photos and profiles
@@ -746,9 +746,9 @@ ID B3.4  |  Original request and review clarification
 
 **Demonstrate:** Add an artist photo and link the same artist to two events. Open the artist from a lineup and verify both upcoming events appear without creating unnecessary duplicate profiles.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: artist list and artist profile (including bio and social links), editing by clubs whose events list the artist and by admins, and linking an artist to an event line-up; an event edit no longer overwrites a shared artist, and the verified mark of an artist in a line-up always comes from the artist profile, never from what the app sends. Tests pass locally. Open: who may edit a profile (Q4 in our latest list). Admin dashboard page and Flutter screens: not started. Not deployed and not yet demonstrated on a build. (ref: T-043, T-044)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## B3 5 Follow artists and account ownership
@@ -760,9 +760,9 @@ ID B3.5  |  Original request with open implementation detail
 
 **Demonstrate:** Follow an artist, reopen the app, verify the state and unfollow. Supply the profile-edit permission rule and proposed ownership/claim approach if artist accounts are supported.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: follow and unfollow existed before and were left unchanged; they have not been re-tested for this item. Who can edit an artist profile is now defined (clubs whose events list the artist, and admins); separate artist accounts are not planned for now (your answer Q6e). Edit-rule tests pass locally. Admin dashboard and Flutter app: not started. Not deployed and not yet demonstrated on a build. (ref: T-044)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 # C Event organizers
@@ -776,9 +776,9 @@ ID C1  |  Original request
 
 **Demonstrate:** Provide an organizer account, create/edit an event and show organizer analytics. Explain which settings require venue approval and verify that other organizers’ records are inaccessible.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Blocked   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No organizer role beyond today's club-manager account has been built. We are waiting for your confirmation that the access table in your answer is final (Q24, High), what a new owner or organizer may do while waiting for approval (Q22) and what happens to existing owners (Q23). Responsible: the client's product owner. Next action: after the answers, update the design and build the organizer role and permissions. Backend, admin dashboard and Flutter app: not started. (ref: T-049, T-050, T-051)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## C2 Registered venue collaboration
@@ -790,9 +790,9 @@ ID C2  |  Original request
 
 **Demonstrate:** Show submission, Pending, acceptance and rejection. Confirm that an unapproved collaboration is not displayed as venue-approved, and that acceptance produces the intended event association and permissions.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet for organizer requests to host at a registered club. Backend, admin dashboard and Flutter app: not started; it follows the organizer role (C1). Next action: design the request and accept or reject flow once the roles are settled. (ref: T-049, T-050)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## C3 Organizer profile and attribution
@@ -804,9 +804,9 @@ ID C3  |  Original request
 
 **Demonstrate:** Open the event from both profiles, follow/unfollow the organizer and test the website/social links. Verify that the correct organizer and venue are shown throughout the booking journey.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet for the organizer profile, follow button and Organized by link. Backend, admin dashboard and Flutter app: not started; the event page data already shows the host club but has no organizer name yet. (ref: T-047, T-048, T-052)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## C4 Unregistered venues and authorization
@@ -820,9 +820,9 @@ Recommended recordkeeping: retain the accepted text/version, account, timestamp 
 
 **Demonstrate:** Demonstrate manual entry, required acknowledgement/evidence, event review and organizer payout setup. Answer Q4 about the exact permission evidence, acceptance wording and review procedure.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet. Your answer (Q4) defines the workflow: the organizer uploads venue permission, an admin approves before publishing or selling, and the label reads Presented by [Organizer] at [Venue]. Still open: what happens to buyers if a venue disputes an event (Q25); you supply the authorization form wording when requested. Backend, admin dashboard and Flutter app: not started.
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## C5 Organizer and venue payout modes
@@ -836,9 +836,9 @@ Implementation detail: no provider, custody model, split capability or payout ti
 
 **Demonstrate:** Present the supported modes and demonstrate one sample order for each supported route, with gross amount, fees, commissions and recipient proceeds. Answer Q3 before fixing the production payout model.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Blocked   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Not built. Automatic splits between organizer and club depend on a Stripe account that supports it. Responsible: the client's product owner to give us a Stripe test-mode key and account details (Q29) and to answer who sets the shares (Q7), when payouts happen (Q8) and failed payouts (Q9); the development team then delivers the Stripe Connect feasibility demonstration, payout timing proposal and examples. Backend, admin dashboard and Flutter app: not started.
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## C6 Organizer inquiries and operational statuses
@@ -850,9 +850,9 @@ ID C6  |  Review clarification and implementation detail
 
 **Demonstrate:** Show one request of each supported type through its complete lifecycle. Confirm that approve/reject actions are permission-controlled and do not create duplicate bookings or payouts.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet. Documenting where guest-list requests, collaboration requests and table quotes appear and which role can act on each is planned; roles depend on your answer on the access table (Q24). Backend, admin dashboard and Flutter app: not started. (ref: T-055, T-058)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 # D Public event page
@@ -866,9 +866,9 @@ ID D1  |  Original request
 
 **Demonstrate:** Review a club event, an organizer collaboration and a multi-day event. Verify that all links and labels identify the right venue, organizer and local event times.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: the public event data now includes a map link and the host club (only when the club has approved hosting); time zone, address, dates and mood tags were already returned. Tests pass locally. The organizer name is not available yet because organizer profiles are not built. Open: the map link format (Q9 in our latest list). Flutter app and admin dashboard: not started. Not deployed and not yet demonstrated on a build. (ref: T-045, T-017)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## D2 Share and favorites
@@ -880,9 +880,9 @@ ID D2  |  Original request
 
 **Demonstrate:** Share an event, open its link, save it as a favorite, reopen the app and remove it. Show appropriate behavior for a cancelled or unavailable event.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: the shared-link preview pages for events and clubs now escape their content (security fix; tests pass locally). Not started: checking that shared links open the correct event in the app, favorites, and returning to the intended action after login (Flutter app). Admin dashboard: not applicable. Not deployed and not yet demonstrated on a build. (ref: W-03)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## D3 Interested button and counter
@@ -894,9 +894,9 @@ ID D3  |  Original request with confirmed launch decision
 
 **Demonstrate:** Mark and unmark interest with test accounts. Confirm the counter updates accurately, survives reopening and does not double-count retries or repeated taps.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: Interested can be added and removed, repeated taps by the same user count once, the genuine count is returned on the event page, and no list of people is exposed (your answer Q6d); tests pass locally. Flutter app (the button and counter): not started. The optional avatar preview is not built. Not deployed and not yet demonstrated on a build. (ref: T-039, T-040)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## D4 Location block and Google Maps
@@ -908,9 +908,9 @@ ID D4  |  Original request
 
 **Demonstrate:** Test a registered venue and a manually entered venue. Confirm the destination matches the displayed address and does not merely open a generic city search.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: the event page data provides a Google Maps link built from the venue name and coordinates; tests pass locally. Flutter app (the location block and the browser fallback): not started. Open: the map link format (Q9 in our latest list). Not deployed and not yet demonstrated on a build. (ref: T-045)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## D5 Ticket button and selection continuity
@@ -922,9 +922,9 @@ ID D5  |  Original request and review clarification
 
 **Demonstrate:** Open the same event before and after the cheapest tier sells out; verify the button and selection screen agree. Log in during purchase and confirm the selection remains correct.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Blocked   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Not built. The bottom purchase button needs the starting-price rule that you have not confirmed yet (Q20 in the clarifications file, which covers A2.9, A2.10, A2.17 and D5). Responsible: the client's product owner. Next action: build it as proposed once confirmed. Backend, admin dashboard and Flutter app (button and keeping the selection through login): not started.
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 # E Checkout technical fees and commercial commissions
@@ -938,9 +938,9 @@ ID E1  |  Original request and verification requirement
 
 **Demonstrate:** Supply end-to-end recordings and test records for each supported product. Show pending, successful and failed outcomes, confirmation and access to the booked ticket/product. A failed payment must not issue a valid paid admission.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: the paid admission purchase now records the ticket type, holds stock for 15 minutes and releases it when payment fails or the order expires, and guest-list duplicates are refused; tests pass locally. Not built: free checkout, passes, fixed-price tables and the quote or deposit flow. Open: what happens when a payment is confirmed after the hold expired (Q2 in our latest list). Admin dashboard and Flutter app: no changes yet. Not deployed and not yet demonstrated on a build. (ref: T-006, T-007, T-008, T-020)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## E2 Customer technical fees
@@ -954,9 +954,9 @@ Implementation detail: do not promise exact cost recovery without a defined form
 
 **Demonstrate:** Provide worked examples for the supported payment methods and order sizes, including a free ticket. Reconcile the displayed fee with the configured rule and demonstrate how provider-cost differences are handled.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Blocked   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Not built. Your answers describe the principle, but the fee amounts (the 1.5% plus 0.26 figure is a test benchmark only) and how the fee is shown, itemized or included, are still open (Q1 and Q2 in the clarifications file). Responsible: the client's product owner. Next action: build the fee display and calculation once confirmed. Backend, admin dashboard and Flutter app: not started. (ref: T-022 to T-027)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## E3 Admin commission configuration
@@ -968,9 +968,9 @@ ID E3  |  Original request with an open applicability decision
 
 **Demonstrate:** Provide admin navigation and demonstrate a percentage rule, a fixed rule and a specific override. Show the commission impact in internal reporting without exposing the internal commercial split to the customer.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet for admin-set commissions by client, venue, event and product. Backend, admin dashboard and Flutter app: not started; the planned structure must first be updated to your answers (a venue level, a fee display mode and a fixed charge on free admissions). Commission amounts are needed before activation (Q1 in the clarifications file). (ref: T-022, T-023, T-024, T-025, T-070)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## E4 Separate fees and financial reporting
@@ -982,9 +982,9 @@ ID E4  |  Original request and implementation detail
 
 **Demonstrate:** Show an order-level breakdown of product value, discounts, customer charges, provider costs, refunds, commercial commission and recipient proceeds. Identify any tax treatment still awaiting a decision rather than inventing rates.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet for keeping technical fees and commission as separate reporting parts. Backend, admin dashboard and Flutter app: not started; it follows the fee and commission work (E2, E3). (ref: T-028)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## E5 Rule changes and order history
@@ -996,9 +996,9 @@ ID E5  |  Original request and technical recommendation
 
 **Demonstrate:** Create an order, change the commission and create another. Demonstrate correct before/after treatment and a record of who changed the rule and when. Confirm the commission base, payer and settlement timing through Q2.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: No work recorded yet for rule changes with effective dates and orders that keep their original terms. Backend, admin dashboard and Flutter app: not started; it is part of the fee and commission design that is still to be updated to your answers. (ref: T-022, T-023, T-024)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## E6 Payment refunds and payout reconciliation
@@ -1012,9 +1012,9 @@ Implementation detail: validate provider notifications server-side and make repe
 
 **Demonstrate:** Repeat a payment notification, interrupt a payment, refund a booking and simulate a payout problem. Show one consistent order history and explain the remaining obligations of each recipient.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: Blocked   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Not built. The earlier refund design was replaced by your answers (per-ticket cancellation, club cutoff and exceptions), and we are waiting for your answers on events cancelled by the venue or organizer (Q10), who approves refunds (Q12), refunding an amount (Q13), deposits on cancelled tables (Q14) and tickets going back on sale (Q15). Responsible: the client's product owner. Backend, admin dashboard and Flutter app: not started; the only related change is that bad payment-notification signatures are now rejected cleanly (coded and tested locally, not deployed). (ref: HF-002, T-063 to T-068)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 # T Implementation checks across the app
@@ -1028,9 +1028,9 @@ ID T1  |  Technical recommendation
 
 **Demonstrate:** Run two purchases against the final available entitlement and show that only one confirms. Test expiry, cancellation and refund release, including passes that consume multiple day allocations.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: each purchase records its ticket type, the sold count is released once when a payment fails or is cancelled, unpaid orders release stock after 15 minutes, and a payment that arrives after release is re-checked or flagged for manual review; tests pass locally with a database. Not built: capacity per day, passes, tables, purchase limits (Q16) and restoring stock after refunds (Q15). Admin dashboard and Flutter app: no changes. Not deployed and not yet demonstrated on a build. (ref: T-005, T-006, T-007, T-008)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## T2 Entry validation and pass scanning
@@ -1042,9 +1042,9 @@ ID T2  |  Technical recommendation
 
 **Demonstrate:** Test a valid ticket, wrong day, wrong event, duplicate scan, refunded ticket and multi-day pass. Show the resulting attendance counts and a clear operator message for each outcome.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: the scanner now receives clear answers (not found, not valid, already used with the time it was used) instead of generic errors; tests pass locally. Not built: day-by-day pass entry, recording who scanned, re-entry rules and scan reporting; these wait for the design and your answers on no-shows and entry hours (Q17, Q18). Admin dashboard and Flutter app: no changes. Not deployed and not yet demonstrated on a build. (ref: T-011)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## T3 Consistent entities and permissions
@@ -1056,9 +1056,9 @@ ID T3  |  Technical recommendation
 
 **Demonstrate:** Provide a concise data relationship explanation and test cross-account access attempts. Confirm that changing a display name does not break existing tickets, linked profiles or financial history.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: partly in place. Only owners can manage their own promo codes, event and club records of other accounts are reported as not found, and media upload and delete will require sign-in (that fix is on a separate release branch, not in the main working branch yet); tests pass locally. Not done: cross-account tests for every role and the roles themselves, which wait for your answer on the access table (Q24). Admin dashboard and Flutter app: no changes. Not deployed. (ref: T-012, T-018, T-069, HF-005)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## T4 Timezones and lifecycle changes
@@ -1070,9 +1070,9 @@ ID T4  |  Technical recommendation
 
 **Demonstrate:** Test an overnight event and a daylight-saving boundary where relevant. Reschedule or cancel a test event and show the resulting customer and manager states without losing the original transaction history.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: events have a validated time zone (UTC until set) and the Explore day groups and date filters use it; tests pass locally. Existing events all count as UTC until you tell us how to set theirs (Q21), and how cancellation or rescheduling affects sold tickets is still open (Q10, Q11). Analytics and payouts in event-local dates are not built. Admin dashboard and Flutter app: not started. Not deployed and not yet demonstrated on a build. (ref: T-015, T-017, T-035)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 ## T5 Release evidence and recoverable errors
@@ -1084,9 +1084,9 @@ ID T5  |  Verification requirement
 
 **Demonstrate:** Run the acceptance scenarios in the final section, link each result to its requirement IDs and reopen failed items with reproduction steps. Resolve critical access, purchase, inventory and payout defects before sign-off.
 
-Developer status: Pending   |   Completed: [YYYY-MM-DD]   |   Developer: [name]
+Developer status: In progress   |   Completed: [YYYY-MM-DD]   |   Developer: Development team
 
-Implementation and evidence: [Describe changes, screens, build and proof; expand as needed.]
+Implementation and evidence: Backend: clearer error responses (for example expired session, not found, invalid input) replace several generic server errors on the admin, scanning, map, event module and wishlist calls; tests pass locally. No staging environment or named test build exists yet, so no demonstration has been recorded; the first security release package is ready but waits for a staging setup and approval, and we need to know who puts new versions live (Q30). Loading, empty, error and retry screens in the Flutter app and admin dashboard: not started. An automated check that runs all backend tests (including the database, worker and scheduler tests) on every change is now prepared in the repository; it has not run on GitHub yet and deploys nothing. We also prepared a step-by-step staging checklist for you; you choose the host and create the resources. Next action: you set up staging, we name the build and run the smoke checks. (ref: T-010 to T-014, REL-HF)
 
 Owner verification: Not tested   |   Verified on: [date]   |   Result notes: [enter here]
 

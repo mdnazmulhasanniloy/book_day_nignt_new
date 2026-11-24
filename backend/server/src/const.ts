@@ -56,6 +56,16 @@ export const otpMaxAttempts = 5;
 export const otpResendCooldownSeconds = 60;
 export const otpIpWindowSeconds = 15 * 60;
 export const otpIpMaxSends = 10;
+/** POST /promo/validate: fixed window, per IP and per user (T-019, S-09). */
+export const promoValidateMaxPerWindow = 20;
+export const promoValidateWindowSeconds = 60;
+
+/**
+ * Active checkout hold for an unpaid Event ticket order: after this long the
+ * expire-event-ticket-hold job releases the tier stock. 15 minutes confirmed by
+ * the client on 2026-11-22 (client-answers-01.md, Q1 and Q5).
+ */
+export const EVENT_TICKET_HOLD_MS = 15 * 60 * 1000;
 /** Minimum age for signup and profile date of birth. */
 export const MIN_SIGNUP_AGE = 18;
 export const locationExpireAt = 1;
@@ -291,12 +301,15 @@ export const REDIS_PREFIXES = {
   otpAttempts: 'user:otp:attempts',
   otpResend: 'user:otp:resend',
   otpIp: 'user:otp:ip',
+  promoValidateIp: 'ratelimit:promo-validate:ip',
+  promoValidateUser: 'ratelimit:promo-validate:user',
   blacklist: 'blacklist:token',
   location: 'user:location',
   locations: 'users:locations',
   adminSession: 'admin:session',
   userSession: 'user:session',
   connectOnboarding: 'connect:onboarding',
+  recoverVerified: 'recover:verified',
 } as const;
 
 /**
@@ -315,6 +328,7 @@ export const QUEUE_JOBS = {
   SEND_FCM_NOTIFICATION: 'send-fcm-notification',
   EXPIRE_CLUB_BOOKING_HOLD: 'expire-club-booking-hold',
   EXPIRE_EVENT_MODULE_HOLD: 'expire-event-module-hold',
+  EXPIRE_EVENT_TICKET_HOLD: 'expire-event-ticket-hold',
   RECOVER_USER_VERIFICATION_OTP_RESEND: 'recover-user-verification-otp-resend',
   RECOVER_USER_PASSWORD_RESET_SUCCESSFUL:
     'recover-user-password-reset-successful',

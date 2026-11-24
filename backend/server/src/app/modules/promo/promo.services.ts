@@ -7,39 +7,110 @@ import {
   IUpdatePromoCodeParams,
   IDeletePromoCodeParams,
 } from '@/app/modules/promo/promo.types';
-import { DiscountType, Prisma, PromoCode } from '@prisma/client';
+import { mapPrismaError } from '@/app/utils/prismaError.utils';
+import { AccountRole, DiscountType, Prisma, PromoCode } from '@prisma/client';
 
-const ownedPromoAccessFilter = (userId: string): Prisma.PromoCodeWhereInput => ({
+const ownedPromoAccessFilter = (
+  userId: string
+): Prisma.PromoCodeWhereInput => ({
   OR: [
     { createdByUserId: userId },
     { event: { is: { userId } } },
     { club: { is: { userId } } },
     {
-      AND: [
-        { eventId: null },
-        { clubId: null },
-        { createdByUserId: null },
-      ],
+      AND: [{ eventId: null }, { clubId: null }, { createdByUserId: null }],
     },
   ],
 });
 
+/**
+ * Who may edit or delete a promo (S-02). Same ownership rules as listing, except
+ * the legacy global code (no eventId, clubId or createdByUserId) is ADMIN only:
+ * for every other role it is "not found" (404, no information leak).
+ */
+const manageablePromoFilter = ({
+  userId,
+  accountRole,
+}: {
+  userId: string;
+  accountRole: AccountRole;
+}): Prisma.PromoCodeWhereInput => {
+  if (accountRole === AccountRole.ADMIN) return ownedPromoAccessFilter(userId);
+  return {
+    OR: [
+      { createdByUserId: userId },
+      { event: { is: { userId } } },
+      { club: { is: { userId } } },
+    ],
+  };
+};
+
+/**
+ * eventId / clubId named on create or update must exist and, for a club owner,
+ * belong to the caller. Unknown and foreign ids give the same 404 (the live
+ * Flutter app treats 403 like 401, so 403 is not used for ownership).
+ * An ADMIN may target any existing event or club.
+ */
+const assertTargetsAllowed = async ({
+  userId,
+  accountRole,
+  eventId,
+  clubId,
+}: {
+  userId: string;
+  accountRole: AccountRole;
+  eventId?: string | null;
+  clubId?: string | null;
+}): Promise<void> => {
+  const owner = accountRole === AccountRole.ADMIN ? {} : { userId };
+  if (eventId) {
+    const event = await prisma.event.findFirst({
+      where: { id: eventId, ...owner },
+      select: { id: true },
+    });
+    if (!event)
+      throw {
+        statusCode: 404,
+        message: 'Event not found',
+        errorType: 'NOT_FOUND',
+      };
+  }
+  if (clubId) {
+    const club = await prisma.club.findFirst({
+      where: { id: clubId, ...owner },
+      select: { id: true },
+    });
+    if (!club)
+      throw {
+        statusCode: 404,
+        message: 'Club not found',
+        errorType: 'NOT_FOUND',
+      };
+  }
+};
+
 const findOwnedPromoOrThrow = async ({
   id,
   userId,
+  accountRole,
 }: {
   id: string;
   userId: string;
+  accountRole: AccountRole;
 }): Promise<PromoCode> => {
   const promo = await prisma.promoCode.findFirst({
     where: {
       id,
-      ...ownedPromoAccessFilter(userId),
+      ...manageablePromoFilter({ userId, accountRole }),
     },
   });
 
   if (!promo) {
-    throw { statusCode: 404, message: 'Promo code not found' };
+    throw {
+      statusCode: 404,
+      message: 'Promo code not found',
+      errorType: 'NOT_FOUND',
+    };
   }
 
   return promo;
@@ -69,15 +140,24 @@ export const validatePromoCodeService = async ({
   }
 
   if (promo.maxUses !== null && promo.usedCount >= promo.maxUses) {
-    throw { statusCode: 400, message: 'This promo code has reached its usage limit' };
+    throw {
+      statusCode: 400,
+      message: 'This promo code has reached its usage limit',
+    };
   }
 
   if (promo.eventId && eventId && promo.eventId !== eventId) {
-    throw { statusCode: 400, message: 'Promo code is not applicable for this event' };
+    throw {
+      statusCode: 400,
+      message: 'Promo code is not applicable for this event',
+    };
   }
 
   if (promo.clubId && clubId && promo.clubId !== clubId) {
-    throw { statusCode: 400, message: 'Promo code is not applicable for this club' };
+    throw {
+      statusCode: 400,
+      message: 'Promo code is not applicable for this club',
+    };
   }
 
   const numericDiscountValue = Number(promo.discountValue);
@@ -91,7 +171,10 @@ export const validatePromoCodeService = async ({
 
   // Round to 2 decimal places
   discountAmount = Math.round(discountAmount * 100) / 100;
-  const finalAmount = Math.max(0, Math.round((originalAmount - discountAmount) * 100) / 100);
+  const finalAmount = Math.max(
+    0,
+    Math.round((originalAmount - discountAmount) * 100) / 100
+  );
 
   return {
     isValid: true,
@@ -111,6 +194,7 @@ export const createPromoCodeService = async (
 ): Promise<PromoCode> => {
   const {
     userId,
+    accountRole,
     code,
     discountType,
     discountValue,
@@ -121,27 +205,39 @@ export const createPromoCodeService = async (
   } = params;
   const normalizedCode = code.trim().toUpperCase();
 
+  await assertTargetsAllowed({ userId, accountRole, eventId, clubId });
+
   const existing = await prisma.promoCode.findUnique({
     where: { code: normalizedCode },
   });
 
   if (existing) {
-    throw { statusCode: 409, message: `Promo code '${normalizedCode}' already exists` };
+    throw {
+      statusCode: 409,
+      message: `Promo code '${normalizedCode}' already exists`,
+    };
   }
 
-  return prisma.promoCode.create({
-    data: {
-      code: normalizedCode,
-      discountType,
-      discountValue,
-      eventId: eventId || null,
-      clubId: clubId || null,
-      createdByUserId: userId,
-      maxUses: maxUses || null,
-      expiresAt: expiresAt || null,
-      isActive: true,
-    },
-  });
+  try {
+    return await prisma.promoCode.create({
+      data: {
+        code: normalizedCode,
+        discountType,
+        discountValue,
+        eventId: eventId || null,
+        clubId: clubId || null,
+        createdByUserId: userId,
+        maxUses: maxUses || null,
+        expiresAt: expiresAt || null,
+        isActive: true,
+      },
+    });
+  } catch (error) {
+    throw mapPrismaError(error, {
+      foreignKey: 'notFound',
+      notFoundMessage: 'Event or club not found',
+    });
+  }
 };
 
 /**
@@ -184,9 +280,16 @@ export const listPromoCodesService = async ({
 export const updatePromoCodeService = async ({
   id,
   userId,
+  accountRole,
   payload,
 }: IUpdatePromoCodeParams): Promise<PromoCode> => {
-  const existing = await findOwnedPromoOrThrow({ id, userId });
+  const existing = await findOwnedPromoOrThrow({ id, userId, accountRole });
+  await assertTargetsAllowed({
+    userId,
+    accountRole,
+    eventId: payload.eventId,
+    clubId: payload.clubId,
+  });
 
   const nextDiscountType = payload.discountType ?? existing.discountType;
   const nextDiscountValue =
@@ -219,8 +322,10 @@ export const updatePromoCodeService = async ({
 
   const data: Prisma.PromoCodeUpdateInput = {};
   if (payload.code !== undefined) data.code = nextCode;
-  if (payload.discountType !== undefined) data.discountType = payload.discountType;
-  if (payload.discountValue !== undefined) data.discountValue = payload.discountValue;
+  if (payload.discountType !== undefined)
+    data.discountType = payload.discountType;
+  if (payload.discountValue !== undefined)
+    data.discountValue = payload.discountValue;
   if (payload.eventId !== undefined) {
     data.event = payload.eventId
       ? { connect: { id: payload.eventId } }
@@ -235,10 +340,17 @@ export const updatePromoCodeService = async ({
   if (payload.expiresAt !== undefined) data.expiresAt = payload.expiresAt;
   if (payload.isActive !== undefined) data.isActive = payload.isActive;
 
-  return prisma.promoCode.update({
-    where: { id: existing.id },
-    data,
-  });
+  try {
+    return await prisma.promoCode.update({
+      where: { id: existing.id },
+      data,
+    });
+  } catch (error) {
+    throw mapPrismaError(error, {
+      foreignKey: 'notFound',
+      notFoundMessage: 'Promo code, event or club not found',
+    });
+  }
 };
 
 /**
@@ -247,7 +359,8 @@ export const updatePromoCodeService = async ({
 export const deletePromoCodeService = async ({
   id,
   userId,
+  accountRole,
 }: IDeletePromoCodeParams): Promise<void> => {
-  const existing = await findOwnedPromoOrThrow({ id, userId });
+  const existing = await findOwnedPromoOrThrow({ id, userId, accountRole });
   await prisma.promoCode.delete({ where: { id: existing.id } });
 };

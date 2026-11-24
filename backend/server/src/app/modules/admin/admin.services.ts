@@ -120,7 +120,7 @@ export const refreshAdminService = async ({
     
     if (deletedCount === 0) {
       throw {
-        status: 401,
+        statusCode: 401,
         message: 'Refresh token is invalid or already consumed',
         errorType: AuthErrorType.TOKEN_INVALID,
       };
@@ -588,7 +588,7 @@ export const suspendAdminUserService = async ({ params }: { params: TAdminUserId
   try {
     const user = await prisma.user.findUnique({ where: { id: params.id } });
     if (!user) {
-      throw new Error('User not found');
+      throw { statusCode: 404, message: 'User not found' };
     }
 
     const newStatus = user.accountStatus === 'BLOCKED' ? 'ACTIVE' : 'BLOCKED';

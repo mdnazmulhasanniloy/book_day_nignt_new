@@ -1,4 +1,5 @@
 import prisma from '@/app/configs/db.configs';
+import { IMappedPrismaError, mapPrismaError } from '@/app/utils/prismaError.utils';
 import { mapEventModule } from '@/app/modules/eventModule/eventModule.helpers';
 import {
   IAssertOwnedEvent,
@@ -9,6 +10,8 @@ import {
   IReorderEventModulesService,
   IUpdateEventModuleService,
 } from '@/app/modules/eventModule/eventModule.types';
+
+const MODULE_HAS_PURCHASES = 'Module has purchases and cannot be deleted; deactivate it instead';
 
 const assertOwnedEvent = async ({
   eventId,
@@ -162,7 +165,16 @@ export const deleteEventModuleService = async ({
     throw { statusCode: 404, message: 'Module not found' };
   }
 
-  await prisma.eventModule.delete({ where: { id: moduleId } });
+  await prisma.eventModule
+    .delete({ where: { id: moduleId } })
+    .catch((error: unknown) => {
+      const mapped = mapPrismaError(error, { notFoundMessage: 'Module not found' });
+      // FK Restrict (EventModulePurchase.moduleId): purchases still reference this module.
+      if (mapped !== error && (mapped as IMappedPrismaError).statusCode === 409) {
+        throw { ...(mapped as IMappedPrismaError), message: MODULE_HAS_PURCHASES };
+      }
+      throw mapped;
+    });
 
   return { message: 'Module deleted successfully' };
 };

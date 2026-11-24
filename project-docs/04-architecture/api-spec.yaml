@@ -311,8 +311,8 @@ paths:
       tags:
       - auth
       summary: Email/password login
-      description: Account status (DELETED/BLOCKED/INACTIVE) is checked BEFORE the password. No role restriction (an ADMIN account may also log in here). Unverified users get a fresh OTP + OTP page token instead of a session. Device is upserted by deviceIdentifier; lat/lng cached.
-      x-auth: 'public. chain: validateReqBody(loginSchema) -> findUserByEmail -> checkAccountStatus -> checkPassword'
+      description: 'The password is checked BEFORE the account status (T-021, B-21), so an unknown email and a wrong password on a DELETED, BLOCKED or INACTIVE account return the same 401 INVALID_CREDENTIALS. The status message (ACCOUNT_DELETED, USER_BLOCKED, ACCOUNT_INACTIVE, still 401) is returned only after a correct password. An account with no password hash (social sign-in) answers like a wrong password. No role restriction (an ADMIN account may also log in here). Unverified users get a fresh OTP + OTP page token instead of a session. Device is upserted by deviceIdentifier; lat/lng cached.'
+      x-auth: 'public. chain: validateReqBody(loginSchema) -> findUserByEmail -> checkPassword -> checkAccountStatus'
       security: []
       requestBody:
         required: true
@@ -867,8 +867,8 @@ paths:
       tags:
       - auth
       summary: Validate access token and device; get brief profile
-      description: Body validation runs BEFORE token checks (a bad body yields 422 even without a token). Device must belong to JWT sub and match deviceIdentifier. Updates device lastSeenAt (max once/hour) and fcmToken.
-      x-auth: 'user bearer: validateReqBody(checkAccessTokenSchema) -> checkUserAccessToken -> checkUserExistence -> checkAccountStatus -> checkDeviceContext'
+      description: 'The token check runs BEFORE body validation (T-021, B-21): a missing, invalid, expired or revoked token returns 401 even when the body is invalid; with a valid token a bad body still returns 422. Device must belong to JWT sub and match deviceIdentifier. Updates device lastSeenAt (max once/hour) and fcmToken.'
+      x-auth: 'user bearer: checkUserAccessToken -> validateReqBody(checkAccessTokenSchema) -> checkUserExistence -> checkAccountStatus -> checkDeviceContext'
       security:
       - userBearer: []
       requestBody:
@@ -1059,8 +1059,8 @@ paths:
       tags:
       - auth
       summary: Logout (revoke access token, deactivate device)
-      description: Blacklists the access token until expiry, sets device isActive=false and fcmToken=null, and revokes refreshToken if supplied. No data in response.
-      x-auth: 'user bearer: validateReqBody(logoutSchema) -> checkUserAccessToken -> checkUserExistence -> checkAccountStatus -> checkDeviceContext'
+      description: 'Blacklists the access token until expiry, sets device isActive=false and fcmToken=null, and revokes refreshToken if supplied. No data in response. The token check runs before body validation (T-021): no token or a revoked token returns 401 even with an invalid body.'
+      x-auth: 'user bearer: checkUserAccessToken -> validateReqBody(logoutSchema) -> checkUserExistence -> checkAccountStatus -> checkDeviceContext'
       security:
       - userBearer: []
       requestBody:
@@ -1760,7 +1760,7 @@ paths:
       tags:
       - admin
       summary: Rotate admin tokens
-      description: 'No body. Needs cookies refresh_token and admin_csrf_token (+ X-CSRF-Token header). Atomically consumes the refresh session in Redis and sets new cookies. Response body contains only csrfToken (no data). Already-consumed refresh token currently yields 500 (see 500). TO-BE (CR-01, CR-17, BUG-B17): Invalid or expired refresh token returns 401 (errorType TOKEN_INVALID / TOKEN_EXPIRED) instead of 500. Admin client already logs out on any refresh failure, so no client change is needed.'
+      description: 'No body. Needs cookies refresh_token and admin_csrf_token (+ X-CSRF-Token header). Atomically consumes the refresh session in Redis and sets new cookies. Response body contains only csrfToken (no data). Already-consumed refresh token currently yields 500 (see 500). TO-BE (CR-01, CR-17, BUG-B17): Invalid or expired refresh token returns 401 (errorType TOKEN_INVALID / TOKEN_EXPIRED) instead of 500. Admin client already logs out on any refresh failure, so no client change is needed. Implemented in T-010 (tested locally, not deployed): the service now throws statusCode 401 (was the wrong key status), so a validly signed refresh token whose session is missing or already consumed returns 401 TOKEN_INVALID instead of 500. A missing, garbage or expired cookie already returned 401 from the middleware. Success shape unchanged.'
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminRefreshToken (cookie refresh_token, NOT access_token) + checkAdminExistence'
       security:
       - adminCookie: []
@@ -1831,7 +1831,6 @@ paths:
                     errorType: USER_NOT_FOUND
       operationId: admin_post_admin_auth_refresh
       x-requirement: CR-01, CR-17, BUG-B17
-      x-status: planned
       x-change: modified
   /admin/auth/logout:
     post:
@@ -3131,7 +3130,7 @@ paths:
       tags:
       - admin
       summary: List users and club owners (paginated)
-      description: 'CSRF header required on this GET. Only roles USER and CLUB_OWNER are listed. Default excludes DELETED accounts; pass status=DELETED to list them. page/limit are plain strings in Zod (no numeric validation): non-numeric values give NaN (⚠️ UNVERIFIED outcome, likely 500). search matches name or email, case-insensitive. Each item includes the password hash (security bug). TO-BE (CR-17, BUG-S17, BUG-B22): Response no longer contains `password` (bcrypt hash leak). This is the only field removal in this release, accepted as a security fix; only the Admin client calls this endpoint and it does not read the field. page/limit that are not positive integers now return 422 instead of NaN behaviour.'
+      description: 'CSRF header required on this GET. Only roles USER and CLUB_OWNER are listed. Default excludes DELETED accounts; pass status=DELETED to list them. page/limit are plain strings in Zod (no numeric validation): non-numeric values give NaN (⚠️ UNVERIFIED outcome, likely 500). search matches name or email, case-insensitive. Each item includes the password hash (security bug). TO-BE (CR-17, BUG-S17, BUG-B22): Response no longer contains `password` (bcrypt hash leak). This is the only field removal in this release, accepted as a security fix; only the Admin client calls this endpoint and it does not read the field. page/limit that are not positive integers now return 422 instead of NaN behaviour. Implemented in T-010 (tested locally, not deployed): page and limit must match ^[1-9][0-9]*$ (positive integer, safe-integer range) and limit is at most 100; anything else (abc, 0, -1, 1.5, empty, 101) returns 422 with errors[]. Absent values keep the defaults 1 and 10; they stay strings in the schema. Success shape unchanged.'
       x-auth: 'admin cookie + csrf: checkCsrfToken (cookie admin_csrf_token must equal header X-CSRF-Token) + checkAdminAccessToken (cookie access_token) + checkAdminExistence (role ADMIN, status ACTIVE) + validateReqQuery(getAdminUsersQuerySchema)'
       security:
       - adminCookie: []
@@ -3142,12 +3141,15 @@ paths:
         required: false
         schema:
           type: string
+          pattern: '^[1-9][0-9]*$'
           default: '1'
       - name: limit
         in: query
         required: false
         schema:
           type: string
+          pattern: '^[1-9][0-9]*$'
+          description: Positive integer, at most 100 (T-010)
           default: '10'
       - name: role
         in: query
@@ -3446,7 +3448,7 @@ paths:
       tags:
       - admin
       summary: Toggle suspend (BLOCKED <-> ACTIVE)
-      description: 'Toggle: BLOCKED -> ACTIVE, any other status (including DELETED/INACTIVE and ADMIN accounts) -> BLOCKED. Response does not include the new status, only the message differs. Sessions are not revoked here. TO-BE (CR-17, BUG-B18): Unknown user id returns 404 (was 500).'
+      description: 'Toggle: BLOCKED -> ACTIVE, any other status (including DELETED/INACTIVE and ADMIN accounts) -> BLOCKED. Response does not include the new status, only the message differs. Sessions are not revoked here. Implemented in T-010 (tested locally, not deployed; CR-17, BUG-B18): unknown user id returns 404 { success:false, message:"User not found" } (was 500). Success shape unchanged.'
       x-auth: 'admin cookie + csrf: checkCsrfToken (cookie admin_csrf_token must equal header X-CSRF-Token) + checkAdminAccessToken (cookie access_token) + checkAdminExistence (role ADMIN, status ACTIVE) + validateReqParams(adminUserIdParamsSchema)'
       security:
       - adminCookie: []
@@ -3583,7 +3585,6 @@ paths:
                 - errors
       operationId: admin_patch_admin_users_id_suspend
       x-requirement: CR-17, BUG-B18
-      x-status: planned
       x-change: modified
   /admin/users/{id}/delete:
     patch:
@@ -3934,7 +3935,7 @@ paths:
       tags:
       - admin
       summary: Admin earnings (commission) overview
-      description: 'CSRF header required on this GET. Only PAID orders are listed. status is "Canceled" if a refund exists else "Completed" (Pending cannot occur). Not in backend/openapi.yaml. Decimal fields (price/commission/earning) are Prisma Decimals; serialized as strings (⚠️ UNVERIFIED). TO-BE (CR-17, BUG-B22): page/limit that are not positive integers return 422 (was NaN behaviour).'
+      description: 'CSRF header required on this GET. Only PAID orders are listed. status is "Canceled" if a refund exists else "Completed" (Pending cannot occur). Not in backend/openapi.yaml. Decimal fields (price/commission/earning) are Prisma Decimals; serialized as strings (⚠️ UNVERIFIED). TO-BE (CR-17, BUG-B22): page/limit that are not positive integers return 422 (was NaN behaviour). Implemented in T-010 (tested locally, not deployed): page and limit must match ^[1-9][0-9]*$ and limit is at most 100, else 422 with errors[]; defaults 1 and 10 unchanged; success shape unchanged.'
       x-auth: 'admin cookie + csrf: checkCsrfToken (cookie admin_csrf_token must equal header X-CSRF-Token) + checkAdminAccessToken (cookie access_token) + checkAdminExistence (role ADMIN, status ACTIVE) + validateReqQuery(earningsQuerySchema)'
       security:
       - adminCookie: []
@@ -3945,12 +3946,15 @@ paths:
         required: false
         schema:
           type: string
+          pattern: '^[1-9][0-9]*$'
           default: '1'
       - name: limit
         in: query
         required: false
         schema:
           type: string
+          pattern: '^[1-9][0-9]*$'
+          description: Positive integer, at most 100 (T-010)
           default: '10'
       - name: serviceType
         in: query
@@ -6337,8 +6341,8 @@ paths:
       tags:
       - recover
       summary: Verify recovery OTP
-      description: 'Body validated before token. Just deletes the OTP on success; no data. ⚠️ The server does not record that verification happened: /recover/reset does not require this step (only the page token).'
-      x-auth: 'recover-page token: cookie recover_page_token OR Authorization Bearer, via checkResetPasswordPageToken. chain: validateReqBody -> checkResetPasswordPageToken -> checkUserExistence -> checkAccountStatus -> checkOtp'
+      description: 'The page token is checked before the body is validated (T-021): a missing, invalid or revoked token returns 401 even with an invalid body. Just deletes the OTP on success; no data. ⚠️ The server does not record that verification happened: /recover/reset does not require this step (only the page token).'
+      x-auth: 'recover-page token: cookie recover_page_token OR Authorization Bearer, via checkResetPasswordPageToken. chain: checkResetPasswordPageToken -> validateReqBody -> checkUserExistence -> checkAccountStatus -> checkOtp'
       security:
       - userBearer: []
       requestBody:
@@ -6495,8 +6499,8 @@ paths:
       tags:
       - recover
       summary: Reset password
-      description: Body validated before token. Schema not strict. Page token is blacklisted after use; confirmation email + push notification sent. For admins cookie recover_page_token is cleared. ⚠️ OTP verification is NOT enforced server-side (OTP is not checked here).
-      x-auth: 'recover-page token: cookie recover_page_token OR Authorization Bearer, via checkResetPasswordPageToken. chain: validateReqBody -> checkResetPasswordPageToken -> checkUserExistence -> checkAccountStatus'
+      description: 'The page token is checked before the body is validated (T-021): a missing, invalid or revoked token returns 401 even with an invalid body. Schema not strict. Page token is blacklisted after use; confirmation email + push notification sent. For admins cookie recover_page_token is cleared. ⚠️ OTP verification is NOT enforced server-side (OTP is not checked here).'
+      x-auth: 'recover-page token: cookie recover_page_token OR Authorization Bearer, via checkResetPasswordPageToken. chain: checkResetPasswordPageToken -> validateReqBody -> checkUserExistence -> checkAccountStatus -> requireRecoverVerified'
       security:
       - userBearer: []
       requestBody:
@@ -6742,9 +6746,12 @@ paths:
       tags:
       - media
       summary: Upload attachments to S3
-      description: 'multipart/form-data, field name `files`, 1-10 files, max 50 MB each. Allowed mime types: images (jpeg,png,webp,svg,gif,avif,bmp,tiff,heic,heif,ico), pdf, msword/ms-excel/ms-powerpoint + OOXML, odt/ods/odp, txt/csv/markdown/rtf/json/xml, zip/rar/7z/gzip/tar, audio (mpeg,wav,ogg,webm,mp4,aac,flac,m4a), video (mp4,mpeg,quicktime,avi,wmv,webm,ogg,mkv,3gpp). S3 key: attachments/<uuid>-<ts>.<ext>. S3 failure -> 500. If an auth gate exists elsewhere (e.g. reverse proxy) it is not in code.'
-      x-auth: 'public: NO auth middleware in media.routes.ts (anyone can upload). chain: uploadAttachmentArray("files",10,required) -> handleAttachmentMulterError'
-      security: []
+      description: 'multipart/form-data, field name `files`, 1-10 files, max 50 MB each. Allowed mime types: images (jpeg,png,webp,svg,gif,avif,bmp,tiff,heic,heif,ico), pdf, msword/ms-excel/ms-powerpoint + OOXML, odt/ods/odp, txt/csv/markdown/rtf/json/xml, zip/rar/7z/gzip/tar, audio (mpeg,wav,ogg,webm,mp4,aac,flac,m4a), video (mp4,mpeg,quicktime,avi,wmv,webm,ogg,mkv,3gpp). S3 key: attachments/<uuid>-<ts>.<ext>. S3 failure -> 500. Requires authentication (HF-005): missing/invalid credentials -> 401, admin cookie without a matching CSRF header -> 403.'
+      x-auth: 'HF-005: requireMediaAuth (media.guard.ts): Authorization Bearer present -> checkUserAccessToken + checkUserExistence + checkAccountStatus (any role); else admin access_token cookie -> checkCsrfToken + checkAdminAccessToken + checkAdminExistence; neither -> 401. Runs BEFORE multer. chain: requireMediaAuth -> uploadAttachmentArray("files",10,required) -> handleAttachmentMulterError'
+      security:
+      - userBearer: []
+      - adminCookie: []
+        csrfHeader: []
       requestBody:
         required: true
         content:
@@ -6812,9 +6819,12 @@ paths:
       tags:
       - media
       summary: Delete uploaded media by URL
-      description: 'urls are converted to S3 keys via URL pathname (or the raw string if not a URL). No ownership check. Empty array accepted. ⚠️ UNVERIFIED: whether validateReqBody actually runs for DELETE (depends on ALLOWED_WRITE_METHODS, not read).'
-      x-auth: 'public: NO auth middleware (anyone can delete any S3 object by URL). chain: validateReqBody(deleteMediaSchema)'
-      security: []
+      description: 'urls are converted to S3 keys via URL pathname (or the raw string if not a URL). No ownership check. Empty array accepted. Body is validated by validateReqBody since T-014 (DELETE added to the validated methods): a missing body, a non-array urls, an empty-string url or an unknown key returns 422 with the standard validation error body. Both clients already send {urls: [..]}.'
+      x-auth: 'HF-005: requireMediaAuth (same as POST /media). Any authenticated account can still delete any URL (no ownership record; see known-issues S-01 follow-up). chain: requireMediaAuth -> validateReqBody(deleteMediaSchema) (body validated on DELETE since T-014, S-18)'
+      security:
+      - userBearer: []
+      - adminCookie: []
+        csrfHeader: []
       requestBody:
         required: true
         content:
@@ -8298,7 +8308,7 @@ paths:
       - club
       summary: Get one owned club with opening hours and packages
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + checkConnectReadinessMiddleware (Stripe Connect canCreateListings) + validateReqParams(clubIdParamsSchema)'
-      description: 'Ownership: service uses prisma.club.findUniqueOrThrow({where:{id,userId}}). A club that does not exist OR belongs to another owner throws a Prisma P2025 error that is NOT mapped by globalErrorMiddleware, so the client gets 500 ''Internal Server Error'' (not 404/403). Documented as coded. Returns ALL packages (including inactive) ordered by sortOrder. TO-BE (CR-17, BUG-B26): Club not found or not owned returns 404 (was 500 from unmapped Prisma P2025).'
+      description: 'Ownership: service uses prisma.club.findUniqueOrThrow({where:{id,userId}}). A club that does not exist OR belongs to another owner returns 404 {success:false, message:''Club not found'', errorType:''NOT_FOUND'', traceId} with the same body for both (T-012, tested locally, not deployed; was 500 from unmapped Prisma P2025). Prisma errors are converted by mapPrismaError (P2025 -> 404, P2003 -> 409 FOREIGN_KEY_CONFLICT) with fixed messages; raw Prisma text never reaches the client. Returns ALL packages (including inactive) ordered by sortOrder. TO-BE note (CR-17, BUG-B26) shipped in T-012.'
       security:
       - userBearer: []
       parameters:
@@ -8577,14 +8587,13 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: club_get_club_id
       x-requirement: CR-17, BUG-B26
-      x-status: planned
       x-change: modified
     put:
       tags:
       - club
       summary: Update an owned club (partial) incl. hours/packages/activation
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + checkConnectReadinessMiddleware (Stripe Connect canCreateListings) + validateReqParams(clubIdParamsSchema) + validateReqBody(updateClubSchema)'
-      description: 'Ownership: service uses prisma.club.findUniqueOrThrow({where:{id,userId}}). A club that does not exist OR belongs to another owner throws a Prisma P2025 error that is NOT mapped by globalErrorMiddleware, so the client gets 500 ''Internal Server Error'' (not 404/403). Documented as coded. All body fields optional. `isActive:false` sets deactivatedAt=now, `true` clears it. openingHours (exactly 7 if sent): item with `id` updates that row (404 ''Opening hour not found: <id>'' if not in this club), without id upserts by (clubId, dayOfWeek). packages: no id -> create (skipped if isActive=false); id -> update; `isActive:false` with id -> hard-delete if no ClubBooking references it, else deactivate; omitted packages untouched; 404 ''Package not found: <id>''. Active packages must share one currency (422 from schema; service re-checks with statusCode 422). Returns bare Club row. TO-BE (CR-17, BUG-B26): Club not found or not owned returns 404 (was 500 from unmapped Prisma P2025).'
+      description: 'Ownership: service uses prisma.club.findUniqueOrThrow({where:{id,userId}}). A club that does not exist OR belongs to another owner returns 404 {success:false, message:''Club not found'', errorType:''NOT_FOUND'', traceId} with the same body for both (T-012, tested locally, not deployed; was 500 from unmapped Prisma P2025). Prisma errors are converted by mapPrismaError (P2025 -> 404, P2003 -> 409 FOREIGN_KEY_CONFLICT) with fixed messages; raw Prisma text never reaches the client. All body fields optional. `isActive:false` sets deactivatedAt=now, `true` clears it. openingHours (exactly 7 if sent): item with `id` updates that row (404 ''Opening hour not found: <id>'' if not in this club), without id upserts by (clubId, dayOfWeek). packages: no id -> create (skipped if isActive=false); id -> update; `isActive:false` with id -> hard-delete if no ClubBooking references it, else deactivate; omitted packages untouched; 404 ''Package not found: <id>''. Active packages must share one currency (422 from schema; service re-checks with statusCode 422). Returns bare Club row. TO-BE note (CR-17, BUG-B26) shipped in T-012.'
       security:
       - userBearer: []
       parameters:
@@ -8870,7 +8879,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: club_put_club_id
       x-requirement: CR-17, BUG-B26
-      x-status: planned
       x-change: modified
   /club/{id}/bookings/close:
     put:
@@ -9210,7 +9218,7 @@ paths:
       - event
       summary: Create an event
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + checkConnectReadinessMiddleware (Stripe Connect canCreateListings) + validateReqBody(createEventSchema)'
-      description: 'Creates Event + PostGIS geog + ticketTiers (with one level of children) + lineup (upserts global Artist by lowercased name) in one transaction, then enqueues BullMQ jobs MAKE_EVENT_ONGOING / MAKE_EVENT_COMPLETED and pushes NEW_EVENT notifications to users within 5 km. Response is the bare Event row (no tiers/lineup). `clubId` is stored without ownership validation. TO-BE (CR-17, CR-03, CR-02): Request gains optional `timezone`, `pricingMode`, `organizerId` (defaults keep current behaviour). Ticket tiers gain `tierType`. TO-BE (CR-12): Lineup items accept optional `artistId` (and artistAvatar already exists as the photo).'
+      description: 'Creates Event + PostGIS geog + ticketTiers (with one level of children) + lineup (links or creates the global Artist by name key, see W-04 below) in one transaction, then enqueues BullMQ jobs MAKE_EVENT_ONGOING / MAKE_EVENT_COMPLETED and pushes NEW_EVENT notifications to users within 5 km. Response is the bare Event row (no tiers/lineup). `clubId` is stored without ownership validation. Request gains optional `timezone` and `pricingMode` (implemented in T-017, tested locally, not deployed; rules on the fields; the Event row in the response now includes both) and `tierType` on ticket tiers (T-016). `eventDescription` and tier `description` are optional and an empty string is stored as NULL (A2.15, A2.16). TO-BE (CR-02): optional `organizerId` (defaults keep current behaviour). T-044 (tested locally, not deployed): lineup items accept an optional `artistId` (uuid) that links that existing Artist as it is (the shared Artist row is never overwritten from a lineup item and `artistName` stays required and is stored on the lineup row); an unknown `artistId` returns 404 "Artist not found" and nothing is created; a value that is not a uuid returns 422. Items without `artistId`: W-04 (tested locally, not deployed): a lineup item WITHOUT `artistId` never modifies an existing Artist. If an Artist with the same name key (trimmed, lowercased, inner spaces collapsed) already exists, the lineup row links to it and nothing on the Artist changes (not the name, photo, links, isVerified or updatedAt). If none exists, a new Artist is created from the item and isVerified is always false, whatever `isVerified` the item says (only admins verify, through /admin/artists). Two requests that create the same new name at once end with one Artist and no error. The lineup row still stores the sent artistName, artistAvatar and links as before. Its isVerified is never taken from the request: it is always the isVerified of the linked Artist, stored on write and shown on every read (so a client-sent isVerified: true does not make an artist appear verified, and an admin verifying an artist updates every lineup that lists it). A lineup can therefore no longer change the photo or links of a shared artist: to edit it, a club owner whose event lists the artist uses PATCH /artists/{id}, or an admin does. Request and response shapes and status codes are unchanged.'
       security:
       - userBearer: []
       requestBody:
@@ -9359,8 +9367,7 @@ paths:
                               enum:
                               - TICKET
                               - PASS
-                              default: TICKET
-                              description: Drives preset name lists (GET /ticket-tier-presets). Pass validity per day arrives with CR-05 (deferred). (CR-03)
+                              description: 'Drives preset name lists (GET /ticket-tier-presets). Pass validity per day arrives with CR-05 (deferred). (CR-03) Implemented in T-016. Omitted on POST means TICKET; omitted on PUT keeps the stored value (a live-app PUT that does not send it never resets a PASS). An unknown value returns 422. Returned on every tier object, including children (additive).'
                           required:
                           - tierName
                           - price
@@ -9409,11 +9416,9 @@ paths:
                         type: integer
                         default: 0
                       artistId:
-                        type:
-                        - string
-                        - 'null'
+                        type: string
                         format: uuid
-                        description: Link an existing artist instead of matching by lowercased name. (CR-12)
+                        description: 'Optional. Links an existing artist instead of matching by lowercased name (CR-12, T-044, tested locally, not deployed). Unknown id 404 Artist not found; not a uuid 422; null is not accepted. W-04: without artistId, an existing Artist with the same name key is linked and left untouched, otherwise a new Artist is created with isVerified false (isVerified in a lineup item is ignored); a lineup can no longer change a shared artist, use PATCH /artists/{id} or an admin.'
                     required:
                     - artistName
                 lat:
@@ -9447,7 +9452,7 @@ paths:
                   description: Optional link to a club; NOT verified for existence/ownership by the service (FK failure -> 500)
                 timezone: &id002
                   type: string
-                  description: 'IANA zone of the venue, e.g. Europe/Paris. Default: timezone of the selected city, else UTC. All day-based logic (explore day groups, analytics buckets) uses it. (CR-17 T4)'
+                  description: 'IANA zone of the venue, e.g. Europe/Paris. Optional. Implemented in T-017 (tested locally, not deployed): validated against real IANA names (Intl list plus UTC and aliases such as Asia/Kolkata; offsets, wrong case or arbitrary text return 422). Omitted on create: UTC (the column default; NOT inferred from city or coordinates, how existing events get a zone is an open client question). Omitted on update: the stored value is kept. All day-based logic (explore day groups, analytics buckets) is meant to use it in later tasks; T-017 changes no day-boundary logic. (CR-17 T4)'
                 pricingMode: &id003
                   type: string
                   enum:
@@ -9455,7 +9460,7 @@ paths:
                   - TIERED
                   - FREE
                   - MIXED
-                  description: 'Which price source applies at checkout. SINGLE=eventPrice, TIERED=ticketTiers, FREE=free admission, MIXED=free plus paid tiers. Default: TIERED when tiers exist, else SINGLE (current behaviour). (CR-03)'
+                  description: 'Which price source applies at checkout. SINGLE=eventPrice, TIERED=ticketTiers, FREE=free admission, MIXED=free plus paid tiers. Implemented in T-017 (tested locally, not deployed). Checked on write against the price and the ACTIVE tiers (a section counts through its children): TIERED needs at least one tier; SINGLE needs no tiers; FREE needs eventPrice 0 and no paid tier; MIXED needs at least one free and one paid tier. A mismatch returns 422 with errorType PRICING_MODE_INVALID and changes nothing. Omitted: on create derived like migration 4 (TIERED if tiers exist, else FREE if eventPrice is 0, else SINGLE; MIXED is never derived); on update the stored value is kept while it still fits the new price and tiers, otherwise it is derived (never a 422 for a client that sent no pricingMode). (CR-03)'
                 organizerId: &id004
                   type:
                   - string
@@ -9887,7 +9892,7 @@ paths:
       - event
       summary: Update an owned event (partial) / cancel / restore
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + checkConnectReadinessMiddleware (Stripe Connect canCreateListings) + validateReqParams(eventIdParamsSchema) + validateReqBody(updateEventSchema) + checkEventCancellationValidityMiddleware'
-      description: 'All fields optional. checkEventCancellationValidityMiddleware loads the event and enforces ownership (404 / 403 with bare {success,message} bodies - no errorType/traceId). Rules: (1) event already CANCELED -> only a restore is allowed (eventStatus=UPCOMING AND isActive=true) else 400; (2) eventStatus=CANCELED within 6h of startAt -> 400; otherwise formal cancellation: deactivatedAt set, a SCHEDULED Refund (grossAmount, +6 days) created per PAID EVENT order, refund jobs + cancellation emails + push enqueued after commit. WARNING: sending `ticketTiers` deletes ALL existing tiers and recreates them (soldCount resets to 0, ids change); sending `lineup` likewise replaces all lineup rows. Returns bare Event row. TO-BE (CR-04, BUG-B24): Ticket tiers are now updated in place. A tier object WITH `id` updates that tier (soldCount and id preserved); a tier WITHOUT `id` is created; an existing tier missing from the array is deleted if soldCount=0, otherwise deactivated (isActive=false) and kept. capacity lower than soldCount returns 409 TIER_CAPACITY_BELOW_SOLD. Previously `id` was ignored and all tiers were deleted and recreated (soldCount reset to 0). Backward compatibility for the live app, which does not send ids: when no incoming tier carries an id, the server matches incoming tiers to existing ones by (parent groupName, tierName) and updates those in place; unmatched sold tiers are deactivated rather than deleted.'
+      description: 'All fields optional. checkEventCancellationValidityMiddleware loads the event and enforces ownership: an event that is missing OR owned by another user returns 404 {success:false, message:''Event not found'', errorType:''NOT_FOUND'', traceId} (T-012, tested locally, not deployed; was 403 ''Forbidden'' for a foreign event, which the live Flutter app treats like 401). Rules: (1) event already CANCELED -> only a restore is allowed (eventStatus=UPCOMING AND isActive=true) else 400; (2) eventStatus=CANCELED within 6h of startAt -> 400; otherwise formal cancellation: deactivatedAt set, a SCHEDULED Refund (grossAmount, +6 days) created per PAID EVENT order, refund jobs + cancellation emails + push enqueued after commit. WARNING: sending `ticketTiers` deletes ALL existing tiers and recreates them (soldCount resets to 0, ids change); sending `lineup` likewise replaces all lineup rows. T-044 (tested locally, not deployed): lineup items accept the optional `artistId` as on POST /event; the link survives the delete and recreate of the lineup rows, an unknown `artistId` returns 404 "Artist not found" and the whole update is rolled back (the old lineup stays). A legacy client that resends the same `artistName` without `artistId` is still matched to the same Artist by name. W-04 (tested locally, not deployed): a lineup item WITHOUT `artistId` never modifies an existing Artist. If an Artist with the same name key (trimmed, lowercased, inner spaces collapsed) already exists, the lineup row links to it and nothing on the Artist changes (not the name, photo, links, isVerified or updatedAt). If none exists, a new Artist is created from the item and isVerified is always false, whatever `isVerified` the item says (only admins verify, through /admin/artists). Two requests that create the same new name at once end with one Artist and no error. The lineup row still stores the sent artistName, artistAvatar and links as before. Its isVerified is never taken from the request: it is always the isVerified of the linked Artist, stored on write and shown on every read (so a client-sent isVerified: true does not make an artist appear verified, and an admin verifying an artist updates every lineup that lists it). A lineup can therefore no longer change the photo or links of a shared artist: to edit it, a club owner whose event lists the artist uses PATCH /artists/{id}, or an admin does. Request and response shapes and status codes are unchanged. Returns bare Event row. TO-BE (CR-04, BUG-B24): Ticket tiers are now updated in place. A tier object WITH `id` updates that tier (soldCount and id preserved); a tier WITHOUT `id` is created; an existing tier missing from the array is hard-deleted only if soldCount=0 AND no EventPurchase row references it (T-006), otherwise deactivated (isActive=false) and kept. capacity lower than soldCount returns 409 TIER_CAPACITY_BELOW_SOLD. Previously `id` was ignored and all tiers were deleted and recreated (soldCount reset to 0). Backward compatibility for the live app, which does not send ids: when no incoming tier carries an id, the server matches incoming tiers to existing ones by (parent groupName, tierName) and updates those in place; unmatched sold tiers are deactivated rather than deleted. T-016 section rule (tested locally, not deployed): a tier that already has sales (soldCount > 0) cannot be sent with `children` (422 TIER_SECTION_HAS_SALES), and the parent of a child must be a top-level tier of the same event (422 TIER_INVALID_PARENT; the request shape nests children, so this cannot be triggered through the API today and is a defensive check). Checked on write only; existing events are not re-validated on read. T-017 (tested locally, not deployed): optional `timezone` (validated IANA name, 422 otherwise) and `pricingMode` (checked against the price and active tiers after this request is applied, 422 PRICING_MODE_INVALID, nothing changes); a request without them keeps the stored values, except that a stored pricingMode that no longer fits the new price or tiers is re-derived. `eventDescription` and tier `description` accept an empty string, stored as NULL.'
       security:
       - userBearer: []
       parameters:
@@ -9975,6 +9980,10 @@ paths:
                       sortOrder:
                         type: integer
                         default: 0
+                      artistId:
+                        type: string
+                        format: uuid
+                        description: Optional. Links an existing artist (CR-12, T-044, tested locally, not deployed). Unknown id 404 Artist not found (update rolled back); not a uuid 422.
                       startAt:
                         type:
                         - string
@@ -10323,9 +10332,7 @@ paths:
         '403':
           description: '- ACCESS_DENIED: ''Access denied: Requires club owner privileges'' (accountRole must be CLUB_OWNER)
 
-            - (no errorType) ''Complete Stripe Connect setup before managing listings'' (checkConnectReadinessMiddleware; response is {success,message,traceId})
-
-            - ''Forbidden'' (middleware; event.userId != caller; body {success,message} only)'
+            - (no errorType) ''Complete Stripe Connect setup before managing listings'' (checkConnectReadinessMiddleware; response is {success,message,traceId})'
           content:
             application/json:
               schema:
@@ -10353,7 +10360,7 @@ paths:
       - event
       summary: Get one owned event with all ticket tiers and lineup
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + checkConnectReadinessMiddleware (Stripe Connect canCreateListings) + validateReqParams(eventIdParamsSchema)'
-      description: 'Owner detail view; includes inactive tiers. ticketTiers is the mapped tree (price as 2dp string, soldOut flag, children nested). Event/other-owner not found -> findUniqueOrThrow P2025 -> 500 (unmapped), as coded. TO-BE (CR-17, BUG-B26): Event not found or not owned returns 404 (was 500 from unmapped Prisma P2025).'
+      description: 'Owner detail view; includes inactive tiers. ticketTiers is the mapped tree (price as 2dp string, soldOut flag, children nested). Event missing or owned by another user returns 404 {success:false, message:''Event not found'', errorType:''NOT_FOUND'', traceId}, same body for both (T-012, tested locally, not deployed; was 500 from unmapped Prisma P2025). Fixed messages only, raw Prisma text never reaches the client.'
       security:
       - userBearer: []
       parameters:
@@ -10767,7 +10774,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: event_get_event_id
       x-requirement: CR-17, BUG-B26
-      x-status: planned
       x-change: modified
   /event/{id}/duplicate:
     post:
@@ -10775,7 +10781,7 @@ paths:
       - event
       summary: Duplicate an owned event (tiers, lineup, modules, guest list, VIP hosts)
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + validateReqParams(eventIdParamsSchema)  (NOTE: no checkConnectReadinessMiddleware)'
-      description: 'Service checks (statusCode errors): source must exist and be active (404 ''Event not found''), owned (403 ''You do not own this event''). Copy is named ''<name> (Copy)'', eventStatus UPCOMING, bookingsClosed false, clubHostStatus NONE, tiers soldCount 0, modules remaining=quantity/status AVAILABLE, guest-list fallbacks remapped to new tier/module ids, VIP host links copied. NOTE: PostGIS geog is NOT set on the copy (comment in code) so geo-filtered explore queries will not find it until updated with lat/lng. Dates are copied unchanged. Returns raw Prisma rows. TO-BE (CR-09, BUG-B25): The copy gets PostGIS `geog` set, so it appears in geo-filtered explore results.'
+      description: 'Service checks (statusCode errors): source must exist and be active (404 ''Event not found''), owned (403 ''You do not own this event''). Copy is named ''<name> (Copy)'', eventStatus UPCOMING, bookingsClosed false, clubHostStatus NONE, tiers soldCount 0, modules remaining=quantity/status AVAILABLE, guest-list fallbacks remapped to new tier/module ids, VIP host links copied. T-030 (tested locally, not deployed): PostGIS geog is set on the copy from its copied lat/lng, in the same transaction, so geo-filtered explore queries find it (rows with non-finite or out-of-range stored coordinates keep a NULL geog). Dates are copied unchanged. Returns raw Prisma rows.'
       security:
       - userBearer: []
       parameters:
@@ -12713,7 +12719,7 @@ paths:
       - eventModule
       summary: Delete a module
       x-auth: 'owner: user bearer (checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus) + checkClubOwnerRoleMiddleware (accountRole=CLUB_OWNER) + validateReqParams(eventModuleIdParamsSchema)'
-      description: 'Service assertOwnedEvent: event must exist and not be deactivated (404 ''Event not found''), and event.userId must equal caller (403 ''You do not own this event''). Hard delete (prisma.eventModule.delete). Quote rows cascade-delete, but EventModulePurchase.module is onDelete: Restrict, so deleting a module that has purchases raises an unmapped Prisma FK error -> 500 ''Internal Server Error'' (no pre-check in the service). TO-BE (CR-17, BUG-B26): Module referenced by purchases returns 409 (was 500, FK Restrict).'
+      description: 'Service assertOwnedEvent: event must exist and not be deactivated (404 ''Event not found''), and event.userId must equal caller (403 ''You do not own this event''). Hard delete (prisma.eventModule.delete). Quote rows cascade-delete, but EventModulePurchase.module is onDelete: Restrict, so deleting a module that has purchases returns 409 {success:false, message:''Module has purchases and cannot be deleted; deactivate it instead'', errorType:''FOREIGN_KEY_CONFLICT'', traceId} via mapPrismaError (T-013, tested locally, not deployed; was an unmapped Prisma FK error -> 500). The module is not deleted. A module that disappears between the lookup and the delete returns 404 ''Module not found'' (NOT_FOUND).'
       security:
       - userBearer: []
       parameters:
@@ -12821,14 +12827,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Module has purchases and cannot be deleted; deactivate it instead (TO-BE; was 500)
+          description: "FOREIGN_KEY_CONFLICT: 'Module has purchases and cannot be deleted; deactivate it instead' (was 500; implemented in T-013)"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: eventModule_delete_event_eventId_modules_id
       x-requirement: CR-17, BUG-B26
-      x-status: planned
       x-change: modified
   /event/{eventId}/guest-list:
     get:
@@ -13294,7 +13299,7 @@ paths:
       - guestList
       summary: Join an event's guest list
       x-auth: 'user bearer: checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus (any role; no owner check) + validateReqParams + validateReqBody(joinGuestListSchema)'
-      description: 'Any authenticated user (the controller tolerates a missing user, but the route requires a token). Entry is created PENDING with userId = caller. Service checks: event exists & active (404); guestList enabled (409 ''Guest list is closed''); computeIsOpen = enabled, before cutoffAt, after (startAt - daysBefore days), and freeSpots not exhausted (409 ''Guest list is closed or full''); arrivalTime must be in arrivalTimes when owner configured any (422); party size <= remaining total (409), men <= remaining male cap (409), women <= remaining female cap (409). No duplicate-entry check (same user can join repeatedly). Body .strict(); at least one guest required (422 on menCount). TO-BE (CR-06, BUG-B29): A user with an existing PENDING or APPROVED entry for the same event gets 409 GUEST_LIST_DUPLICATE instead of a second entry.'
+      description: 'Any authenticated user (the controller tolerates a missing user, but the route requires a token). Entry is created PENDING with userId = caller. Service checks: event exists & active (404); guestList enabled (409 ''Guest list is closed''); computeIsOpen = enabled, before cutoffAt, after (startAt - daysBefore days), and freeSpots not exhausted (409 ''Guest list is closed or full''); arrivalTime must be in arrivalTimes when owner configured any (422); party size <= remaining total (409), men <= remaining male cap (409), women <= remaining female cap (409). Duplicate check (T-020, BUG-B29, tested locally, not deployed): a user with a PENDING or CONFIRMED entry (CONFIRMED is the approved state in the schema) for the same event gets 409 GUEST_LIST_DUPLICATE; a REJECTED entry does not block a new request. Check and insert run in one transaction under a pg_advisory_xact_lock on user and event, so parallel identical joins create one row. Body .strict(); at least one guest required (422 on menCount).'
       security:
       - userBearer: []
       parameters:
@@ -13423,7 +13428,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: '- ''Guest list is closed'' / ''Guest list is closed or full'' / ''Guest list does not have enough spots'' / ''Male guest list capacity reached'' / ''Female guest list capacity reached'' (no errorType) | TO-BE: GUEST_LIST_DUPLICATE'
+          description: '- ''Guest list is closed'' / ''Guest list is closed or full'' / ''Guest list does not have enough spots'' / ''Male guest list capacity reached'' / ''Female guest list capacity reached'' (no errorType) | GUEST_LIST_DUPLICATE: ''You already have an active request for this guest list'' (T-020)'
           content:
             application/json:
               schema:
@@ -15275,7 +15280,7 @@ paths:
       - explore
       summary: Search/browse clubs and upcoming events (public)
       x-auth: 'optional user bearer: optionalUserAccessTokenMiddleware (no header = guest; header present but bad = 401) + validateReqQuery(exploreQuerySchema)'
-      description: 'Unified feed: type=CLUB -> clubs only, type=EVENT -> events only, omitted -> UNION ALL of both. Clubs: not deactivated. Events: not deactivated, eventStatus UPCOMING, endAt > now. lat+lng (both required to take effect) restricts to 20 km (PostGIS ST_DWithin on `geog`; events duplicated without geog will not match). Club-only filters: isPopular, ratings, isVip (422 if combined with type=EVENT). Event-only filters: dateFilter, isFree, categoryType, genres (comma list, UPPER-CASED before matching against Event.musicGenres), mood (comma list vs moodTags). `date` (ISO datetime): events active at that instant; clubs open on that weekday (UTC). `city` = ILIKE on location. minPrice/maxPrice: clubs match if any active package in range; events use eventPrice. sort: newest (default) / oldest; `trending` is accepted by the schema but IGNORED (falls to default createdAt DESC); isPopular orders by rating desc. Without a token `isWishlist` is omitted. TO-BE (CR-09, CR-10, BUG-B28): New optional params radiusKm, cityId, group, from, to. `sort=trending` is implemented (views + interested over the last 7 days; Q6c default). dateFilter gains `this_week`. Items gain `distanceKm` when a search centre exists. Response is unchanged when no new param is sent. meta.total is the live result count used by filter UIs.'
+      description: 'Unified feed: type=CLUB -> clubs only, type=EVENT -> events only, omitted -> UNION ALL of both. Clubs: not deactivated. Events: not deactivated, eventStatus UPCOMING, endAt > now. lat+lng (both required to take effect) restricts to 20 km (PostGIS ST_DWithin on `geog`; events duplicated without geog will not match). Club-only filters: isPopular, ratings, isVip (422 if combined with type=EVENT). Event-only filters: dateFilter, isFree, categoryType, genres (comma list, UPPER-CASED before matching against Event.musicGenres), mood (comma list vs moodTags). `date` (ISO datetime): events active at that instant; clubs open on that weekday (UTC). `city` = ILIKE on location. minPrice/maxPrice: clubs match if any active package in range; events use eventPrice. sort: newest (default) / oldest; `trending` ranks events by views + Interested taps over 7 days (T-042, tested locally, not deployed, see the sort parameter); isPopular orders by rating desc and wins over sort. Without a token `isWishlist` is omitted. TO-BE (CR-09, CR-10, BUG-B28): New optional params radiusKm, cityId, group, from, to. `sort=trending` is implemented (views + interested over the last 7 days; Q6c default). dateFilter gains `this_week`. Items gain `distanceKm` when a search centre exists. Response is unchanged when no new param is sent. T-034 (tested locally, not deployed) implemented radiusKm, cityId and distanceKm only: the centre is lat+lng when both are sent, otherwise the City lat/lng for cityId (any existing City row, whatever isLaunched; unknown id 404, malformed id 422; lat/lng win when both are sent); the radius goes to ST_DWithin in metres on the geog GiST index; `distanceKm` (km, 1 decimal, measured by PostGIS ST_Distance on the geography) is on every item only when a centre exists. T-035 (tested locally, not deployed) implemented group=day, from, to, dateFilter=this_week and meta.total. TIME ZONE RULE for all of them: when cityId is sent the zone is City.timezone, otherwise each event uses its own Event.timezone. Event.timezone defaults to UTC and EVERY existing event is UTC (how existing events get a zone is an open client question; nothing is inferred from city or coordinates), so for those events days are UTC days; that is documented behaviour. Days are the LOCAL calendar date of the event START computed with IANA zone arithmetic (AT TIME ZONE / Intl), never fixed offsets, so daylight-saving changes do not shift buckets; an overnight event (for example 23:00 to 03:00 local) belongs to its start day. group=day: data becomes [{label, date, items}] with label Today, Tomorrow, This Weekend or Upcoming, fixed bucket order, empty buckets omitted, items in chronological order of startAt (each item also carries startAt); date = local date (YYYY-MM-DD) of the bucket first item. Today = same local date as now (an event that started on an earlier day and is still running is also Today), Tomorrow = next local date, This Weekend = Friday 18:00 to the end of Sunday of the current Monday to Sunday week in that zone, Upcoming = the rest; Today and Tomorrow win over This Weekend. group=day applies to events only: with type omitted clubs are left out, with type=CLUB it returns 422. Paging applies to the flat chronological list first, then the page is grouped. from and to are ISO dates YYYY-MM-DD, inclusive, compared with the local start date; a bad date or from after to returns 422. dateFilter=this_week = local start date from Monday to Sunday of the week that contains now. Order: unchanged (createdAt DESC) unless group=day, from, to or this_week is sent, then startAt ASC (sort and isPopular still override). Requests without the new params return the old response shape. meta.total is the count of all matches ignoring page and limit, with the same filters (already returned before T-035). sort=trending is implemented by T-042 (tested locally, not deployed). meta.total is the live result count used by filter UIs.'
       security:
       - optionalUserBearer: []
       parameters:
@@ -15304,7 +15309,7 @@ paths:
           - this_weekend
           - next_weekend
           - this_week
-        description: events only
+        description: 'events only. this_week (T-035) = Monday to Sunday of the current week in the zone rule described on the operation.'
       - name: lat
         in: query
         required: false
@@ -15419,16 +15424,20 @@ paths:
           - newest
           - oldest
           - trending
-        description: '''trending'' currently has no effect'
+        description: "trending (T-042, tested locally, not deployed) ranks EVENTS by views + Interested taps over the last 7 UTC days, ties startAt ASC then id ASC; clubs score 0 and follow the events (ties by id). isPopular still wins over sort. Omitted, newest or oldest: unchanged. RANKING RULES (T-042, our proposal, open question for the client to confirm): windows are whole UTC days that end with the UTC day of now (today included), 7 days for trending and 30 days for most viewed. Trending score = views (EventViewDaily.views summed over the 7 days) + Interested taps (EventInterest.createdAt inside the same 7 days), weight 1 each. Most viewed score = views over the 30 days. Ties: startAt ascending, then id ascending. Until history exists (no EventViewDaily row on or before the first day of the window) the lifetime Event.viewCount replaces the windowed views (taps still count for trending). Every open counts (no per-user de-duplication). Nobody is identified: only counts are used and no endpoint shows who viewed or who is interested."
       - name: radiusKm
         in: query
         required: false
         schema:
           type: integer
-          minimum: 1
-          maximum: 50
+          enum:
+          - 10
+          - 20
+          - 30
+          - 40
+          - 50
           default: 20
-        description: 'Search radius around lat/lng (or around the city centre when cityId is sent). Default 20 equals the current hard-coded value, so existing clients are unchanged. Steps in the UI: 10, 20, 30, 40, 50.'
+        description: 'Search radius in km around lat/lng (or around the city centre when cityId is sent). Allowed values 10, 20, 30, 40, 50; any other value returns 422. Implemented in T-034 (tested locally, not deployed). The SERVER default when radiusKm is omitted stays 20 (the old fixed value), so live clients are unchanged. The client answered (Q6a, 2026-11-22) that the app INITIAL selection is 30 km: the new Flutter screens send radiusKm=30 explicitly, the server default is NOT 30. Without a search centre the radius has no effect.'
       - name: cityId
         in: query
         required: false
@@ -15445,20 +15454,21 @@ paths:
           - none
           - day
           default: none
-        description: 'day = response data is grouped: [{label: Today|Tomorrow|This Weekend|Upcoming, date, items:[...]}] chronologically. Default keeps the flat array.'
+        description: 'day = response data is grouped: [{label: Today|Tomorrow|This Weekend|Upcoming, date, items:[...]}] chronologically. Default keeps the flat array. Implemented in T-035 (tested locally, not deployed): bucket rules, zone rule and the type=CLUB 422 are in the operation description. Weekend = Friday 18:00 to the end of Sunday in the zone.'
       - name: from
         in: query
         required: false
         schema:
           type: string
-          format: date-time
-        description: Start of date range (CR-10). Combine with to.
+          format: date
+        description: 'Start of date range (CR-10), ISO date YYYY-MM-DD, inclusive, compared with the LOCAL date of the event start (zone rule on the operation). Implemented in T-035 (tested locally, not deployed). Must not be after to (422).'
       - name: to
         in: query
         required: false
         schema:
           type: string
-          format: date-time
+          format: date
+        description: 'End of date range (CR-10), ISO date YYYY-MM-DD, inclusive. Implemented in T-035 (tested locally, not deployed).'
       responses:
         '200':
           description: Success
@@ -15667,7 +15677,7 @@ paths:
       - explore
       summary: Home 'For You' feed (public)
       x-auth: 'optional user bearer: optionalUserAccessTokenMiddleware (no header = guest; header present but bad = 401) + validateReqQuery(exploreFeedQuerySchema)'
-      description: 'Aggregated: today/tomorrow (up to 10 upcoming events overlapping the day, by startAt), blowingUp (top 10 by viewCount), popularOrganizers (top 10 clubs by followerCount), genres (distinct genres of upcoming events). `city` filters by ILIKE location. `lat`/`lng` are validated but IGNORED by the service. The token (if any) is not used for personalisation. No isWishlist. TO-BE (CR-09, BUG-B28): lat/lng, city, cityId and radiusKm are honoured by every feed module (lat/lng were accepted but ignored). Module labels use the city actually applied.'
+      description: 'Aggregated: today/tomorrow (up to 10 upcoming events overlapping the day, by startAt), blowingUp (top 10 by viewCount), popularOrganizers (top 10 clubs by followerCount), genres (distinct genres of upcoming events). `city` filters by ILIKE location. The token (if any) is not used for personalisation. No isWishlist. Implemented in T-036 (CR-09, BUG-B28; tested locally, not deployed): with a centre (lat and lng both sent, else the City centre of cityId, lat/lng win; any City row, launched or not; unknown cityId returns 404, malformed 422) every module (today, tomorrow, blowingUp, popularOrganizers and genres) only contains events and clubs within radiusKm (10, 20, 30, 40, 50 else 422; server default 20 when omitted). city (ILIKE location) still applies on top when sent. With no lat/lng/cityId the response is exactly as before (radiusKm alone changes nothing; lat without lng is not a centre). The response shape is unchanged: there are no module labels or distance fields in it, so no label text is produced; the city actually applied is the one named by cityId. Items do not carry distanceKm in the feed.'
       security:
       - optionalUserBearer: []
       parameters:
@@ -15683,7 +15693,7 @@ paths:
           type: number
           minimum: -90
           maximum: 90
-        description: validated, unused
+        description: 'Search centre together with lng. Honoured by every module since T-036 (tested locally, not deployed).'
       - name: lng
         in: query
         required: false
@@ -15691,21 +15701,27 @@ paths:
           type: number
           minimum: -180
           maximum: 180
-        description: validated, unused
+        description: 'Search centre together with lat. Honoured by every module since T-036 (tested locally, not deployed).'
       - name: radiusKm
         in: query
         required: false
         schema:
           type: integer
-          minimum: 1
-          maximum: 50
+          enum:
+          - 10
+          - 20
+          - 30
+          - 40
+          - 50
           default: 20
+        description: 'Radius in km around the centre; any other value returns 422. Server default 20 when omitted (the new app sends 30 explicitly). Implemented in T-036 (tested locally, not deployed).'
       - name: cityId
         in: query
         required: false
         schema:
           type: string
           format: uuid
+        description: 'City centre used when lat/lng are absent; any City row (launched or not). Unknown returns 404. Implemented in T-036 (tested locally, not deployed).'
       responses:
         '200':
           description: Success
@@ -15959,7 +15975,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: explore_get_explore_feed
       x-requirement: CR-09, BUG-B28
-      x-status: planned
       x-change: modified
   /explore/genres:
     get:
@@ -16453,7 +16468,7 @@ paths:
       - explore
       summary: Public detail of a club or event
       x-auth: 'optional user bearer: optionalUserAccessTokenMiddleware (no header = guest; header present but bad = 401) + validateReqParams(exploreIdParamsSchema) + validateReqQuery(exploreDetailQuerySchema)'
-      description: '`type` query is REQUIRED and selects which table `id` is looked up in. Returns 404 {success,message:''Resource not found'',traceId} (controller-built, no errorType) when missing or deactivated. type=CLUB: club minus userId/createdAt/updatedAt/deactivatedAt/geog, plus active packages, opening hours, active hosts, aggregateRating/totalReviews, isWishlist/isFollowing when authenticated. type=EVENT: increments Event.viewCount (+1 every call, even for deactivated/non-existent best-effort), returns active ticketTiers tree, lineup with Artist, active modules, public guestList payload (null when not enabled), hosts, organizer and isWishlist when authenticated. Event detail does NOT filter by eventStatus (canceled/completed events are still returned). Response `data` shape depends on `type`. TO-BE (CR-11, CR-13, BUG-B28): type=EVENT gains `interestedCount`, `isInterested` (bearer only), `mapUrl` (Google Maps link built from lat/lng and name), `timezone`. viewCount is incremented only for existing, active events, and a view is recorded in the user''s history when a bearer token is sent. TO-BE (CR-13): Event detail additions are listed under CR-11/CR-13 above (interestedCount, mapUrl, timezone). Organizer/club identity stays in `organizer`; `organizerProfile` (id, name, avatar) is added when the event has an organizer (CR-02).'
+      description: '`type` query is REQUIRED and selects which table `id` is looked up in. Returns 404 {success,message:''Resource not found'',traceId} (controller-built, no errorType) when missing or deactivated. type=CLUB: club minus userId/createdAt/updatedAt/deactivatedAt/geog, plus active packages, opening hours, active hosts, aggregateRating/totalReviews, isWishlist/isFollowing when authenticated. type=EVENT: T-041 (tested locally, not deployed) no longer touches Event.viewCount on the request. For an existing, active (not deactivated), non-CANCELED event it fires a best-effort Redis HINCRBY on the UTC day hash `views:<yyyy-mm-dd>` (field = event id; the hash expires after 3 days) and, with a valid bearer token, upserts UserRecentEventView (the 20 newest per user are kept). Tracking never delays or fails the response: if Redis or the database throws, the view is dropped and the normal 200 is returned. The worker job `flush-event-views` (enqueued every minute by the scheduler) writes EventViewDaily (eventId, day) with views = views + n and increases Event.viewCount by the same n, so viewCount stays the lifetime counter (at most about a minute behind). Returns active ticketTiers tree, lineup with Artist, active modules, public guestList payload (null when not enabled), hosts, organizer and isWishlist when authenticated. Event detail does NOT filter by eventStatus (canceled/completed events are still returned). Response `data` shape depends on `type`. T-040 (tested locally, not deployed) implemented only `interestedCount` (live COUNT(*) of EventInterest, always present) and `isInterested` (only with a valid bearer token); both are additive and no name or avatar of any user is returned. T-045 (tested locally, not deployed) adds `mapUrl` and `club` (see the schema). The page fields `timezone` (default UTC, nothing inferred), `location` (full address), `startAt`, `endAt`, `lat`, `lng`, `clubId` and `moodTags` were ALREADY returned (the event row is spread into the response) and are unchanged; no new column. NOT added (not approved, CR-13): `startingPrice`, availability, per-ticket valid days. `organizer` identity changes belong to T-052 (migration 9). TO-BE (CR-11, CR-13, BUG-B28): type=EVENT gains `interestedCount`, `isInterested` (bearer only), `mapUrl` (Google Maps link built from lat/lng and name), `timezone` (all now implemented, see above). viewCount is incremented only for existing, active events, and a view is recorded in the user''s history when a bearer token is sent (both implemented by T-041 as described above; the day boundary is UTC, an open question for the client). TO-BE (CR-13): Event detail additions are listed under CR-11/CR-13 above (interestedCount, mapUrl, timezone). Organizer/club identity stays in `organizer`; `organizerProfile` (id, name, avatar) is added when the event has an organizer (CR-02).'
       security:
       - optionalUserBearer: []
       parameters:
@@ -17232,7 +17247,24 @@ paths:
                         mapUrl:
                           type: string
                           format: uri
-                          description: https://www.google.com/maps/search/?api=1&query=lat,lng (browser fallback works if the Maps app is absent)
+                          description: "T-045 (tested locally, not deployed), always present on type=EVENT. https://www.google.com/maps/search/?api=1&query=<URL-encoded '<eventName> <lat>,<lng>'>. Built only from the event name, lat and lng (encodeURIComponent, plus ! ' ( ) * percent-encoded), never from user supplied URLs or markup. The browser fallback works if the Maps app is absent."
+                        club:
+                          type:
+                          - object
+                          - 'null'
+                          description: "T-045 (tested locally, not deployed), always present on type=EVENT. Identity of the club the event is linked to through Event.clubId (the event row still returns clubId and clubHostStatus unchanged). W-05: shown only when clubHostStatus is APPROVED; null when the event has no club, when clubHostStatus is NONE, PENDING or REJECTED, or when the club is deactivated. Public identity only, no description, owner or contact data. Separate from `organizer` (unchanged, the owner's first active club), which T-052 may extend."
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                            name:
+                              type: string
+                            thumbnail:
+                              type: string
+                            location:
+                              type: string
+                            followerCount:
+                              type: integer
                         organizerProfile:
                           type:
                           - object
@@ -18286,7 +18318,7 @@ paths:
       - wishlist
       summary: Add a club or event to my wishlist (idempotent)
       x-auth: 'user bearer: checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus (any role) + validateReqBody(createWishlistSchema)'
-      description: 'Club must be active; event must be active AND eventStatus=UPCOMING. If already present nothing changes. Response carries no `data`. Internal Server Error (CODE BUG, as coded): the service throws `{status: 404, message}` (key `status`, not `statusCode`), which globalErrorMiddleware does not recognise, so a missing/deactivated target yields 500 instead of the intended 404. TO-BE (CR-17, BUG-B27): Target not found returns 404 (service threw the wrong error shape and returned 500).'
+      description: 'Club must be active; event must be active AND eventStatus=UPCOMING. If already present nothing changes. Response carries no `data`. A missing or deactivated club, or a missing, deactivated or non-UPCOMING event, returns 404 {success:false, message:''Club not found or unavailable'' or ''Event not found or unavailable'', errorType:''NOT_FOUND'', traceId} (T-013, tested locally, not deployed; the service used to throw the wrong key `status` and returned 500).'
       security:
       - userBearer: []
       requestBody:
@@ -18377,14 +18409,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Event or club not found (TO-BE; was 500)
+          description: "NOT_FOUND: 'Club not found or unavailable' or 'Event not found or unavailable' (was 500; implemented in T-013)"
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: wishlist_post_wishlist
       x-requirement: CR-17, BUG-B27
-      x-status: planned
       x-change: modified
     get:
       tags:
@@ -19616,7 +19647,7 @@ paths:
       - promo
       summary: Validate a promo code and compute discount (public)
       x-auth: public (no auth middleware) + validateReqBody(validatePromoCodeSchema)
-      description: 'NO auth middleware at all (comment in routes says ''Public / Authenticated''). Errors are built by the controller as {success,message,traceId} (no errorType). Code is uppercased. Checks: exists & isActive (404 ''Invalid or inactive promo code''); not expired (400); usedCount < maxUses (400); if promo.eventId and request eventId given and differ -> 400; same for clubId. NOTE: if the promo is bound to an event/club but the request omits eventId/clubId the binding is NOT enforced. discountAmount rounded to 2dp; PERCENTAGE = amount*value/100, FIXED_AMOUNT = min(amount,value). usedCount is not incremented here. TO-BE (CR-06, BUG-S09): Rate limited per IP and per user (suggested 20/min). Excess returns 429 with Retry-After.'
+      description: 'NO auth middleware at all (comment in routes says ''Public / Authenticated''). Errors are built by the controller as {success,message,traceId} (no errorType). Code is uppercased. Checks: exists & isActive (404 ''Invalid or inactive promo code''); not expired (400); usedCount < maxUses (400); if promo.eventId and request eventId given and differ -> 400; same for clubId. NOTE: if the promo is bound to an event/club but the request omits eventId/clubId the binding is NOT enforced. discountAmount rounded to 2dp; PERCENTAGE = amount*value/100, FIXED_AMOUNT = min(amount,value). usedCount is not incremented here. TO-BE (CR-06, BUG-S09): Rate limited per IP and per user (suggested 20/min). Excess returns 429 with Retry-After. AS-BUILT (T-019, tested locally, not deployed): fixed window of 20 requests per 60 seconds, counted per client IP (req.ip, so it honours trust proxy 1 in app.ts) and, when a valid bearer token is present, also per user id; either counter over the limit rejects. Rejection is 429 with a Retry-After header (seconds left in the window) and body {success:false,message,errorType:RATE_LIMITED,traceId}; never 401 or 403 (the live Flutter app logs out on those). A missing, expired or garbage token is NOT rejected (no 401 added): it is limited by IP only. The limiter runs before body validation, so malformed requests also count. Limits live in const.ts (promoValidateMaxPerWindow, promoValidateWindowSeconds); the generic helper is createRateLimitMiddleware in middlewares/rateLimit.middlewares.ts (reused by T-058). Redis failure is NOT failed open: like limitOtpSendMiddleware the error goes to the global handler (500). Response shape of the 200 and the 404/400 errors is unchanged.'
       security: []
       requestBody:
         required: true
@@ -19939,7 +19970,7 @@ paths:
       - promo
       summary: Create a promo code
       x-auth: 'user bearer: checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus (any role) + validateReqBody(createPromoCodeSchema)  (comment in routes: ''Admin or authenticated owner'' but NO role check)'
-      description: 'Errors are built by the controller as {success,message,traceId} (no errorType). createdByUserId = caller. Code uppercased and must be unique (409). The service does NOT verify that eventId/clubId belong to the caller or even exist: a non-existent id causes an unmapped Prisma FK error -> 500; an existing id owned by someone else is accepted. PERCENTAGE value must be <= 100 (422 on discountValue). TO-BE (CR-17, BUG-B26): Unknown eventId/clubId returns 404 (was 500, FK violation). TO-BE (CR-06, BUG-S02): Requires accountRole CLUB_OWNER (403 otherwise). Checked against flutter_app: only the club-owner Promo tab calls these three operations (promo_repository.dart:36,75,108); customers only call POST /promo/validate (club_purchase_repository.dart:220). If eventId or clubId is sent it must belong to the caller (404 otherwise, not 403, because the Flutter client treats 403 like 401). A promo with neither scope is still allowed, because the owner Add Promo screen can submit it (add_promo_view.dart:338,355 toggle the ids to null and nothing forces one). Update and delete keep the existing ownership filter (createdByUserId, own event or own club; promo.services.ts:9-22, 404 otherwise).'
+      description: 'Errors are built by the controller as {success,message,traceId} (no errorType). createdByUserId = caller. Code uppercased and must be unique (409). The service does NOT verify that eventId/clubId belong to the caller or even exist: a non-existent id causes an unmapped Prisma FK error -> 500; an existing id owned by someone else is accepted. PERCENTAGE value must be <= 100 (422 on discountValue). TO-BE (CR-17, BUG-B26): Unknown eventId/clubId returns 404 (was 500, FK violation). TO-BE (CR-06, BUG-S02): Requires accountRole CLUB_OWNER (403 otherwise). Checked against flutter_app: only the club-owner Promo tab calls these three operations (promo_repository.dart:36,75,108); customers only call POST /promo/validate (club_purchase_repository.dart:220). If eventId or clubId is sent it must belong to the caller (404 otherwise, not 403, because the Flutter client treats 403 like 401). A promo with neither scope is still allowed, because the owner Add Promo screen can submit it (add_promo_view.dart:338,355 toggle the ids to null and nothing forces one). Update and delete keep the existing ownership filter (createdByUserId, own event or own club; promo.services.ts:9-22, 404 otherwise). AS-BUILT (T-018, tested locally, not deployed): role gate CLUB_OWNER or ADMIN, any other role gets 403 with errorType ACCESS_DENIED. Ownership: an eventId or clubId named on create or update must exist and belong to the caller (ADMIN: any existing one), otherwise 404 NOT_FOUND with the same body for unknown and foreign ids (not 403, the Flutter client treats 403 like 401). Update and delete: the target must be created by the caller, or sit on the caller''s own event or club, otherwise 404; the legacy global code (no eventId, clubId or createdByUserId) is editable and deletable by ADMIN only (404 for owners). Decision: a club owner may still create a promo with neither eventId nor clubId (approved judgement in api-spec-diff-v2.md, the owner Add Promo screen can submit it); it is stored with createdByUserId = the owner and only that owner (or an ADMIN) can manage it. T-018 step 2 and its test list say owners must not create global codes, which conflicts with that judgement: kept the judgement, open question for the client. Existing rows are never rewritten. POST /promo/validate and GET /promo are unchanged.'
       security:
       - userBearer: []
       requestBody:
@@ -20140,7 +20171,7 @@ paths:
       - promo
       summary: Update a promo code (partial)
       x-auth: 'user bearer: checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus (any role) + validateReqParams(promoIdParamsSchema) + validateReqBody(updatePromoCodeSchema)'
-      description: 'AUTHORIZATION (service ownedPromoAccessFilter, NO role check - any authenticated user, not only CLUB_OWNER/ADMIN): a promo is accessible if createdByUserId = caller, OR its event is owned by caller, OR its club is owned by caller, OR it is a GLOBAL code (eventId, clubId and createdByUserId all null). ⚠️ Consequence as coded: every authenticated user can list, edit and delete global/seed promo codes. Errors are built by the controller as {success,message,traceId} (no errorType). Not accessible -> 404 ''Promo code not found''. At least one field required (422). Nullable fields (eventId, clubId, maxUses, expiresAt) accept null to clear. Setting eventId/clubId connects to any existing event/club without ownership check (non-existent -> unmapped Prisma error 500). Code change conflicts -> 409. PERCENTAGE > 100 -> 422 (both schema and service). TO-BE (CR-06, BUG-S02): Requires accountRole CLUB_OWNER (403 otherwise). Checked against flutter_app: only the club-owner Promo tab calls these three operations (promo_repository.dart:36,75,108); customers only call POST /promo/validate (club_purchase_repository.dart:220). If eventId or clubId is sent it must belong to the caller (404 otherwise, not 403, because the Flutter client treats 403 like 401). A promo with neither scope is still allowed, because the owner Add Promo screen can submit it (add_promo_view.dart:338,355 toggle the ids to null and nothing forces one). Update and delete keep the existing ownership filter (createdByUserId, own event or own club; promo.services.ts:9-22, 404 otherwise).'
+      description: 'AUTHORIZATION (service ownedPromoAccessFilter, NO role check - any authenticated user, not only CLUB_OWNER/ADMIN): a promo is accessible if createdByUserId = caller, OR its event is owned by caller, OR its club is owned by caller, OR it is a GLOBAL code (eventId, clubId and createdByUserId all null). ⚠️ Consequence as coded: every authenticated user can list, edit and delete global/seed promo codes. Errors are built by the controller as {success,message,traceId} (no errorType). Not accessible -> 404 ''Promo code not found''. At least one field required (422). Nullable fields (eventId, clubId, maxUses, expiresAt) accept null to clear. Setting eventId/clubId connects to any existing event/club without ownership check (non-existent -> unmapped Prisma error 500). Code change conflicts -> 409. PERCENTAGE > 100 -> 422 (both schema and service). TO-BE (CR-06, BUG-S02): Requires accountRole CLUB_OWNER (403 otherwise). Checked against flutter_app: only the club-owner Promo tab calls these three operations (promo_repository.dart:36,75,108); customers only call POST /promo/validate (club_purchase_repository.dart:220). If eventId or clubId is sent it must belong to the caller (404 otherwise, not 403, because the Flutter client treats 403 like 401). A promo with neither scope is still allowed, because the owner Add Promo screen can submit it (add_promo_view.dart:338,355 toggle the ids to null and nothing forces one). Update and delete keep the existing ownership filter (createdByUserId, own event or own club; promo.services.ts:9-22, 404 otherwise). AS-BUILT (T-018, tested locally, not deployed): role gate CLUB_OWNER or ADMIN, any other role gets 403 with errorType ACCESS_DENIED. Ownership: an eventId or clubId named on create or update must exist and belong to the caller (ADMIN: any existing one), otherwise 404 NOT_FOUND with the same body for unknown and foreign ids (not 403, the Flutter client treats 403 like 401). Update and delete: the target must be created by the caller, or sit on the caller''s own event or club, otherwise 404; the legacy global code (no eventId, clubId or createdByUserId) is editable and deletable by ADMIN only (404 for owners). Decision: a club owner may still create a promo with neither eventId nor clubId (approved judgement in api-spec-diff-v2.md, the owner Add Promo screen can submit it); it is stored with createdByUserId = the owner and only that owner (or an ADMIN) can manage it. T-018 step 2 and its test list say owners must not create global codes, which conflicts with that judgement: kept the judgement, open question for the client. Existing rows are never rewritten. POST /promo/validate and GET /promo are unchanged.'
       security:
       - userBearer: []
       parameters:
@@ -20335,7 +20366,7 @@ paths:
       - promo
       summary: Delete a promo code
       x-auth: 'user bearer: checkUserAccessTokenMiddleware + checkUserExistenceMiddleware + checkAccountStatus (any role) + validateReqParams(promoIdParamsSchema)'
-      description: 'AUTHORIZATION (service ownedPromoAccessFilter, NO role check - any authenticated user, not only CLUB_OWNER/ADMIN): a promo is accessible if createdByUserId = caller, OR its event is owned by caller, OR its club is owned by caller, OR it is a GLOBAL code (eventId, clubId and createdByUserId all null). ⚠️ Consequence as coded: every authenticated user can list, edit and delete global/seed promo codes. Errors are built by the controller as {success,message,traceId} (no errorType). Hard delete; not accessible -> 404 ''Promo code not found''. TO-BE (CR-06, BUG-S02): Requires accountRole CLUB_OWNER (403 otherwise). Checked against flutter_app: only the club-owner Promo tab calls these three operations (promo_repository.dart:36,75,108); customers only call POST /promo/validate (club_purchase_repository.dart:220). If eventId or clubId is sent it must belong to the caller (404 otherwise, not 403, because the Flutter client treats 403 like 401). A promo with neither scope is still allowed, because the owner Add Promo screen can submit it (add_promo_view.dart:338,355 toggle the ids to null and nothing forces one). Update and delete keep the existing ownership filter (createdByUserId, own event or own club; promo.services.ts:9-22, 404 otherwise).'
+      description: 'AUTHORIZATION (service ownedPromoAccessFilter, NO role check - any authenticated user, not only CLUB_OWNER/ADMIN): a promo is accessible if createdByUserId = caller, OR its event is owned by caller, OR its club is owned by caller, OR it is a GLOBAL code (eventId, clubId and createdByUserId all null). ⚠️ Consequence as coded: every authenticated user can list, edit and delete global/seed promo codes. Errors are built by the controller as {success,message,traceId} (no errorType). Hard delete; not accessible -> 404 ''Promo code not found''. TO-BE (CR-06, BUG-S02): Requires accountRole CLUB_OWNER (403 otherwise). Checked against flutter_app: only the club-owner Promo tab calls these three operations (promo_repository.dart:36,75,108); customers only call POST /promo/validate (club_purchase_repository.dart:220). If eventId or clubId is sent it must belong to the caller (404 otherwise, not 403, because the Flutter client treats 403 like 401). A promo with neither scope is still allowed, because the owner Add Promo screen can submit it (add_promo_view.dart:338,355 toggle the ids to null and nothing forces one). Update and delete keep the existing ownership filter (createdByUserId, own event or own club; promo.services.ts:9-22, 404 otherwise). AS-BUILT (T-018, tested locally, not deployed): role gate CLUB_OWNER or ADMIN, any other role gets 403 with errorType ACCESS_DENIED. Ownership: an eventId or clubId named on create or update must exist and belong to the caller (ADMIN: any existing one), otherwise 404 NOT_FOUND with the same body for unknown and foreign ids (not 403, the Flutter client treats 403 like 401). Update and delete: the target must be created by the caller, or sit on the caller''s own event or club, otherwise 404; the legacy global code (no eventId, clubId or createdByUserId) is editable and deletable by ADMIN only (404 for owners). Decision: a club owner may still create a promo with neither eventId nor clubId (approved judgement in api-spec-diff-v2.md, the owner Add Promo screen can submit it); it is stored with createdByUserId = the owner and only that owner (or an ADMIN) can manage it. T-018 step 2 and its test list say owners must not create global codes, which conflicts with that judgement: kept the judgement, open question for the client. Existing rows are never rewritten. POST /promo/validate and GET /promo are unchanged.'
       security:
       - userBearer: []
       parameters:
@@ -21893,7 +21924,7 @@ paths:
       tags:
       - purchase
       summary: Create an event ticket purchase (Order + EventPurchase + attendees)
-      description: 'Creates a PENDING_PAYMENT Order, an immutable EventPurchase snapshot and attendee rows (position 1 = BUYER taken from the profile, then FRIENDs). Buyer age is derived server-side from profile dateOfBirth. personCount = friends.length + 1; price = tier price (if ticketTierId) else event.eventPrice, times personCount; an invalid promoCode is silently ignored. Replay returns 200. Errors: 404 Event not found or unavailable (missing, deactivated or not UPCOMING); 404 Ticket tier not found; 409 Ticket sales are closed for this event; 409 Ticket tier is sold out; 422 A buyer date of birth is required to purchase an Event; 422 Buyer age is invalid. TO-BE (CR-04): The chosen tier is stored on the purchase (ticketTierId + tierName snapshot) and returned. soldCount is released when the payment expires or fails (stock was leaked before). Response is unchanged otherwise. TO-BE (CR-06): Free tickets are OPT-IN so the live app is not affected. Today a price-0 order still carries the buyer service fee, so it is paid through POST /payment/intent. The live app would call /payment/intent for an order that is already PAID, so the new path must not be the default. New optional request field `freeCheckout: true`: when the order gross is 0 after promo, no PaymentIntent is needed, the order is created already PAID, the buyer service fee is waived (provisional until Q2) and the response carries `paymentRequired: false`. Without `freeCheckout` (or when gross > 0) behaviour is exactly as today and `paymentRequired` is true. Tier price 0 is already accepted by tier create/update. TO-BE (CR-07): Optional `extras` lines add purchasable extras (e.g. sunbed for two) to the same order. Extras stock is checked and decremented inside the same transaction and released with the order. Service fee/commission treatment of extras waits for Q2.'
+      description: 'Creates a PENDING_PAYMENT Order, an immutable EventPurchase snapshot and attendee rows (position 1 = BUYER taken from the profile, then FRIENDs). Buyer age is derived server-side from profile dateOfBirth. personCount = friends.length + 1; price = tier price (if ticketTierId) else event.eventPrice, times personCount; an invalid promoCode is silently ignored. Replay returns 200. Errors: 404 Event not found or unavailable (missing, deactivated or not UPCOMING); 404 Ticket tier not found; 409 Ticket sales are closed for this event; 409 Ticket tier is sold out; 422 A buyer date of birth is required to purchase an Event; 422 Buyer age is invalid. CR-04, implemented in T-006: the chosen tier is stored on the purchase (ticketTierId + ticketTierName snapshot, written in the same transaction as the soldCount increment) and returned on data.eventPurchase; both are null when no ticketTierId is sent (old clients are never matched to a tier). CR-04, implemented in T-007 and T-008: soldCount is released when the payment fails or is canceled (webhook, T-007) and when the order is still PENDING_PAYMENT 15 minutes after creation (T-008: after the transaction commits the server enqueues the worker job expire-event-ticket-hold, jobId event-ticket-hold-<orderId>, delay 15 min; the job marks the order PAYMENT_FAILED and releases the tier seats once; PAID orders and orders without a tier link release nothing). A failed enqueue is logged and does not fail the purchase; no scheduler sweep exists, so a lost delayed job leaks stock (detectable with reports/stock-leak.sql). Response is unchanged otherwise. TO-BE (CR-06): Free tickets are OPT-IN so the live app is not affected. Today a price-0 order still carries the buyer service fee, so it is paid through POST /payment/intent. The live app would call /payment/intent for an order that is already PAID, so the new path must not be the default. New optional request field `freeCheckout: true`: when the order gross is 0 after promo, no PaymentIntent is needed, the order is created already PAID, the buyer service fee is waived (provisional until Q2) and the response carries `paymentRequired: false`. Without `freeCheckout` (or when gross > 0) behaviour is exactly as today and `paymentRequired` is true. Tier price 0 is already accepted by tier create/update. TO-BE (CR-07): Optional `extras` lines add purchasable extras (e.g. sunbed for two) to the same order. Extras stock is checked and decremented inside the same transaction and released with the order. Service fee/commission treatment of extras waits for Q2.'
       x-auth: user bearer + Idempotency-Key header + checkPurchasableEvent + checkEventPurchaseBuyerProfile + checkEventPurchaseIdempotency
       security:
       - userBearer: []
@@ -22519,7 +22550,7 @@ paths:
       tags:
       - webhook
       summary: Stripe payment webhook
-      description: 'Express raw({type: application/json}) body; the JSON parser is skipped in app.ts. Verifies stripe-signature with STRIPE_PAYMENT_WEBHOOK_SECRET_KEY. Handles payment_intent.succeeded (PaymentTransaction PAID, Order PAID, ClubBooking/ModulePurchase HOLD to BOOKED, ticket PDF job), payment_intent.payment_failed and payment_intent.canceled (FAILED / PAYMENT_FAILED / hold EXPIRED). Other event types are acknowledged with 200. An already PROCESSED stripeEventId is a no-op 200. A missing or invalid signature throws a plain Error so the global handler answers 500, not 400. TO-BE (CR-16, BUG-B16): Missing or invalid Stripe signature returns 400 (was 500, which makes Stripe retry for days). Payment webhook also handles refund events (refund created/updated/failed) to update Refund.status; duplicates are ignored via WebhookEvent.stripeEventId.'
+      description: 'Express raw({type: application/json}) body; the JSON parser is skipped in app.ts. Verifies stripe-signature with STRIPE_PAYMENT_WEBHOOK_SECRET_KEY. Handles payment_intent.succeeded (PaymentTransaction PAID, Order PAID, ClubBooking/ModulePurchase HOLD to BOOKED, ticket PDF job), payment_intent.payment_failed and payment_intent.canceled (FAILED / PAYMENT_FAILED / hold EXPIRED). T-007 (implemented): the Order moves to PAYMENT_FAILED only if it is still PENDING_PAYMENT, and in that same transaction the ticket-tier stock it held is released once (EventTicketTier.soldCount decreased by EventPurchase.personCount, never below 0) when the EventPurchase has ticketTierId; orders without a tier link release nothing; PAID orders are never touched; a repeated or second (failed then canceled) event releases nothing more. A payment_intent.succeeded that arrives for an order already PAYMENT_FAILED with a tier link takes the stock again if the tier has room (order PAID, counted once); if the tier is full nothing changes, no ticket PDF, transfer or notification is queued, and the order is logged for manual review (no automatic refund). Refunds do not release stock. Other event types are acknowledged with 200. An already PROCESSED stripeEventId is a no-op 200. A missing or invalid signature throws a plain Error so the global handler answers 500, not 400. TO-BE (CR-16, BUG-B16): Missing or invalid Stripe signature returns 400 (was 500, which makes Stripe retry for days). Payment webhook also handles refund events (refund created/updated/failed) to update Refund.status; duplicates are ignored via WebhookEvent.stripeEventId.'
       x-auth: stripe signature, raw body
       security:
       - stripeSignature: []
@@ -22841,7 +22872,7 @@ paths:
       tags:
       - bookings
       summary: List the buyer's bookings
-      description: 'Only PAID orders. tab UPCOMING (default) | COMPLETED | CANCELED (event canceled; includes refunded). Runs syncSucceededPaymentsForBuyer first. page/limit are preprocessed: non-numeric or 0 falls back to 1 / 10 (no max on limit). TO-BE (CR-14): New optional `bucket` filter (FUTURE|PENDING|PAST) and items gain `bookingStatus` (CONFIRMED | GUEST_LIST_PENDING | PAYMENT_PROCESSING | CANCELED | REFUNDED). `tab` is unchanged.'
+      description: 'Only PAID orders. tab UPCOMING (default) | COMPLETED | CANCELED (event canceled; includes refunded). Runs syncSucceededPaymentsForBuyer first. page/limit are preprocessed: non-numeric or 0 falls back to 1 / 10 (no max on limit). CR-14 (T-046, tested locally, not deployed): new optional `bucket` filter (FUTURE|PENDING|PAST) and items gain `bookingStatus` (CONFIRMED | GUEST_LIST_PENDING | PAYMENT_PROCESSING | CANCELED | REFUNDED). `tab` is unchanged. Mapping table (T-046). Rules apply top to bottom, first match wins. Order: (1) a Refund row exists, any Order.status and any Refund.status -> REFUNDED / PAST; (2) PENDING_PAYMENT with an EXPIRED club booking or module hold -> CANCELED / PAST; (3) PENDING_PAYMENT -> PAYMENT_PROCESSING / PENDING; (4) PAYMENT_FAILED -> CANCELED / PAST; (5) PAID and the event is CANCELED -> CANCELED / PAST; (6) PAID and end <= now -> CONFIRMED / PAST; (7) PAID and end > now -> CONFIRMED / FUTURE. Guest-list entry (EventGuestListEntry.status, found by its userId): PENDING -> GUEST_LIST_PENDING / PENDING; REJECTED -> CANCELED / PAST; CONFIRMED on a CANCELED event -> CANCELED / PAST; CONFIRMED with end <= now -> CONFIRMED / PAST; CONFIRMED with end > now -> CONFIRMED / FUTURE. End = club booking endAt, EventPurchase.eventEndAt, or Event.endAt (module purchase and guest list), compared with the same clock as tab (fixed CST wall clock), so FUTURE and tab UPCOMING agree; nothing is inferred from Event.timezone. Without bucket the list is the old one (PAID orders, tab rules, guest-list entries never listed) and only gains bookingStatus. With bucket the list is every order of the buyer (any status) plus the guest-list entries of the buyer, newest first. Guest-list items have id = entry id, orderId null (no order exists), type EVENT, eventStartAt, eventEndAt, name, lat, lng, location, thumbnail, currency and no price.'
       x-auth: user bearer
       security:
       - userBearer: []
@@ -22879,7 +22910,7 @@ paths:
           - FUTURE
           - PENDING
           - PAST
-        description: CR-14. FUTURE = confirmed and not finished; PENDING = guest-list request or payment still processing; PAST = finished, canceled or refunded. If both `tab` and `bucket` are sent, `bucket` wins. `tab` keeps working unchanged.
+        description: 'CR-14 (T-046, tested locally, not deployed). FUTURE = confirmed and not finished; PENDING = guest-list request or payment still processing; PAST = finished, canceled or refunded (also failed or expired payments and rejected guest-list requests). If both `tab` and `bucket` are sent, `bucket` wins. Any other value (including lower case or empty) returns 422. `tab` keeps working unchanged. See the mapping table in the operation description.'
       responses:
         '200':
           description: Bookings page
@@ -22927,10 +22958,11 @@ paths:
                         id:
                           type: string
                           format: uuid
-                          description: Booking id (ClubBooking / EventPurchase / EventModulePurchase)
+                          description: Booking id (ClubBooking / EventPurchase / EventModulePurchase); the guest-list entry id for a guest-list item (bucket only)
                         orderId:
                           type: string
                           format: uuid
+                          description: 'T-046: null for a guest-list item, which only appears when `bucket` is sent (no order exists). Never null without `bucket`.'
                         purchaseDate:
                           type: string
                           format: date-time
@@ -22986,6 +23018,7 @@ paths:
                           description: EVENT only - pricePerPerson or module unitPrice
                         bookingStatus:
                           type: string
+                          description: 'T-046 (tested locally, not deployed): additive. Derived from Order status, Refund row and guest-list entry status; see the mapping table in the operation description. Present on every item, with and without `bucket`.'
                           enum:
                           - CONFIRMED
                           - GUEST_LIST_PENDING
@@ -23005,21 +23038,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: Query validation failed (e.g. invalid tab)
+          description: Query validation failed (e.g. invalid tab or invalid bucket)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: bookings_get_bookings
       x-requirement: CR-14
-      x-status: planned
       x-change: modified
   /bookings/{id}:
     get:
       tags:
       - bookings
       summary: Get one booking detail
-      description: 'id may be a booking id (ClubBooking/EventPurchase/EventModulePurchase) or an Order id. Response data = {id, orderId, clubId|eventId, type, ...explore detail fields spread from exploreDetailService (see explore module), booking:{...}}. 404 when missing, not owned, or kind does not match ?type. A missing/invalid type is rejected with 422 by Zod before the middleware 400 can fire. The explore-detail spread fields are UNVERIFIED here. TO-BE (CR-04): Event bookings expose `ticketTierId` and `ticketTierName` (null for purchases made before this change and for no-tier purchases).'
+      description: 'id may be a booking id (ClubBooking/EventPurchase/EventModulePurchase) or an Order id. Response data = {id, orderId, clubId|eventId, type, ...explore detail fields spread from exploreDetailService (see explore module), booking:{...}}. 404 when missing, not owned, or kind does not match ?type. A missing/invalid type is rejected with 422 by Zod before the middleware 400 can fire. The explore-detail spread fields are UNVERIFIED here. CR-04, implemented in T-006: Event bookings expose `ticketTierId` and `ticketTierName` inside `data.booking.eventPurchase` (null for purchases made before this change and for no-tier purchases).'
       x-auth: user bearer + checkBookingExistenceAndOwnership (buyer must own booking)
       security:
       - userBearer: []
@@ -23780,7 +23812,7 @@ paths:
       tags:
       - owner
       summary: Verify a ticket / check in an order
-      description: 'Sets Order.checkedInAt and push-notifies the buyer. NOTE: the service throws plain Error objects (no statusCode) for every business failure (ticket not found, caller not the seller, order not PAID or refunded, already used, missing purchase relationship), so the global handler returns 500 ''Internal Server Error'' and the intended messages are not exposed. UNVERIFIED whether clients rely on them. This route has NO checkConnectReadiness. TO-BE (CR-17, BUG-B15): Business failures return real statuses with errorType instead of 500: not found OR not your order -> 404 (existence of other sellers'' orders is not revealed); not PAID or refunded -> 422 TICKET_NOT_VALID; already used -> 409 TICKET_ALREADY_USED (body includes usedAt). 401/403 are deliberately NOT used for business failures, because the Flutter client treats 401/403 as an authentication failure. Endpoint behaviour is otherwise unchanged (one check-in per order); the per-day/per-attendee scan is deferred with CR-05.'
+      description: 'Sets Order.checkedInAt and push-notifies the buyer. This route has NO checkConnectReadiness. Implemented in T-011 (CR-17, BUG-B15; tested locally, not deployed): business failures return real statuses with a stable errorType instead of 500: ticket not found OR not your order -> 404 TICKET_NOT_FOUND (identical body, so the existence of other sellers'' orders is not revealed); order not PAID or refunded -> 422 TICKET_NOT_VALID; already used -> 409 TICKET_ALREADY_USED (body also has usedAt, the ISO time of the first check-in). Human messages are unchanged (Ticket not found; Ticket is not valid for entry (status: ...); Ticket has already been used on <ISO time>). 401/403 are deliberately NOT used for business failures, because the Flutter client treats 401/403 as an authentication failure (401/403 still come only from the auth and role middlewares). Endpoint behaviour is otherwise unchanged: one check-in per order, any Refund row still blocks entry (T-064 changes that later), a missing purchase relationship is still an unmapped 500; the per-day/per-attendee scan is deferred with CR-05.'
       x-auth: owner (user bearer + checkClubOwnerRoleMiddleware; no Connect readiness)
       security:
       - userBearer: []
@@ -23853,26 +23885,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Ticket not found, or the order belongs to another seller (TO-BE; was 500)
+          description: 'TICKET_NOT_FOUND: ticket not found, or the order belongs to another seller (same body for both; was 500)'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: 'Body invalid, or TICKET_NOT_VALID: order not PAID or refunded (TO-BE; was 500)'
+          description: 'Body invalid, or TICKET_NOT_VALID: order not PAID or refunded (was 500)'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: TICKET_ALREADY_USED, body includes usedAt (TO-BE; was 500)
+          description: TICKET_ALREADY_USED, body includes usedAt (was 500)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       operationId: owner_post_owner_verify_ticket
       x-requirement: CR-17, BUG-B15
-      x-status: planned
       x-change: modified
   /owner/bookings/export:
     get:
@@ -24176,11 +24207,10 @@ paths:
       tags:
       - event
       summary: Preset tier names
-      description: Static preset lists for the ticket-tier form plus the explanatory helper text, so the apps do not hard-code vocabulary. Custom names stay allowed. Section = parent that groups tiers for a day or access type; tier = priced quantity inside a section.
+      description: 'Static preset lists for the ticket-tier form plus the explanatory helper text, so the apps do not hard-code vocabulary. Custom names stay allowed. Section = parent that groups tiers for a day or access type; tier = priced quantity inside a section. Implemented in T-016 (tested locally, not deployed). Names come from the client tracker A2.5 to A2.7. `presets` is the same list with `tierType` and `sortOrder` (position inside its own type, from 0); `ticketPresets` and `passPresets` are kept as plain name arrays.'
       x-auth: public (no auth middleware)
       security: &id017 []
       x-requirement: CR-03
-      x-status: planned
       x-change: added
       responses:
         '200':
@@ -24223,6 +24253,24 @@ paths:
                         - Early Pass
                         - Standard Pass
                         - Late Pass
+                      presets:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                          - name
+                          - tierType
+                          - sortOrder
+                          properties:
+                            name:
+                              type: string
+                            tierType:
+                              type: string
+                              enum:
+                              - TICKET
+                              - PASS
+                            sortOrder:
+                              type: integer
                       sectionHelp:
                         type: string
                       tierHelp:
@@ -24816,11 +24864,10 @@ paths:
       tags:
       - cities
       summary: Search cities
-      description: City selector source. Works without location permission. `isLaunched=false` cities are returned so the app can show a "not live yet" state instead of an empty list.
+      description: "City selector source. Works without location permission. Implemented in T-033 (tested locally, not deployed). Returns launched and unlaunched cities by default so the app can show a not-live-yet state; launchedOnly=true returns only isLaunched=true. q is a case-insensitive name prefix. Sorted by name. 422 for limit above 50 or a non-boolean launchedOnly."
       x-auth: public (no auth middleware)
       security: *id017
       x-requirement: CR-09
-      x-status: planned
       x-change: added
       parameters:
       - name: q
@@ -24888,12 +24935,11 @@ paths:
       tags:
       - admin
       summary: List cities (admin)
-      description: Includes unlaunched cities.
+      description: "Includes unlaunched cities. q is a case-insensitive name prefix. Implemented in T-033 (reads need no CSRF header, like GET /admin/profile)."
       x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
       security: &id028
       - adminCookie: []
       x-requirement: CR-09
-      x-status: planned
       x-change: added
       parameters:
       - name: q
@@ -24950,13 +24996,12 @@ paths:
       tags:
       - admin
       summary: Create a city
-      description: Name + coordinates + timezone. isLaunched defaults to false.
+      description: "Name + coordinates + timezone. isLaunched defaults to false, timezone to UTC, countryCode is stored upper-case. Duplicate (name, countryCode) gives 409, a missing country counts as one value for this check. Implemented in T-033."
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
       security: &id020
       - adminCookie: []
         csrfHeader: []
       x-requirement: CR-09
-      x-status: planned
       x-change: added
       requestBody:
         required: true
@@ -25034,11 +25079,10 @@ paths:
       tags:
       - admin
       summary: Update a city (launch / unlaunch)
-      description: Toggle isLaunched, rename, fix coordinates.
+      description: "Toggle isLaunched, rename, fix coordinates. At least one field is required (422 otherwise). Unlaunching never deletes the row. Renaming onto an existing (name, countryCode) gives 409. Implemented in T-033."
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
       security: *id020
       x-requirement: CR-09
-      x-status: planned
       x-change: added
       parameters:
       - name: id
@@ -25110,11 +25154,10 @@ paths:
       tags:
       - explore
       summary: Filter vocabulary for a type
-      description: Single source for chips and pickers so the Events and Clubs modes show different options, and manager tags match customer filters. Lists are admin-editable.
+      description: "Single source for chips and pickers so the Events and Clubs modes show different options, and manager tags match customer filters. Lists are admin-editable. Implemented in T-037 (tested locally, not deployed). genres and moods are the ACTIVE FilterOption rows in sortOrder (then label, then id), as the English label (FilterOption has one label column; the Italian labels are not stored, open gap). categories is the EventCategoryType list for type=EVENT and an empty list for type=CLUB (club venue attributes are not defined yet). dateShortcuts, radiusSteps and incompatibleWhenSwitching are NOT returned yet. A missing or unknown type gives 422."
       x-auth: public (no auth middleware)
       security: *id017
       x-requirement: CR-10
-      x-status: planned
       x-change: added
       parameters:
       - name: type
@@ -25196,11 +25239,10 @@ paths:
       tags:
       - explore
       summary: Map pins with the same filters as /explore
-      description: Accepts exactly the filter query parameters of GET /explore (type, city/cityId, lat, lng, radiusKm, dates, price, genres, mood, categoryType, search ...) so list and map never disagree. No pagination; capped at 300 pins; sorted by distance when a centre exists.
+      description: "Implemented in T-038 (tested locally, not deployed). Accepts the filter query parameters of GET /explore (same validation, same code builds the WHERE clauses, so list and map cannot disagree) but no page, limit, sort or group (ignored). type is required. Centre and radius follow T-034: lat+lng, else the cityId centre (unknown cityId gives 404), radiusKm 10, 20, 30, 40 or 50 (anything else 422), default 20. No pagination; at most 300 pins, nearest first when a centre exists, otherwise newest first. meta.total is the full match count and meta.truncated is true when it exceeds the pins returned. Pins carry only id, type, name, lat, lng, startAt, thumbnail, minPrice and distanceKm (only with a centre)."
       x-auth: 'optional user bearer: optionalUserAccessToken'
       security: *id027
       x-requirement: CR-10
-      x-status: planned
       x-change: added
       parameters:
       - name: type
@@ -25226,8 +25268,12 @@ paths:
         required: false
         schema:
           type: integer
-          minimum: 1
-          maximum: 50
+          enum:
+          - 10
+          - 20
+          - 30
+          - 40
+          - 50
           default: 20
       - name: cityId
         in: query
@@ -25250,18 +25296,24 @@ paths:
         required: false
         schema:
           type: string
+          enum:
+          - today
+          - tomorrow
+          - this_weekend
+          - next_weekend
+          - this_week
       - name: from
         in: query
         required: false
         schema:
           type: string
-          format: date-time
+          format: date
       - name: to
         in: query
         required: false
         schema:
           type: string
-          format: date-time
+          format: date
       - name: minPrice
         in: query
         required: false
@@ -25305,6 +25357,23 @@ paths:
                     type: string
                   traceId:
                     type: string
+                  meta:
+                    type: object
+                    required:
+                    - total
+                    - returned
+                    - maxPins
+                    - truncated
+                    properties:
+                      total:
+                        type: integer
+                      returned:
+                        type: integer
+                      maxPins:
+                        type: integer
+                        const: 300
+                      truncated:
+                        type: boolean
                   data:
                     type: array
                     items:
@@ -25336,6 +25405,7 @@ paths:
                           type:
                           - number
                           - 'null'
+                          description: "Club cheapest active package price (null without one); event ticket price (0 is free)."
                         startAt:
                           type:
                           - string
@@ -25361,11 +25431,10 @@ paths:
       tags:
       - admin
       summary: List genre and mood vocabulary
-      description: 'Admin view of the editable vocabularies (Q6b: starter list that the owner edits).'
+      description: "Admin view of the editable vocabularies (Q6b: starter list that the owner edits). Implemented in T-037 (tested locally, not deployed). Returns active and inactive rows, ordered by kind, sortOrder, label, id; optional kind filter (anything else gives 422); no paging. Reads need no CSRF header, like GET /admin/cities."
       x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
       security: *id028
       x-requirement: CR-10
-      x-status: planned
       x-change: added
       parameters:
       - name: kind
@@ -25436,11 +25505,10 @@ paths:
       tags:
       - admin
       summary: Add a genre or mood
-      description: Labels are unique per kind (case-insensitive). Deactivating (PATCH) hides it from pickers without breaking existing events that use it.
+      description: "Labels are unique per kind (case-insensitive). Deactivating (PATCH) hides it from pickers without breaking existing events that use it. Implemented in T-037. labelKey is the trimmed, lower-cased label; a duplicate (kind, labelKey) gives 409. label is trimmed, 1 to 120 characters. sortOrder is an integer 0 to 1000000, default 0 when omitted. Unknown body fields give 422. The response is {id, kind, label, sortOrder, isActive}."
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
       security: *id020
       x-requirement: CR-10
-      x-status: planned
       x-change: added
       requestBody:
         required: true
@@ -25513,11 +25581,10 @@ paths:
       tags:
       - admin
       summary: Edit or deactivate a genre or mood
-      description: Rename, reorder or deactivate.
+      description: "Rename, reorder or deactivate. Implemented in T-037. At least one field is required (422 otherwise); kind cannot be changed. Renaming recomputes labelKey and gives 409 when another row of the same kind already has it. Only the FilterOption row changes: events keep their own musicGenres and moodTags text, so deactivating or renaming never edits an event. Unknown id gives 404."
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
       security: *id020
       x-requirement: CR-10
-      x-status: planned
       x-change: added
       parameters:
       - name: id
@@ -25596,11 +25663,10 @@ paths:
       tags:
       - explore
       summary: Mark Interested
-      description: 'Idempotent: repeated calls by the same user keep one record, so the counter cannot be inflated. Returns the new count only (no user names, Q6d default).'
+      description: 'Idempotent: repeated calls by the same user keep one record, so the counter cannot be inflated; a second call returns 200 with the same state (never 409), also under parallel calls. Returns the caller own state and the live count only (no user names, Q6d). interestedCount is COUNT(*) on read, never stored. There is no endpoint that lists the interested users. A canceled event is also 404 (T-040, tested locally, not deployed).'
       x-auth: 'user bearer: checkUserAccessToken + checkUserExistence + checkAccountStatus'
       security: *id029
       x-requirement: CR-11
-      x-status: planned
       x-change: added
       parameters:
       - name: eventId
@@ -25636,7 +25702,7 @@ paths:
                       interestedCount:
                         type: integer
         '404':
-          description: Event not found or deactivated
+          description: Event not found, deactivated or canceled
           content:
             application/json:
               schema:
@@ -25658,11 +25724,10 @@ paths:
       tags:
       - explore
       summary: Remove Interested
-      description: Idempotent.
+      description: 'Idempotent: removing a missing record is 200 with the current count, which never goes negative. Unknown, deactivated or canceled event is 404 (T-040, tested locally, not deployed).'
       x-auth: 'user bearer: checkUserAccessToken + checkUserExistence + checkAccountStatus'
       security: *id029
       x-requirement: CR-11
-      x-status: planned
       x-change: added
       parameters:
       - name: eventId
@@ -25698,7 +25763,7 @@ paths:
                       interestedCount:
                         type: integer
         '404':
-          description: Event not found
+          description: Event not found, deactivated or canceled
           content:
             application/json:
               schema:
@@ -25721,11 +25786,10 @@ paths:
       tags:
       - explore
       summary: My recently viewed events
-      description: Last 20 distinct events the user opened (GET /explore/{id}?type=EVENT with a bearer token records a view). Newest first. Deactivated events are skipped.
+      description: 'Last 20 distinct events the user opened (GET /explore/{id}?type=EVENT with a bearer token records a view). Newest first (lastViewedAt DESC). Deactivated events are skipped. PERSONAL: only the rows of the token user are ever returned (the user id comes from the database user row of the token, never from a parameter). At most 20 items in total (the table keeps 20 rows per user), then paged with page and limit (limit max 50, default 10); meta.total is at most 20. Item = the GET /explore event item (id, name, lat, lng, location, type EVENT, thumbnail, currency, price, isWishlist) plus viewedAt (ISO). T-042 implemented (tested locally, not deployed).'
       x-auth: 'user bearer: checkUserAccessToken + checkUserExistence + checkAccountStatus'
       security: *id029
       x-requirement: CR-11
-      x-status: planned
       x-change: added
       parameters:
       - *id018
@@ -25774,11 +25838,10 @@ paths:
       tags:
       - explore
       summary: Most viewed events in a city
-      description: City-wide ranking over the last 30 days (Q6c default), distinct from the personal recently-viewed list.
+      description: "City-wide ranking of events over the last 30 days (Q6c), distinct from the personal recently-viewed list. T-042 implemented (tested locally, not deployed). Centre: lat+lng when both are sent, otherwise the City centre for cityId (any City row, whatever isLaunched; unknown id 404, malformed id 422); radiusKm is one of 10, 20, 30, 40, 50 (default 20). With neither centre there is no radius limit. Same event rows as GET /explore type=EVENT (not deactivated, not canceled, status UPCOMING, not ended). Events with no views in the window are left out. Order: views DESC, startAt ASC, id ASC. limit 1 to 20 (default 10), no paging, response has data only. Item = the GET /explore event item (distanceKm when a centre exists). RANKING RULES (T-042, our proposal, open question for the client to confirm): windows are whole UTC days that end with the UTC day of now (today included), 7 days for trending and 30 days for most viewed. Trending score = views (EventViewDaily.views summed over the 7 days) + Interested taps (EventInterest.createdAt inside the same 7 days), weight 1 each. Most viewed score = views over the 30 days. Ties: startAt ascending, then id ascending. Until history exists (no EventViewDaily row on or before the first day of the window) the lifetime Event.viewCount replaces the windowed views (taps still count for trending). Every open counts (no per-user de-duplication). Nobody is identified: only counts are used and no endpoint shows who viewed or who is interested."
       x-auth: public (no auth middleware)
       security: *id017
       x-requirement: CR-11
-      x-status: planned
       x-change: added
       parameters:
       - name: cityId
@@ -25802,8 +25865,12 @@ paths:
         required: false
         schema:
           type: integer
-          minimum: 1
-          maximum: 50
+          enum:
+          - 10
+          - 20
+          - 30
+          - 40
+          - 50
           default: 20
       - name: limit
         in: query
@@ -25848,11 +25915,10 @@ paths:
       tags:
       - artists
       summary: Discover artists
-      description: Artists linked to at least one upcoming event, with photo. Sorted by upcoming event count, then name.
+      description: 'T-044 (tested locally, not deployed). Artists linked (EventLineup.artistId) to at least one upcoming event: not deactivated, eventStatus UPCOMING and not yet ended, the same rule as GET /explore type=EVENT. Sorted by upcoming event count (desc), then name, then id. `search` is a case-insensitive substring match on the name (percent and underscore are literal). `cityId` keeps only artists with an upcoming event within the default explore radius (20 km) of that city centre (unknown city 404). Items use the ArtistProfile shape with `upcomingEventCount` instead of `upcomingEvents`. `isFollowing` is present only with a valid bearer token (and only about that user); an invalid token is 401. limit max 50, default 10. Message: Artists retrieved successfully.'
       x-auth: 'optional user bearer: optionalUserAccessToken'
       security: *id027
       x-requirement: CR-12
-      x-status: planned
       x-change: added
       parameters:
       - name: search
@@ -25910,11 +25976,10 @@ paths:
       tags:
       - artists
       summary: Artist profile
-      description: Profile with follower count, isFollowing (bearer) and upcoming linked events.
+      description: 'T-044 (tested locally, not deployed). Any existing artist. `upcomingEvents` (at most 20, soonest first) uses the GET /explore type=EVENT item shape (id, name, lat, lng, location, type, thumbnail, currency, price) plus `startAt`. `isFollowing` only with a valid bearer token. Unknown id 404 Artist not found. Message: Artist retrieved successfully.'
       x-auth: 'optional user bearer: optionalUserAccessToken'
       security: *id027
       x-requirement: CR-12
-      x-status: planned
       x-change: added
       parameters:
       - name: id
@@ -25966,11 +26031,10 @@ paths:
       tags:
       - artists
       summary: Edit an artist profile (owner)
-      description: Allowed for a club owner who has the artist in the lineup of one of their events (manager-maintained profile, Q6e default). No artist login exists.
+      description: 'T-044 (tested locally, not deployed). Client answer Q6e: clubs and organizers maintain artist profiles, there is no artist login. A CLUB_OWNER manages an artist when they own an active (not deactivated) event whose lineup links that artist (EventLineup.artistId). The rule "created the artist" is NOT implemented because Artist has no creator column (open question, see known-issues.md). An unrelated owner, an unknown artist or an artist only on deactivated events all return 404 Artist not found, never 403 (the live app logs out on 403). A caller who is not a CLUB_OWNER gets the usual role 403. Editable by an owner: photo (stored in Artist.avatar), bio, spotifyUrl, socialLinks; name and isVerified are admin only and a body containing them is 422. Omitted fields are kept, null clears, socialLinks replaces the whole object, an empty bio is stored as null. Returns the ArtistProfile. Message: Artist updated successfully.'
       x-auth: 'owner: user bearer + checkClubOwnerRole (accountRole CLUB_OWNER)'
       security: *id009
       x-requirement: CR-12
-      x-status: planned
       x-change: added
       parameters:
       - name: id
@@ -26006,13 +26070,13 @@ paths:
                   data:
                     $ref: '#/components/schemas/ArtistProfile'
         '403':
-          description: Artist is not linked to your events
+          description: Caller is not a CLUB_OWNER (role middleware)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Artist not found
+          description: Artist not found or not managed by the caller
           content:
             application/json:
               schema:
@@ -26024,7 +26088,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: Validation failed
+          description: Validation failed (unknown key, invalid URL, invalid socialLinks, empty body)
           content:
             application/json:
               schema:
@@ -26035,11 +26099,10 @@ paths:
       tags:
       - admin
       summary: List artists (admin)
-      description: All artists including those without upcoming events.
+      description: 'T-044 (tested locally, not deployed). Every artist, including those without upcoming events, sorted by name then id. `search` is a case-insensitive substring match on the name; `isVerified` filters. ArtistProfile items without `upcomingEvents` and without `isFollowing`. limit max 50, default 10. No CSRF header on reads. Message: Artists retrieved successfully.'
       x-auth: 'admin cookie (no csrf): checkAdminAccessToken + checkAdminExistence (role ADMIN, status ACTIVE)'
       security: *id028
       x-requirement: CR-12
-      x-status: planned
       x-change: added
       parameters:
       - name: search
@@ -26102,11 +26165,10 @@ paths:
       tags:
       - admin
       summary: Edit or verify an artist (admin)
-      description: Fix names, photo, bio, links; set isVerified.
+      description: 'T-044 (tested locally, not deployed). Admin may edit name, photo, bio, spotifyUrl, socialLinks and isVerified. A rename keeps nameKey (lowercased, whitespace collapsed) in sync and returns 409 ARTIST_NAME_EXISTS when another artist already has that name. Same omitted, null and socialLinks rules as PATCH /artists/{id}. Unknown id 404, no cookie 401, a customer token or a missing CSRF header 403. Returns the ArtistProfile (without upcomingEvents). Message: Artist updated successfully.'
       x-auth: 'admin cookie + csrf: checkCsrfToken + checkAdminAccessToken + checkAdminExistence'
       security: *id020
       x-requirement: CR-12
-      x-status: planned
       x-change: added
       parameters:
       - name: id
@@ -26149,6 +26211,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Artist not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Another artist already has that name (ARTIST_NAME_EXISTS)
           content:
             application/json:
               schema:
@@ -28056,6 +28124,39 @@ components:
         createdAt:
           type: string
           format: date-time
+    ArtistSocialLinks:
+      type: object
+      description: OUR PROPOSAL (T-044), to be confirmed by the client. Only these keys are accepted, unknown keys are rejected (422). Each value is an https URL of at most 2048 characters. Spotify has its own column (spotifyUrl) and the photo is `photo`.
+      additionalProperties: false
+      properties:
+        instagram:
+          type: string
+          format: uri
+          maxLength: 2048
+        facebook:
+          type: string
+          format: uri
+          maxLength: 2048
+        x:
+          type: string
+          format: uri
+          maxLength: 2048
+        tiktok:
+          type: string
+          format: uri
+          maxLength: 2048
+        youtube:
+          type: string
+          format: uri
+          maxLength: 2048
+        soundcloud:
+          type: string
+          format: uri
+          maxLength: 2048
+        website:
+          type: string
+          format: uri
+          maxLength: 2048
     ArtistProfile:
       type: object
       required:
@@ -28071,49 +28172,79 @@ components:
           type:
           - string
           - 'null'
+          description: Artist.avatar
         bio:
           type:
           - string
           - 'null'
         socialLinks:
+          oneOf:
+          - $ref: '#/components/schemas/ArtistSocialLinks'
+          - type: 'null'
+        spotifyUrl:
           type:
-          - object
+          - string
           - 'null'
-          additionalProperties:
-            type: string
+        soundcloudUrl:
+          type:
+          - string
+          - 'null'
+        audioPreviewUrl:
+          type:
+          - string
+          - 'null'
         isVerified:
           type: boolean
         followerCount:
           type: integer
         isFollowing:
           type: boolean
-          description: only with bearer token
+          description: only with a valid bearer token, and only about that user
+        upcomingEventCount:
+          type: integer
+          description: only on GET /artists items
         upcomingEvents:
           type: array
+          description: only on GET /artists/{id} and PATCH /artists/{id}, at most 20, soonest first
           items:
             type: object
             additionalProperties: true
-            description: same item shape as GET /explore type=EVENT
+            description: same item shape as GET /explore type=EVENT plus startAt
     ArtistUpdate:
       type: object
+      description: At least one field. Unknown keys are rejected (422). Owner PATCH accepts photo, bio, spotifyUrl and socialLinks only; the admin PATCH also accepts name and isVerified.
+      additionalProperties: false
       properties:
         name:
           type: string
           minLength: 1
+          maxLength: 120
+          description: admin only
         photo:
           type:
           - string
           - 'null'
+          format: uri
+          maxLength: 2048
+          description: https URL, stored in Artist.avatar
         bio:
           type:
           - string
           - 'null'
-        socialLinks:
+          maxLength: 2000
+          description: trimmed, an empty string is stored as null
+        spotifyUrl:
           type:
-          - object
+          - string
           - 'null'
-          additionalProperties:
-            type: string
+          format: uri
+          maxLength: 2048
+          description: https URL
+        socialLinks:
+          oneOf:
+          - $ref: '#/components/schemas/ArtistSocialLinks'
+          - type: 'null'
+          description: replaces the whole stored object, null clears it
         isVerified:
           type: boolean
           description: admin only

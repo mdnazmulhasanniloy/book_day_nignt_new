@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bookdia Night: questions from the first build round</title><style>
+:root{--accent:#2b50d8;--accent-soft:#eef2ff;--ink:#1b2130;--muted:#5b6475;--line:#dfe3ec;--bg:#f6f7fb;--card:#fff;
+--high:#c62828;--high-bg:#fdeaea;--med:#a35a00;--med-bg:#fff1d6;--low:#555d6b;--low-bg:#eceef2}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:24px 16px 56px}
+.top{border-bottom:3px solid var(--accent);padding:8px 0 18px;margin-bottom:20px}
+.top h1{margin:0 0 6px;font-size:1.75rem;line-height:1.2;letter-spacing:-.01em}
+.top .meta{color:var(--muted);font-size:.95rem}
+.intro{background:var(--accent-soft);border:1px solid #c9d4ff;border-left:5px solid var(--accent);border-radius:8px;padding:16px 18px;margin:0 0 24px}
+.intro p{margin:.35em 0}
+.intro .first{font-weight:600}
+h2{font-size:1.25rem;margin:36px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);color:var(--accent);break-after:avoid}
+h2 .sn{display:inline-block;min-width:1.6em}
+h3{font-size:1.05rem;margin:0;line-height:1.35}
+h4{margin:16px 0 6px;font-size:1rem}
+.table-wrap{overflow-x:auto;margin:10px 0}
+table{border-collapse:collapse;width:100%;background:var(--card);font-size:.93rem}
+th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+thead th{background:#eceffa;color:#26304d;font-weight:600}
+thead{display:table-header-group}
+tr{break-inside:avoid}
+td.n{width:2.6em;text-align:center;font-weight:600}
+table.fill td{height:2.4em}
+table.prio th.c,table.prio td.c{text-align:center;width:6.5em}
+a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
+.sumnote{margin:6px 0 0;color:var(--muted);font-size:.92rem}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.78rem;font-weight:700;letter-spacing:.02em;white-space:nowrap}
+.badge.high{background:var(--high-bg);color:var(--high);border:1px solid #f1b9b9}
+.badge.medium{background:var(--med-bg);color:var(--med);border:1px solid #f0cf8f}
+.badge.low{background:var(--low-bg);color:var(--low);border:1px solid #cfd3db}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:0 0 16px;break-inside:avoid;page-break-inside:avoid;box-shadow:0 1px 2px rgba(20,30,60,.04)}
+.card header{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;margin-bottom:8px}
+.qnum{background:var(--accent);color:#fff;font-weight:700;border-radius:6px;padding:1px 9px;font-size:.9rem}
+.ids{color:var(--muted);font-weight:400;font-size:.88rem}
+.card p{margin:.45em 0}
+.why{color:var(--muted);font-size:.93rem;background:#fafbfd;border-left:3px solid var(--line);padding:5px 10px;border-radius:0 4px 4px 0}
+.part{font-weight:600;margin-top:.9em!important}
+ul.options,ul.plain,ul.check,ol.plain{margin:.5em 0;padding:0}
+ul.options{list-style:none;display:grid;gap:6px}
+ul.options li{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff}
+ul.options li.rec{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 4px 0 0 var(--accent)}
+.letter{flex:0 0 auto;width:1.7em;height:1.7em;border-radius:50%;border:1.5px solid #9aa5c4;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;color:#33406b;background:#fff}
+li.rec .letter{background:var(--accent);border-color:var(--accent);color:#fff}
+.otext{flex:1 1 auto}
+.rec-pill{display:inline-block;margin-left:8px;background:var(--accent);color:#fff;font-size:.72rem;font-weight:700;border-radius:999px;padding:1px 9px;vertical-align:1px;white-space:nowrap}
+.rec-inline{background:var(--accent);color:#fff;font-size:.72rem;font-weight:700;border-radius:999px;padding:1px 9px;white-space:nowrap}
+.rec-note{color:var(--muted);font-size:.9rem}
+ul.plain,ol.plain{padding-left:1.4em}
+ul.check{list-style:none}
+ul.check li{display:flex;gap:10px;align-items:flex-start;margin:7px 0}
+.box{display:inline-block;flex:0 0 auto;width:1.05em;height:1.05em;border:1.8px solid #6b7690;border-radius:3px;background:#fff;vertical-align:-2px}
+.answer{margin-top:12px;border:1.5px solid #aab3cc;border-radius:8px;min-height:5.6em;position:relative;
+background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 1.55em,#dfe3ec 1.55em,#dfe3ec calc(1.55em + 1px));
+background-origin:content-box;padding:.2em .8em 0 .8em;background-color:#fff}
+.alabel{position:absolute;top:-.75em;left:10px;background:#fff;padding:0 6px;font-size:.72rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
+.ph{background:#fff3a3;border-radius:3px;padding:0 3px;box-decoration-break:clone}
+.checkcard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 18px 14px}
+.footer{margin-top:34px;border-top:3px solid var(--accent);padding-top:16px}
+.footer .reply{background:var(--accent-soft);border:1px solid #c9d4ff;border-radius:8px;padding:14px 16px}
+.footer p{margin:.4em 0}
+code.ex{background:#fff;border:1px solid #c9d4ff;border-radius:4px;padding:1px 6px;font:600 .95em ui-monospace,Consolas,monospace}
+@media (max-width:640px){
+ body{font-size:15px}
+ .wrap{padding:14px 10px 40px}
+ .top h1{font-size:1.4rem}
+ .card{padding:14px 12px}
+ table{font-size:.85rem}
+ th,td{padding:6px 7px}
+}
+@page{size:A4;margin:16mm 14mm}
+@media print{
+ *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ body{background:#fff;font-size:11pt}
+ .wrap{max-width:none;padding:0}
+ .card{box-shadow:none;break-inside:avoid;page-break-inside:avoid}
+ .answer{break-inside:avoid}
+ h2{break-after:avoid;page-break-after:avoid}
+ thead{display:table-header-group}
+ tr{break-inside:avoid;page-break-inside:avoid}
+ a{color:#1b2130;text-decoration:underline}
+ .table-wrap{overflow:visible}
+ .footer{break-inside:avoid}
+}
+</style></head><body><div class="wrap"><div class="top"><h1>Bookdia Night — Questions from the first build round</h1><div class="meta">23 November 2026 &nbsp;·&nbsp; Prepared by <span class="ph">[your name]</span></div></div><section class="intro"><p class="first">Please answer the High-priority questions first.</p><p>We have built the first group of features that did not depend on your answers (ticket types, discovery, search, cities, artists, bookings). While building them we found a few points where the rules were not clear, and we chose a safe default for each. Some of these defaults change what customers or clubs experience, so we need your decision.</p><p><strong>For every question below, the feature keeps working with our safe default until you answer.</strong></p><p>How to answer: write your choice in the answer box, or reply with the question number and letter, for example <code class="ex">Q3: A</code>. Where an option is marked <span class="rec-inline">Recommended</span>, <code class="ex">Q3: recommended</code> is enough. Numbers in square brackets, such as [Q28], point to the earlier list we sent you.</p></section><h2 id="summary">Summary</h2><div class="table-wrap"><table><thead><tr><th>#</th><th>Topic</th><th>What it blocks</th><th>Priority</th><th>Answer needed by</th></tr></thead><tbody><tr><td class="n"><a href="#q1">1</a></td><td><a href="#q1">Discount codes that work on every event</a></td><td>Who may create club-wide or platform-wide codes</td><td><span class="badge high">High</span></td><td><span class="ph">[date]</span></td></tr><tr><td class="n"><a href="#q2">2</a></td><td><a href="#q2">Payment confirmed after the hold expired</a></td><td>What happens to a late payment when the tickets are gone</td><td><span class="badge high">High</span></td><td><span class="ph">[date]</span></td></tr><tr><td class="n"><a href="#q3">3</a></td><td><a href="#q3">Sold ticket types</a></td><td>Whether a club can remove a ticket type that has sales</td><td><span class="badge medium">Medium</span></td><td><span class="ph">[date]</span></td></tr><tr><td class="n"><a href="#q4">4</a></td><td><a href="#q4">Who maintains an artist profile</a></td><td>Which club or organizer may edit an artist</td><td><span class="badge medium">Medium</span></td><td><span class="ph">[date]</span></td></tr><tr><td class="n"><a href="#q5">5</a></td><td><a href="#q5">Côte d'Azur and region cities</a></td><td>How a region such as Côte d'Azur appears in the city list</td><td><span class="badge medium">Medium</span></td><td><span class="ph">[date]</span></td></tr><tr><td class="n"><a href="#q6">6</a></td><td><a href="#q6">Italian names for music styles and moods</a></td><td>Italian labels in the filters</td><td><span class="badge medium">Medium</span></td><td><span class="ph">[date]</span></td></tr><tr><td class="n"><a href="#q7">7</a></td><td><a href="#q7">Rules we proposed</a></td><td>Weekend, trending, code attempts, event time zones</td><td><span class="badge medium">Medium</span></td><td><span class="ph">[date]</span></td></tr><tr><td class="n"><a href="#q8">8</a></td><td><a href="#q8">Check of the live sales numbers</a></td><td>Correct "tickets sold" numbers</td><td><span class="badge medium">Medium</span></td><td><span class="ph">[date]</span></td></tr><tr><td class="n"><a href="#q9">9</a></td><td><a href="#q9">Map link on the event page</a></td><td>What the "open in maps" button shows</td><td><span class="badge low">Low</span></td><td><span class="ph">[date]</span></td></tr></tbody></table></div><p class="sumnote"><strong>9 questions: 2 High, 6 Medium, 1 Low</strong>. Click a question to jump to it.</p><h2 id="s1"><span class="sn">1.</span> Discount codes</h2><article class="card" id="q1"><header><span class="qnum">Q1</span><span class="badge high">High</span><h3>Discount codes that work on every event</h3></header><p>Today a club owner can create a discount code that is not tied to one event or one club. Such a code works on any event on the platform. Our first plan was to allow only Bookdia Night admins to create these codes, but the app's "Add promo" screen lets owners submit one, so we kept it working as it is.</p>
+<p class="why"><strong>Why it matters:</strong> a code that works everywhere can give discounts on events the owner does not run, and the club's commission and payout are affected.</p>
+<ul class="options">
+<li class="rec"><span class="letter">A</span><span class="otext">Only Bookdia Night admins can create codes that work on every event. Club owners can only create codes for their own events or their own club.<span class="rec-pill">Recommended</span></span></li>
+<li><span class="letter">B</span><span class="otext">Club owners can still create them, as today.</span></li>
+</ul>
+<p>Until you answer, nothing changes: owners can still create these codes, and only the owner who made one (or an admin) can edit or delete it.</p>
+<div class="answer"><span class="alabel">Your answer</span></div></article><h2 id="s2"><span class="sn">2.</span> Payments</h2><article class="card" id="q2"><header><span class="qnum">Q2</span><span class="badge high">High</span><h3>A payment that is confirmed after the hold expired</h3></header><p>A customer has 15 minutes to pay. If the card payment is confirmed after the 15 minutes, the places may already have been given to someone else. If the ticket type is full, we cannot issue the ticket, and the customer may already have been charged.</p>
+<p class="why"><strong>Why it matters:</strong> the customer's money is involved, and today nobody is told.</p>
+<ul class="options">
+<li class="rec"><span class="letter">A</span><span class="otext">Refund the customer automatically and tell them by email and in the app.<span class="rec-pill">Recommended</span></span></li>
+<li><span class="letter">B</span><span class="otext">A Bookdia Night admin reviews each case and decides (refund, or add the place if the club agrees).</span></li>
+<li><span class="letter">C</span><span class="otext">Keep the places for a few minutes longer (tell us how many) so late payments are rarer, and refund the rest automatically.</span></li>
+</ul>
+<p>Until you answer, nothing is refunded automatically. The case is recorded for manual review and the ticket is not issued.</p>
+<div class="answer"><span class="alabel">Your answer</span></div></article><h2 id="s3"><span class="sn">3.</span> Ticket types</h2><article class="card" id="q3"><header><span class="qnum">Q3</span><span class="badge medium">Medium</span><h3>A ticket type that already has sales</h3></header><p>When tickets of a type have been bought, we keep that type and mark it inactive instead of deleting it, so past orders keep their ticket type.</p>
+<p class="why"><strong>Why it matters:</strong> a club may expect to delete the ticket type and cannot.</p>
+<ul class="options">
+<li class="rec"><span class="letter">A</span><span class="otext">Keep it as it is: the club can hide the ticket type, but not delete it.<span class="rec-pill">Recommended</span></span></li>
+<li><span class="letter">B</span><span class="otext">Allow deleting it. Past orders keep the ticket type name, but the link to the type is lost.</span></li>
+</ul>
+<div class="answer"><span class="alabel">Your answer</span></div></article><h2 id="s4"><span class="sn">4.</span> Artists</h2><article class="card" id="q4"><header><span class="qnum">Q4</span><span class="badge medium">Medium</span><h3>Who may edit an artist profile</h3></header><p>Artist profiles are shared: the same artist can appear in many clubs' line-ups. We now let a club owner edit an artist only when the artist is in the line-up of one of that owner's events. We do not record who first added an artist, so we cannot also allow "the club that created the artist".</p>
+<p class="why"><strong>Why it matters:</strong> it decides who can change the photo, bio and links that every club's event page shows.</p>
+<ul class="options">
+<li class="rec"><span class="letter">A</span><span class="otext">Record who created each artist. The creator and Bookdia Night admins can edit it. Other clubs can add the artist to a line-up but cannot change the profile.<span class="rec-pill">Recommended</span></span></li>
+<li><span class="letter">B</span><span class="otext">Any club that has the artist in a line-up can edit it (what we have now).</span></li>
+<li><span class="letter">C</span><span class="otext">Only Bookdia Night admins can edit artists.</span></li>
+</ul>
+<p>Also: may a club owner <strong>rename</strong> an artist or mark it <strong>verified</strong>? We suggest only Bookdia Night admins can (today only admins can).</p>
+<ul class="plain">
+<li>Yes, owners may. / No, only admins. <span class="rec-inline">Recommended</span></li>
+</ul>
+<p>We have already fixed one related problem on our side: sending a line-up without choosing an existing artist no longer changes a shared artist's photo, links or verified mark.</p>
+<div class="answer"><span class="alabel">Your answer</span></div></article><h2 id="s5"><span class="sn">5.</span> Cities and regions</h2><article class="card" id="q5"><header><span class="qnum">Q5</span><span class="badge medium">Medium</span><h3>How Côte d'Azur appears in the city list</h3></header><p>Cities are shown with one centre point. Côte d'Azur is a region of several towns, so it does not fit a single point well. We suggested earlier [Q26] covering about 50 km around Nice, with Monaco as its own destination.</p>
+<p class="why"><strong>Why it matters:</strong> it decides what a customer sees when they pick Côte d'Azur, and what we need to build.</p>
+<ul class="options">
+<li><span class="letter">A</span><span class="otext">Treat Côte d'Azur like a city: one centre point (Nice) and the 50 km search. <strong>(Recommended for launch, no extra build.)</strong></span></li>
+<li><span class="letter">B</span><span class="otext">Build a real "region" that groups several towns (Nice, Cannes, Antibes, Menton, ...). You tell us the towns.</span></li>
+<li><span class="letter">C</span><span class="otext">List the main towns as separate cities instead of one region.</span></li>
+</ul>
+<p>All 11 destinations are loaded but switched off. Please also confirm which ones go live on day one [Q27].</p>
+<div class="answer"><span class="alabel">Your answer</span></div></article><h2 id="s6"><span class="sn">6.</span> Italian and English names</h2><article class="card" id="q6"><header><span class="qnum">Q6</span><span class="badge medium">Medium</span><h3>Italian names for music styles and moods</h3></header><p>You sent the 15 music styles and 8 moods in English and Italian. We store the English name. The Italian name is kept in a file but is not shown yet.</p>
+<p class="why"><strong>Why it matters:</strong> customers using the Italian app would see English names in the filters.</p>
+<ul class="options">
+<li class="rec"><span class="letter">A</span><span class="otext">Show the Italian name when the app language is Italian, English otherwise.<span class="rec-pill">Recommended</span></span></li>
+<li><span class="letter">B</span><span class="otext">Always show the English name.</span></li>
+<li><span class="letter">C</span><span class="otext">Show both names together.</span></li>
+</ul>
+<div class="answer"><span class="alabel">Your answer</span></div></article><h2 id="s7"><span class="sn">7.</span> Rules we proposed</h2><article class="card" id="q7"><header><span class="qnum">Q7</span><span class="badge medium">Medium</span><h3>Please confirm our proposed rules</h3></header><p>You asked us to propose these. Please say "agree" or tell us what to change.</p>
+<ul class="plain">
+<li><strong>This Weekend:</strong> Friday 18:00 to the end of Sunday, in the time zone of the city or event.</li>
+<li><strong>Trending:</strong> in the last 7 days, an event scores one point for each view and one point for each "Interested" tap. Most Viewed counts views over the last 30 days. Ties are broken by the earlier start date.</li>
+<li><strong>Discount code attempts:</strong> a person can try a code up to 20 times per minute. After that they must wait.</li>
+<li><strong>Event time zones:</strong> events that existed before this update have no saved time zone, so they are treated as UTC until the club sets one. (Please also answer how existing events should get a time zone [Q21].)</li>
+</ul>
+<ul class="options">
+<li class="rec"><span class="letter">A</span><span class="otext">Agree to all four.<span class="rec-pill">Recommended</span></span></li>
+<li><span class="letter">B</span><span class="otext">Change some (tell us which and how).</span></li>
+</ul>
+<div class="answer"><span class="alabel">Your answer</span></div></article><h2 id="s8"><span class="sn">8.</span> Live data</h2><article class="card" id="q8"><header><span class="qnum">Q8</span><span class="badge medium">Medium</span><h3>Check of the live sales numbers <span class="ids">[Q28]</span></h3></header><p>Some events may show more tickets sold than were really paid, because unpaid checkouts used to keep places reserved.</p>
+<p class="part">(a) May we read, without changing anything, the live sales data to prepare the list you asked for?</p>
+<ul class="options">
+<li class="rec"><span class="letter">A</span><span class="otext">Yes, read-only. We send you the list before any change.<span class="rec-pill">Recommended</span></span></li>
+<li><span class="letter">B</span><span class="otext">No. We give you a report that your team runs.</span></li>
+</ul>
+<p class="part">(b) After you review the list, should we correct the sold numbers?</p>
+<ul class="options">
+<li class="rec"><span class="letter">A</span><span class="otext">Yes, event by event, only after your written OK.<span class="rec-pill">Recommended</span></span></li>
+<li><span class="letter">B</span><span class="otext">No. Keep the history as it is.</span></li>
+</ul>
+<p>We also need this check for one more reason: we added a rule that a ticket section that already has sales cannot be saved together with sub-types. We want to confirm that no live event is in that situation before we release.</p>
+<div class="answer"><span class="alabel">Your answer</span></div></article><h2 id="s9"><span class="sn">9.</span> Event page</h2><article class="card" id="q9"><header><span class="qnum">Q9</span><span class="badge low">Low</span><h3>The map link on the event page</h3></header><p>The event page can open the event in a map. We have two ways to build the link.</p>
+<ul class="options">
+<li><span class="letter">A</span><span class="otext">Search for the event name together with its position. It shows the place name but can sometimes show a different place with a similar name.</span></li>
+<li class="rec"><span class="letter">B</span><span class="otext">Open the exact position only (an exact pin, no name).<span class="rec-pill">Recommended</span></span></li>
+</ul>
+<div class="answer"><span class="alabel">Your answer</span></div></article><footer class="footer"><div class="reply"><p><strong>How to reply</strong></p><p>Fill in the answer boxes, or send us a short message with the question number and your choice, for example <code class="ex">Q3: A</code> or <code class="ex">Q3: recommended</code>.</p><p>Contact: <span class="ph">[contact name, email, phone]</span></p></div><p style="color:var(--muted);font-size:.9rem;margin-top:14px">Thank you.</p></footer></div></body></html>

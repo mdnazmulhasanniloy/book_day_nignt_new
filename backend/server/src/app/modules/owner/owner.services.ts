@@ -422,20 +422,36 @@ export const verifyTicketService = async ({
     },
   });
 
-  if (!order) {
-    throw new Error('Ticket not found');
-  }
-
-  if (order.sellerUserId !== userId) {
-    throw new Error('Unauthorized to verify this ticket');
+  // T-011 (B-15): unknown order and another seller's order are the same 404,
+  // so the scanner cannot learn that a foreign order exists. Never 401/403:
+  // the live Flutter app treats both as an authentication failure.
+  if (!order || order.sellerUserId !== userId) {
+    throw {
+      statusCode: 404,
+      message: 'Ticket not found',
+      errorType: 'TICKET_NOT_FOUND',
+    };
   }
 
   if (order.status !== 'PAID' || order.refund) {
-    throw new Error('Ticket is not valid for entry (status: ' + (order.refund ? 'REFUNDED' : order.status) + ')');
+    throw {
+      statusCode: 422,
+      message:
+        'Ticket is not valid for entry (status: ' +
+        (order.refund ? 'REFUNDED' : order.status) +
+        ')',
+      errorType: 'TICKET_NOT_VALID',
+    };
   }
 
   if (order.checkedInAt) {
-    throw new Error('Ticket has already been used on ' + order.checkedInAt.toISOString());
+    throw {
+      statusCode: 409,
+      message:
+        'Ticket has already been used on ' + order.checkedInAt.toISOString(),
+      errorType: 'TICKET_ALREADY_USED',
+      usedAt: order.checkedInAt.toISOString(),
+    };
   }
 
   if (

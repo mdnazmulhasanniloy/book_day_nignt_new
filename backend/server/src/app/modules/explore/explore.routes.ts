@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import {
   exploreListController,
+  exploreMapController,
+  exploreMostViewedController,
+  exploreRecentlyViewedController,
   exploreDetailController,
   exploreFeedController,
   exploreGenresController,
@@ -10,13 +13,22 @@ import {
 } from '@/app/modules/explore/explore.controllers';
 import {
   exploreQuerySchema,
+  exploreMapQuerySchema,
+  exploreMostViewedQuerySchema,
   exploreDetailQuerySchema,
   exploreIdParamsSchema,
   exploreFeedQuerySchema,
   explorePaginationQuerySchema,
 } from '@/app/modules/explore/explore.schema';
 import { validateReqQuery, validateReqParams } from '@/app/utils/system.utils';
-import { optionalUserAccessTokenMiddleware } from '@/app/modules/auth/auth.middlewares';
+import { exploreFiltersController } from '@/app/modules/filterOption/filterOption.controllers';
+import { exploreFiltersQuerySchema } from '@/app/modules/filterOption/filterOption.schema';
+import {
+  optionalUserAccessTokenMiddleware,
+  checkUserAccessTokenMiddleware,
+  checkUserExistenceMiddleware,
+  checkAccountStatus,
+} from '@/app/modules/auth/auth.middlewares';
 
 const router = Router();
 
@@ -32,6 +44,38 @@ router.get(
   optionalUserAccessTokenMiddleware,
   validateReqQuery(exploreFeedQuerySchema),
   exploreFeedController
+);
+
+// Map pins (T-038). Registered before /explore/:id.
+router.get(
+  '/explore/map',
+  optionalUserAccessTokenMiddleware,
+  validateReqQuery(exploreMapQuerySchema),
+  exploreMapController
+);
+
+// Most viewed in a city, 30 days (T-042). Public. Registered before /explore/:id.
+router.get(
+  '/explore/most-viewed',
+  validateReqQuery(exploreMostViewedQuerySchema),
+  exploreMostViewedController
+);
+
+// The own recently viewed events of the caller (T-042). Personal: user bearer required.
+router.get(
+  '/me/recently-viewed',
+  checkUserAccessTokenMiddleware,
+  checkUserExistenceMiddleware,
+  checkAccountStatus,
+  validateReqQuery(explorePaginationQuerySchema),
+  exploreRecentlyViewedController
+);
+
+// Public vocabulary (T-037). Registered before /explore/:id.
+router.get(
+  '/explore/filters',
+  validateReqQuery(exploreFiltersQuerySchema),
+  exploreFiltersController
 );
 
 router.get(

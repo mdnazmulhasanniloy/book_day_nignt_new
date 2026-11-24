@@ -19,6 +19,7 @@ import {
   TCloseBookingsPayload,
 } from '@/app/modules/event/event.schema';
 import { buildPaginationLinks } from '@/app/modules/explore/explore.helpers';
+import { getTicketTierPresets } from '@/app/modules/event/event.ticketTierPresets';
 
 /**
  * Controller for handling Event creation requests.
@@ -199,6 +200,20 @@ export const closeEventBookingsController = asyncHandler(
         : 'Event ticket sales reopened successfully',
       data,
       traceId,
+    });
+  }
+);
+
+/**
+ * GET /ticket-tier-presets (T-016, CR-03): static preset tier names. Public.
+ */
+export const getTicketTierPresetsController = asyncHandler(
+  async (_req: Request, res: Response): Promise<void> => {
+    res.status(200).json({
+      success: true,
+      message: 'Ticket tier presets retrieved successfully',
+      data: getTicketTierPresets(),
+      traceId: getTraceId(),
     });
   }
 );

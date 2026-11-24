@@ -1,4 +1,5 @@
 import prisma from '@/app/configs/db.configs';
+import { syncGeogFromLatLng } from '@/app/utils/geog.helpers';
 import {
   ICreateEventService,
   IUpdateEventService,
@@ -7,13 +8,24 @@ import {
 } from '@/app/modules/event/event.types';
 import { TEventListQueryForAdmin } from '@/app/modules/event/event.schema';
 import { ILightweightExploreItem } from '@/app/modules/explore/explore.types';
-import { Event, Prisma } from '@prisma/client';
+import { Event, PricingMode, Prisma } from '@prisma/client';
 import { getSystemQueue } from '@/app/queues/system/system.queue';
 import { getEmailQueue } from '@/app/queues/email/email.queue';
 import { QUEUE_JOBS } from '@/const';
 import { sendPushNotification, getUsersNearby } from '@/app/modules/notification/notification.helpers';
-import { ensureArtistForLineup } from '@/app/modules/artists/artists.helpers';
-import { mapTicketTierTree } from '@/app/modules/event/event.ticketTier.helpers';
+import { mapPrismaError } from '@/app/utils/prismaError.utils';
+import { ensureArtistForLineup, resolveLineupLink } from '@/app/modules/artists/artists.helpers';
+import {
+  mapTicketTierTree,
+  reconcileEventTicketTiers,
+  type TierReconcileWarning,
+} from '@/app/modules/event/event.ticketTier.helpers';
+import {
+  resolvePricingMode,
+  type PricingTierInput,
+} from '@/app/modules/event/event.pricingMode.helpers';
+
+const EVENT_NOT_FOUND = 'Event not found';
 
 /**
  * Service for creating an Event.
@@ -31,16 +43,19 @@ export const createEventService = async ({
     const newEvent = await tx.event.create({
       data: {
         ...eventData,
+        // T-017: explicit value validated, otherwise derived (migration 4 rule).
+        pricingMode: resolvePricingMode({
+          requested: eventData.pricingMode,
+          stored: null,
+          eventPrice: eventData.eventPrice,
+          tiers: ticketTiers ?? [],
+        }),
         userId,
       },
     });
 
     // 2. Set the PostGIS geography point using raw SQL
-    await tx.$executeRaw`
-      UPDATE "Event" 
-      SET geog = ST_SetSRID(ST_MakePoint(${payload.lng}, ${payload.lat}), 4326)::geography 
-      WHERE id = ${newEvent.id}
-    `;
+    await syncGeogFromLatLng({ tx, table: 'Event', id: newEvent.id });
 
     // 3. Create Ticket Tiers if provided (supports optional nested children)
     if (ticketTiers && ticketTiers.length > 0) {
@@ -69,12 +84,13 @@ export const createEventService = async ({
     if (lineup && lineup.length > 0) {
       for (const artist of lineup) {
         const { id: _lineupId, ...artistData } = artist;
-        const ensured = await ensureArtistForLineup(tx, artistData);
+        const link = await resolveLineupLink(tx, artistData);
         await tx.eventLineup.create({
           data: {
             ...artistData,
             eventId: newEvent.id,
-            artistId: ensured.id,
+            artistId: link.artistId,
+            isVerified: link.isVerified,
           },
         });
       }
@@ -158,9 +174,13 @@ export const updateEventService = async ({
   // Ownership verification is handled by middleware fetching or we can double check, but middleware already checked it.
   if (!trustedCancellationContext) {
     // Fallback if somehow not populated (e.g. testing)
-    await prisma.event.findUniqueOrThrow({
-      where: { id: eventId, userId },
-    });
+    await prisma.event
+      .findUniqueOrThrow({
+        where: { id: eventId, userId },
+      })
+      .catch((error: unknown) => {
+        throw mapPrismaError(error, { notFoundMessage: EVENT_NOT_FOUND });
+      });
   }
 
   // Extract trusted context
@@ -198,49 +218,69 @@ export const updateEventService = async ({
 
   let createdRefunds: { refundId: string; scheduledFor: Date }[] = [];
   let createdEmails: ICancellationEmail[] = [];
+  let tierWarnings: TierReconcileWarning[] = [];
 
   try {
     const updatedEvent = await prisma.$transaction(async (tx) => {
+      // 0. T-017: pricingMode check (422 rolls the whole transaction back).
+      let pricingModeToStore: PricingMode | undefined;
+      if (
+        eventData.pricingMode !== undefined ||
+        eventData.eventPrice !== undefined ||
+        ticketTiers !== undefined
+      ) {
+        const stored = await tx.event.findUniqueOrThrow({
+          where: { id: eventId },
+          select: { eventPrice: true, pricingMode: true },
+        });
+        let tiersForRule: PricingTierInput[];
+        if (ticketTiers !== undefined) {
+          tiersForRule = ticketTiers;
+        } else {
+          const rows = await tx.eventTicketTier.findMany({ where: { eventId } });
+          tiersForRule = rows
+            .filter((row) => row.parentId === null)
+            .map((root) => ({
+              price: Number(root.price),
+              isActive: root.isActive,
+              children: rows
+                .filter((row) => row.parentId === root.id)
+                .map((child) => ({ price: Number(child.price), isActive: child.isActive })),
+            }));
+        }
+        pricingModeToStore = resolvePricingMode({
+          requested: eventData.pricingMode,
+          stored: stored.pricingMode,
+          eventPrice: eventData.eventPrice ?? Number(stored.eventPrice),
+          tiers: tiersForRule,
+        });
+      }
+
       // 1. Update the Event record
       const eventToReturn = await tx.event.update({
         where: { id: eventId },
         data: {
           ...eventData,
+          ...(pricingModeToStore !== undefined && { pricingMode: pricingModeToStore }),
           ...(deactivatedAt !== undefined && { deactivatedAt }),
         },
       });
 
       // 2. Update PostGIS geography point if lat/lng changed
-      if (eventData.lat !== undefined && eventData.lng !== undefined) {
-        await tx.$executeRaw`
-          UPDATE "Event"
-          SET geog = ST_SetSRID(ST_MakePoint(${eventData.lng}, ${eventData.lat}), 4326)::geography
-          WHERE id = ${eventId}
-        `;
+      // (also when only one of them was sent: geog is rebuilt from the stored pair)
+      if (eventData.lat !== undefined || eventData.lng !== undefined) {
+        await syncGeogFromLatLng({ tx, table: 'Event', id: eventId });
       }
 
       // 3. Update ticket tiers if provided (supports nested children)
+      // T-004 / ADR-004: reconcile in place (ids and soldCount survive).
       if (ticketTiers !== undefined) {
-        await tx.eventTicketTier.deleteMany({ where: { eventId } });
-        for (const tier of ticketTiers) {
-          const { children = [], id: _id, ...tierData } = tier;
-          const parent = await tx.eventTicketTier.create({
-            data: {
-              ...tierData,
-              eventId,
-            },
-          });
-          for (const child of children) {
-            const { id: _childId, ...childData } = child;
-            await tx.eventTicketTier.create({
-              data: {
-                ...childData,
-                eventId,
-                parentId: parent.id,
-              },
-            });
-          }
-        }
+        const reconciled = await reconcileEventTicketTiers({
+          tx,
+          eventId,
+          tiers: ticketTiers,
+        });
+        tierWarnings = reconciled.warnings;
       }
 
       // 4. Update lineup if provided (ensures stable Artist ids)
@@ -248,12 +288,13 @@ export const updateEventService = async ({
         await tx.eventLineup.deleteMany({ where: { eventId } });
         for (const artist of lineup) {
           const { id: _lineupId, ...artistData } = artist;
-          const ensured = await ensureArtistForLineup(tx, artistData);
+          const link = await resolveLineupLink(tx, artistData);
           await tx.eventLineup.create({
             data: {
               ...artistData,
               eventId,
-              artistId: ensured.id,
+              artistId: link.artistId,
+              isVerified: link.isVerified,
             },
           });
         }
@@ -317,6 +358,15 @@ export const updateEventService = async ({
       return eventToReturn;
     });
 
+    if (tierWarnings.length > 0) {
+      const { default: logger } = await import('@/app/configs/logger.configs');
+      for (const warning of tierWarnings) {
+        logger.warn(
+          `[updateEventService] ${warning.code} event=${warning.eventId} tiers=${warning.tierIds.join(',')}`
+        );
+      }
+    }
+
     // 4. Enqueue background jobs AFTER successful transaction
     if (isCancellation && createdRefunds.length > 0) {
       const systemQueue = getSystemQueue();
@@ -373,7 +423,10 @@ export const updateEventService = async ({
 
     return updatedEvent;
   } catch (error) {
-    throw error;
+    // P2025: event removed mid-request -> 404. P2003 (a row this update touches is
+    // referenced elsewhere, or a bad clubId) -> 409: the source is ambiguous, so the
+    // conservative default is a conflict, never a raw 500.
+    throw mapPrismaError(error, { notFoundMessage: EVENT_NOT_FOUND });
   }
 };
 
@@ -440,20 +493,29 @@ export const getEventDetailService = async ({
   eventId,
   userId,
 }: IGetEventDetailService) => {
-  const event = await prisma.event.findUniqueOrThrow({
-    where: { id: eventId, userId },
-    include: {
-      ticketTiers: {
-        orderBy: { sortOrder: 'asc' },
+  const event = await prisma.event
+    .findUniqueOrThrow({
+      where: { id: eventId, userId },
+      include: {
+        ticketTiers: {
+          orderBy: { sortOrder: 'asc' },
+        },
+        lineup: {
+          orderBy: { sortOrder: 'asc' },
+          include: { artist: { select: { isVerified: true } } },
+        },
       },
-      lineup: {
-        orderBy: { sortOrder: 'asc' },
-      },
-    },
-  });
+    })
+    .catch((error: unknown) => {
+      throw mapPrismaError(error, { notFoundMessage: EVENT_NOT_FOUND });
+    });
 
   return {
     ...event,
+    lineup: event.lineup.map(({ artist, ...row }) => ({
+      ...row,
+      isVerified: artist?.isVerified ?? false,
+    })),
     ticketTiers: mapTicketTierTree(event.ticketTiers),
   };
 };
@@ -572,6 +634,8 @@ export const duplicateEventService = async ({
         isResaleEnabled: source.isResaleEnabled,
         eventPrice: source.eventPrice,
         currency: source.currency,
+        timezone: source.timezone,
+        pricingMode: source.pricingMode,
         clubId: source.clubId,
         clubHostStatus: 'NONE',
         bookingsClosed: false,
@@ -579,7 +643,8 @@ export const duplicateEventService = async ({
       },
     });
 
-    // PostGIS geog is maintained elsewhere on create; skip Unsupported field here.
+    // T-030: geog is an Unsupported column, so it is set from the copied lat/lng here.
+    await syncGeogFromLatLng({ tx, table: 'Event', id: created.id });
 
     const tierIdMap = new Map<string, string>();
     const rootTiers = source.ticketTiers.filter((tier) => !tier.parentId);
@@ -590,6 +655,7 @@ export const duplicateEventService = async ({
         data: {
           eventId: created.id,
           tierName: tier.tierName,
+          tierType: tier.tierType,
           groupName: tier.groupName,
           description: tier.description,
           price: tier.price,
@@ -613,6 +679,7 @@ export const duplicateEventService = async ({
           eventId: created.id,
           parentId,
           tierName: tier.tierName,
+          tierType: tier.tierType,
           groupName: tier.groupName,
           description: tier.description,
           price: tier.price,
@@ -638,7 +705,7 @@ export const duplicateEventService = async ({
           audioPreviewUrl: artist.audioPreviewUrl,
           spotifyUrl: artist.spotifyUrl,
           soundcloudUrl: artist.soundcloudUrl,
-          isVerified: artist.isVerified,
+          isVerified: ensured.isVerified,
           sortOrder: artist.sortOrder,
         },
       });

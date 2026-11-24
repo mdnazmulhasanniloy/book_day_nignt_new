@@ -114,7 +114,8 @@ export function generateEtag(data: unknown): string {
   }
 }
 
-const ALLOWED_WRITE_METHODS = ['POST', 'PUT', 'PATCH'] as const;
+// DELETE is included so schemas attached to DELETE routes run (T-014, S-18).
+const ALLOWED_WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'] as const;
 
 export const validateReqBody =
   <T>(schema: ZodType<T>) =>

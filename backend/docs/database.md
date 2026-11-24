@@ -40,3 +40,7 @@ In production, the database is never migrated manually. The migration sequence i
 2. **Execution:** The migrator connects to the managed PostgreSQL database and applies any pending `.sql` migration files stored in `prisma/migrations/`.
 3. **Graceful Exit:** If successful, the `db-migrator` exits with code `0`.
 4. **Service Boot:** The `server`, `worker`, and `scheduler` containers are strictly configured with `depends_on: db-migrator: condition: service_completed_successfully`. They remain paused until the migrator finishes. Once the migrator exits with `0`, the continuous services boot safely against a fully synchronized database schema.
+
+## 3. Migration rehearsal (T-002)
+
+Run `bash backend/scripts/rehearse-migrations.sh` (Git Bash or Linux) to restore `backend/bookdianight.dump` into a throwaway local Postgres (`bookdia-rehearsal-pg`, port 5441), run `prisma migrate deploy`, check drift, run `project-docs/05-delivery/reports/check-violations.sql` and `stock-leak.sql`, and write a report. It exits non-zero on restore errors, failed migrations, unexpected drift or any GATE violation. It refuses any host except localhost and any database not named `*_rehearsal`. Never point it at staging or production.

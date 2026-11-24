@@ -79,8 +79,8 @@ router
   .post(
     validateReqBody(loginSchema),
     findUserByEmail,
-    checkAccountStatus,
     checkPassword,
+    checkAccountStatus,
     loginController
   );
 
@@ -110,8 +110,8 @@ router
 router
   .route('/auth/check')
   .post(
-    validateReqBody(checkAccessTokenSchema),
     checkUserAccessTokenMiddleware,
+    validateReqBody(checkAccessTokenSchema),
     checkUserExistenceMiddleware,
     checkAccountStatus,
     checkDeviceContextMiddleware,
@@ -121,8 +121,8 @@ router
 router
   .route('/auth/logout')
   .post(
-    validateReqBody(logoutSchema),
     checkUserAccessTokenMiddleware,
+    validateReqBody(logoutSchema),
     checkUserExistenceMiddleware,
     checkAccountStatus,
     checkDeviceContextMiddleware,

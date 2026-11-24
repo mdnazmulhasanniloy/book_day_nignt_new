@@ -1,10 +1,11 @@
 import { Request, Response } from 'express';
 import { getTraceId } from '@/app/configs/requestContext.configs';
 import { asyncHandler } from '@/app/utils/system.utils';
-import { exploreListService, exploreDetailService, getSharePreviewHtmlService } from '@/app/modules/explore/explore.services';
-import { TExploreQuery, TExploreDetailQuery } from '@/app/modules/explore/explore.schema';
+import { exploreListService, exploreMapService, exploreMostViewedService, exploreRecentlyViewedService, exploreDetailService, getSharePreviewHtmlService } from '@/app/modules/explore/explore.services';
+import { TExploreQuery, TExploreDetailQuery, TExploreFeedQuery, TExploreMapQuery, TExploreMostViewedQuery, TExplorePaginationQuery } from '@/app/modules/explore/explore.schema';
 import { buildPaginationLinks } from '@/app/modules/explore/explore.helpers';
 import { JwtPayload } from 'jsonwebtoken';
+import type { User } from '@prisma/client';
 
 /**
  * Controller for handling Explore list requests.
@@ -19,7 +20,7 @@ export const exploreListController = asyncHandler(
     const query = (req.validatedQuery || req.query) as unknown as TExploreQuery;
     const userId = req.user ? (req.user as JwtPayload).sub : undefined;
 
-    const { data, total } = await exploreListService({ query, userId });
+    const { data, total, groups } = await exploreListService({ query, userId });
 
     const totalPages = Math.ceil(total / query.limit);
     const links = buildPaginationLinks(req, query.page, totalPages);
@@ -32,7 +33,56 @@ export const exploreListController = asyncHandler(
         totalPages,
         links
       },
+      data: groups ?? data,
+      traceId,
+    });
+  }
+);
+
+/** GET /explore/map: capped lightweight pins (T-038). */
+export const exploreMapController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const traceId = getTraceId();
+    const query = (req.validatedQuery || req.query) as unknown as TExploreMapQuery;
+    const { data, meta } = await exploreMapService({ query });
+    res.status(200).json({
+      success: true,
+      message: 'Map pins retrieved successfully',
+      meta,
       data,
+      traceId,
+    });
+  }
+);
+
+/** GET /explore/most-viewed: events ranked by views over 30 days (T-042). */
+export const exploreMostViewedController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const traceId = getTraceId();
+    const query = (req.validatedQuery || req.query) as unknown as TExploreMostViewedQuery;
+    const { data } = await exploreMostViewedService({ query });
+    res.status(200).json({
+      success: true,
+      message: 'Most viewed events retrieved successfully',
+      data,
+      traceId,
+    });
+  }
+);
+
+/** GET /me/recently-viewed: the own recent event views of the caller (T-042). */
+export const exploreRecentlyViewedController = asyncHandler(
+  async (req: Request, res: Response): Promise<void> => {
+    const traceId = getTraceId();
+    const query = (req.validatedQuery || req.query) as unknown as TExplorePaginationQuery;
+    // checkUserExistence replaced req.user with the database User row: the id is user.id (never sub).
+    const userId = (req.user as User).id;
+    const { data, meta } = await exploreRecentlyViewedService({ userId, page: query.page, limit: query.limit });
+    res.status(200).json({
+      success: true,
+      message: 'Recently viewed events retrieved successfully',
+      data,
+      meta,
       traceId,
     });
   }
@@ -137,15 +187,11 @@ export const getEventSharePreviewController = asyncHandler(
 export const exploreFeedController = asyncHandler(
   async (req: Request, res: Response): Promise<void> => {
     const traceId = getTraceId();
-    const query = req.query as { city?: string; lat?: string; lng?: string };
+    const query = (req.validatedQuery || req.query) as unknown as TExploreFeedQuery;
     const userId = req.user ? (req.user as JwtPayload).sub : undefined;
 
     const result = await (await import('@/app/modules/explore/explore.services')).exploreFeedService({
-      query: {
-        city: query.city,
-        lat: query.lat ? Number(query.lat) : undefined,
-        lng: query.lng ? Number(query.lng) : undefined,
-      },
+      query,
       userId,
     });
 

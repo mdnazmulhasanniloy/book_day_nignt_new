@@ -1,4 +1,5 @@
 import prisma from '@/app/configs/db.configs';
+import { syncGeogFromLatLng } from '@/app/utils/geog.helpers';
 import {
   ICreateClubService,
   IUpdateClubService,
@@ -8,7 +9,10 @@ import {
 import { ILightweightExploreItem } from '@/app/modules/explore/explore.types';
 import { Club, Prisma } from '@prisma/client';
 import { TAdminClubListQuery } from '@/app/modules/club/club.schema';
+import { mapPrismaError } from '@/app/utils/prismaError.utils';
 import { sendPushNotification, getUsersNearby } from '@/app/modules/notification/notification.helpers';
+
+const CLUB_NOT_FOUND = 'Club not found';
 
 /**
  * Service for creating a Club.
@@ -46,11 +50,7 @@ export const createClubService = async ({
     });
 
     // 2. Set the PostGIS geography point using raw SQL
-    await tx.$executeRaw`
-      UPDATE "Club" 
-      SET geog = ST_SetSRID(ST_MakePoint(${clubData.lng}, ${clubData.lat}), 4326)::geography 
-      WHERE id = ${newClub.id}
-    `;
+    await syncGeogFromLatLng({ tx, table: 'Club', id: newClub.id });
 
     // 3. Create Opening Hours
     if (openingHours && openingHours.length > 0) {
@@ -160,9 +160,13 @@ export const updateClubService = async ({
   }
 
   // Verify ownership and existence
-  await prisma.club.findUniqueOrThrow({
-    where: { id: clubId, userId },
-  });
+  await prisma.club
+    .findUniqueOrThrow({
+      where: { id: clubId, userId },
+    })
+    .catch((error: unknown) => {
+      throw mapPrismaError(error, { notFoundMessage: CLUB_NOT_FOUND });
+    });
 
   let deactivatedAt: Date | null | undefined = undefined;
   if (isActive === false) {
@@ -171,6 +175,7 @@ export const updateClubService = async ({
     deactivatedAt = null;
   }
 
+  try {
   return await prisma.$transaction(async (tx) => {
     // 1. Update the base Club record
     const updatedClub = await tx.club.update({
@@ -185,12 +190,9 @@ export const updateClubService = async ({
     });
 
     // 2. Update PostGIS geography point if lat/lng changed
-    if (clubData.lat !== undefined && clubData.lng !== undefined) {
-      await tx.$executeRaw`
-        UPDATE "Club" 
-        SET geog = ST_SetSRID(ST_MakePoint(${clubData.lng}, ${clubData.lat}), 4326)::geography 
-        WHERE id = ${clubId}
-      `;
+    // (also when only one of them was sent: geog is rebuilt from the stored pair)
+    if (clubData.lat !== undefined || clubData.lng !== undefined) {
+      await syncGeogFromLatLng({ tx, table: 'Club', id: clubId });
     }
 
     // 3. Upsert Opening Hours (id optional; fallback clubId + dayOfWeek)
@@ -290,6 +292,10 @@ export const updateClubService = async ({
 
     return updatedClub;
   });
+  } catch (error) {
+    // P2025: club removed mid-request -> 404. P2003 -> 409 (see event update).
+    throw mapPrismaError(error, { notFoundMessage: CLUB_NOT_FOUND });
+  }
 };
 
 /**
@@ -377,15 +383,19 @@ export const getClubDetailService = async ({
   clubId,
   userId,
 }: IGetClubDetailService) => {
-  return await prisma.club.findUniqueOrThrow({
-    where: { id: clubId, userId },
-    include: {
-      clubOpeningHours: true,
-      clubPackages: {
-        orderBy: { sortOrder: 'asc' },
+  return await prisma.club
+    .findUniqueOrThrow({
+      where: { id: clubId, userId },
+      include: {
+        clubOpeningHours: true,
+        clubPackages: {
+          orderBy: { sortOrder: 'asc' },
+        },
       },
-    },
-  });
+    })
+    .catch((error: unknown) => {
+      throw mapPrismaError(error, { notFoundMessage: CLUB_NOT_FOUND });
+    });
 };
 
 /**

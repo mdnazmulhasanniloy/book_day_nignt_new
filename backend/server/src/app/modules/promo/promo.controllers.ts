@@ -19,6 +19,7 @@ import {
 interface IHttpError {
   statusCode: number;
   message: string;
+  errorType?: string;
 }
 
 const isHttpError = (err: unknown): err is IHttpError => {
@@ -56,6 +57,7 @@ export const validatePromoCodeController = asyncHandler(
         res.status(err.statusCode).json({
           success: false,
           message: err.message,
+          ...(err.errorType ? { errorType: err.errorType } : {}),
           traceId,
         });
         return;
@@ -96,6 +98,7 @@ export const createPromoCodeController = asyncHandler(
     try {
       const result = await createPromoCodeService({
         userId: user.id,
+        accountRole: user.accountRole,
         code: payload.code,
         discountType: payload.discountType,
         discountValue: payload.discountValue,
@@ -116,6 +119,7 @@ export const createPromoCodeController = asyncHandler(
         res.status(err.statusCode).json({
           success: false,
           message: err.message,
+          ...(err.errorType ? { errorType: err.errorType } : {}),
           traceId,
         });
         return;
@@ -136,6 +140,7 @@ export const updatePromoCodeController = asyncHandler(
       const result = await updatePromoCodeService({
         id,
         userId: user.id,
+        accountRole: user.accountRole,
         payload,
       });
 
@@ -150,6 +155,7 @@ export const updatePromoCodeController = asyncHandler(
         res.status(err.statusCode).json({
           success: false,
           message: err.message,
+          ...(err.errorType ? { errorType: err.errorType } : {}),
           traceId,
         });
         return;
@@ -169,6 +175,7 @@ export const deletePromoCodeController = asyncHandler(
       await deletePromoCodeService({
         id,
         userId: user.id,
+        accountRole: user.accountRole,
       });
 
       res.status(200).json({
@@ -182,6 +189,7 @@ export const deletePromoCodeController = asyncHandler(
         res.status(err.statusCode).json({
           success: false,
           message: err.message,
+          ...(err.errorType ? { errorType: err.errorType } : {}),
           traceId,
         });
         return;

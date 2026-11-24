@@ -5,7 +5,7 @@
   "main": "./dist/index.js",
   "scripts": {
     "build": "sh scripts/build.sh",
-    "test": "echo \"No tests written yet\" && exit 0",
+    "test": "tsx --test \"src/**/*.test.ts\"",
     "dev": "npx prisma generate && nodemon",
     "start": "node ./dist/index.js",
     "format": "prettier --write \"src/**/*.ts\"",
@@ -35,6 +35,7 @@
     "stripe": "^22.6.2",
     "winston": "^3.19.0"
   },
+  
   "devDependencies": {
     "@types/mime-types": "^3.0.1",
     "@types/morgan": "^1.9.10",

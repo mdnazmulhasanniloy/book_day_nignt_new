@@ -10,7 +10,7 @@ One file per task, written 2026-11-21 (rebuilt after the repo was re-created; co
 - Tests are part of the task (harness from T-003; hotfixes may use plain `tsx --test`). A task is Done only when every box in its 'Done when' list is checked.
 - Status values: `not started`, `in progress`, `blocked: <reason>`, `done`. Update the Status line in the task file and the table below.
 - Hotfix track branches from `main` and ships before M1 (REL-HF). All other tasks branch from the v2 work branch.
-- Release checkpoints (REL-*) have five sections: review, staging deploy, smoke list, production deploy, rollback note. Staging deploy mechanics are ⚠️ UNVERIFIED (`release-management.md` documents only the production tag flow); REL-HF settles that first.
+- Release checkpoints (REL-*) have five sections: review, staging deploy, smoke list, production deploy, rollback note. Staging deploy mechanics are ⚠️ UNVERIFIED (the old workflows deploy tag-to-production only, and no workflow runs in the monorepo until root workflows are added); REL-HF settles that first.
 
 ## Order
 
@@ -21,43 +21,44 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 | ID | Title | Stack | Depends on | Status |
 |---|---|---|---|---|
 | [HF-001](HF-001.md) | Verify S-17 password hash fix (verify tests run + staging check) | backend | none | not started (verify only) |
-| [HF-002](HF-002.md) | Stripe webhooks return 400 on missing or bad signature | backend | none | not started |
-| [HF-003](HF-003.md) | Fix blacklist key mismatch (jwt vs token) in socket and OTP-page token checks | backend | none | not started |
-| [HF-004](HF-004.md) | Reset password without OTP (verify first, then fix) | backend | none | not started |
-| [REL-HF](REL-HF.md) | Release checkpoint: hotfix track | release | HF-001, HF-002, HF-003, HF-004 | not started |
+| [HF-002](HF-002.md) | Stripe webhooks return 400 on missing or bad signature | backend | none | done in code (staging check pending) |
+| [HF-003](HF-003.md) | Fix blacklist key mismatch (jwt vs token) in socket and OTP-page token checks | backend | none | done in code (staging check pending) |
+| [HF-004](HF-004.md) | Reset password without OTP (verify first, then fix) | backend | none | done in code (staging check pending) |
+| [HF-005](HF-005.md) | Require auth on POST and DELETE /media (S-01, Critical) | backend | none | done in code (staging check pending) |
+| [REL-HF](REL-HF.md) | Release checkpoint: hotfix track | release | HF-001, HF-002, HF-003, HF-004, HF-005 | not started |
 
 ## M1 Security and correctness
 
 | ID | Title | Stack | Depends on | Status |
 |---|---|---|---|---|
-| [T-001](T-001.md) | Restore the dump into a local database and run baseline queries | backend (database) | none | not started |
-| [T-002](T-002.md) | Single-command migration rehearsal script | backend (database, scripts) | T-001 | not started |
-| [T-003](T-003.md) | Backend test harness (unit and database-backed tests) | backend | T-001 | not started |
+| [T-001](T-001.md) | Restore the dump into a local database and run baseline queries | backend (database) | none | done |
+| [T-002](T-002.md) | Single-command migration rehearsal script | backend (database, scripts) | T-001 | done (verified locally) |
+| [T-003](T-003.md) | Backend test harness (unit and database-backed tests) | backend | T-001 | done (CI job added, first GitHub run pending) |
 | [T-004](T-004.md) | Update event ticket tiers in place (stable ids, soldCount preserved) | backend | T-003 | not started |
-| [T-005](T-005.md) | Migration 5: tier on purchase (add_tier_on_purchase) | backend (database) | T-002, T-003 | not started |
-| [T-006](T-006.md) | Store the chosen tier on each event purchase | backend | T-005 | not started |
-| [T-007](T-007.md) | Release soldCount when a payment fails or is canceled | backend | T-006 | not started |
-| [T-008](T-008.md) | Release soldCount when an unpaid order expires (new job) | backend (server, worker) | T-007 | not started |
+| [T-005](T-005.md) | Migration 5: tier on purchase (add_tier_on_purchase) | backend (database) | T-002, T-003 | done in code (tested locally) |
+| [T-006](T-006.md) | Store the chosen tier on each event purchase | backend | T-005 | done in code (tested locally) |
+| [T-007](T-007.md) | Release soldCount when a payment fails or is canceled | backend | T-006 | done in code (tested locally) |
+| [T-008](T-008.md) | Release soldCount when an unpaid order expires (new job) | backend (server, worker) | T-007 | done in code (tested locally) |
 | [T-009](T-009.md) | Social sign-in: date of birth and profileComplete, retry-safe | backend | T-003 | not started |
-| [T-010](T-010.md) | Admin status codes: refresh 401, suspend 404, page/limit 422 | backend | T-003 | not started |
-| [T-011](T-011.md) | verify-ticket business errors return real status codes | backend | T-003 | not started |
-| [T-012](T-012.md) | Map Prisma not-found and FK errors for club and event routes | backend | T-003 | not started |
-| [T-013](T-013.md) | Event module delete 409 and wishlist 404 | backend | T-012 | not started |
-| [T-014](T-014.md) | Validate request bodies on DELETE routes | backend | T-003 | not started |
+| [T-010](T-010.md) | Admin status codes: refresh 401, suspend 404, page/limit 422 | backend | T-003 | done in code (tested locally) |
+| [T-011](T-011.md) | verify-ticket business errors return real status codes | backend | T-003 | done in code (tested locally) |
+| [T-012](T-012.md) | Map Prisma not-found and FK errors for club and event routes | backend | T-003 | done in code (tested locally) |
+| [T-013](T-013.md) | Event module delete 409 and wishlist 404 | backend | T-012 | done in code (tested locally) |
+| [T-014](T-014.md) | Validate request bodies on DELETE routes | backend | T-003 | done in code (tested locally) |
 | [REL-M1](REL-M1.md) | Release checkpoint: M1 security and correctness | release | T-001, T-002, T-003, T-004, T-005, T-006, T-007, T-008, T-009, T-010, T-011, T-012, T-013, T-014 | not started |
 
 ## M2 Ticket sections, presets, promo, guest list
 
 | ID | Title | Stack | Depends on | Status |
 |---|---|---|---|---|
-| [T-015](T-015.md) | Migration 4: event timezone, pricing mode, tier type | backend (database) | T-002, T-003 | not started |
-| [T-016](T-016.md) | Ticket tier presets endpoint and tierType on tiers | backend | T-015, T-004 | not started |
-| [T-017](T-017.md) | Event create and update: timezone, pricingMode, optional descriptions | backend | T-015, T-004 | not started |
-| [T-018](T-018.md) | Promo management: role and ownership checks, 404 for unknown target | backend | T-003, T-012 | not started |
-| [T-019](T-019.md) | Rate limit POST /promo/validate | backend | T-003 | not started |
-| [T-020](T-020.md) | Block duplicate guest-list join | backend | T-003 | not started |
-| [T-021](T-021.md) | Auth cleanup: check order on login, recover and token routes | backend | T-003, HF-004 | not started |
-| [REL-M2](REL-M2.md) | Release checkpoint: M2 ticket sections, presets, promo, guest list | release | T-015, T-016, T-017, T-018, T-019, T-020, T-021 | not started |
+| [T-015](T-015.md) | Migration 4: event timezone, pricing mode, tier type | backend (database) | T-002, T-003 | done in code (tested locally) |
+| [T-016](T-016.md) | Ticket tier presets endpoint and tierType on tiers | backend | T-015, T-004 | done in code (tested locally) |
+| [T-017](T-017.md) | Event create and update: timezone, pricingMode, optional descriptions | backend | T-015, T-004 | done in code (tested locally) |
+| [T-018](T-018.md) | Promo management: role and ownership checks, 404 for unknown target | backend | T-003, T-012 | done in code (tested locally) |
+| [T-019](T-019.md) | Rate limit POST /promo/validate | backend | T-003 | done in code (tested locally) |
+| [T-020](T-020.md) | Block duplicate guest-list join | backend | T-003 | done in code (tested locally) |
+| [T-021](T-021.md) | Auth cleanup: check order on login, recover and token routes | backend | T-003, HF-004 | done in code (tested locally) |
+| [REL-M2](REL-M2.md) | Release checkpoint: M2 ticket sections, presets, promo, guest list | release | T-015, T-016, T-017, T-018, T-019, T-020, T-021 | all tasks done in code; release checkpoint items not run |
 
 ## M3 Fees and commissions
 
@@ -76,24 +77,24 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 
 | ID | Title | Stack | Depends on | Status |
 |---|---|---|---|---|
-| [T-029](T-029.md) | Migration 3: backfill geog on events and clubs | backend (database) | T-002 | not started |
-| [T-030](T-030.md) | Keep geog in sync on event and club create, update and duplicate | backend | T-029, T-003 | not started |
-| [T-031](T-031.md) | Migration 10: cities and filter options (with backfill from existing values) | backend (database) | T-002, T-003 | not started |
-| [T-032](T-032.md) | Seed starter genre/mood lists and city list (needs client content) | backend (scripts) | T-031 | not started |
-| [T-033](T-033.md) | Cities: GET /cities and admin cities endpoints | backend | T-031 | not started |
-| [T-034](T-034.md) | Explore: radiusKm, cityId and distanceKm | backend | T-030, T-033 | not started |
-| [T-035](T-035.md) | Explore: day grouping, date range, this_week, result total | backend | T-034, T-017 | not started |
-| [T-036](T-036.md) | Explore feed honours city, cityId and radius | backend | T-034 | not started |
-| [T-037](T-037.md) | Filter vocabulary: GET /explore/filters and admin filter-options | backend | T-031 | not started |
-| [T-038](T-038.md) | GET /explore/map with the same filters as /explore | backend | T-034, T-037 | not started |
-| [T-039](T-039.md) | Migration 11: interested, recent views and daily view counts | backend (database) | T-002, T-003 | not started |
-| [T-040](T-040.md) | Interested: POST/DELETE /events/{id}/interested and interestedCount | backend | T-039 | not started |
-| [T-041](T-041.md) | View tracking: Redis counters, flush job, recent views, viewCount dedupe | backend (server, scheduler) | T-039 | not started |
-| [T-042](T-042.md) | Recently viewed, most viewed and sort=trending | backend | T-040, T-041, T-034 | not started |
-| [T-043](T-043.md) | Migration 12: artist bio and social links | backend (database) | T-002 | not started |
-| [T-044](T-044.md) | Artists: list, profile, owner edit, admin endpoints, lineup artistId | backend | T-043, T-017 | not started |
-| [T-045](T-045.md) | Public event page fields on GET /explore/{id} | backend | T-040, T-041, T-017 | not started |
-| [T-046](T-046.md) | Customer tickets: bucket filter and bookingStatus | backend | T-003 | not started |
+| [T-029](T-029.md) | Migration 3: backfill geog on events and clubs | backend (database) | T-002 | done in code (tested locally) |
+| [T-030](T-030.md) | Keep geog in sync on event and club create, update and duplicate | backend | T-029, T-003 | done in code (tested locally) |
+| [T-031](T-031.md) | Migration 10: cities and filter options (with backfill from existing values) | backend (database) | T-002, T-003 | done in code (tested locally) |
+| [T-032](T-032.md) | Seed starter genre/mood lists and city list (needs client content) | backend (scripts) | T-031 | done in code (tested locally) |
+| [T-033](T-033.md) | Cities: GET /cities and admin cities endpoints | backend | T-031 | done in code (tested locally) |
+| [T-034](T-034.md) | Explore: radiusKm, cityId and distanceKm | backend | T-030, T-033 | done in code (tested locally) |
+| [T-035](T-035.md) | Explore: day grouping, date range, this_week, result total | backend | T-034, T-017 | done in code (tested locally) |
+| [T-036](T-036.md) | Explore feed honours city, cityId and radius | backend | T-034 | done in code (tested locally) |
+| [T-037](T-037.md) | Filter vocabulary: GET /explore/filters and admin filter-options | backend | T-031 | done in code (tested locally) |
+| [T-038](T-038.md) | GET /explore/map with the same filters as /explore | backend | T-034, T-037 | done in code (tested locally) |
+| [T-039](T-039.md) | Migration 11: interested, recent views and daily view counts | backend (database) | T-002, T-003 | done in code (tested locally) |
+| [T-040](T-040.md) | Interested: POST/DELETE /events/{id}/interested and interestedCount | backend | T-039 | done in code (tested locally) |
+| [T-041](T-041.md) | View tracking: Redis counters, flush job, recent views, viewCount dedupe | backend (server, worker, scheduler) | T-039 | done in code (tested locally) |
+| [T-042](T-042.md) | Recently viewed, most viewed and sort=trending | backend | T-040, T-041, T-034 | done in code (tested locally) |
+| [T-043](T-043.md) | Migration 12: artist bio and social links | backend (database) | T-002 | done in code (tested locally) |
+| [T-044](T-044.md) | Artists: list, profile, owner edit, admin endpoints, lineup artistId | backend | T-043, T-017 | done in code (tested locally) |
+| [T-045](T-045.md) | Public event page fields on GET /explore/{id} | backend | T-040, T-041, T-017 | done in code (tested locally) |
+| [T-046](T-046.md) | Customer tickets: bucket filter and bookingStatus | backend | T-003 | done in code (tested locally) |
 | [REL-M4](REL-M4.md) | Release checkpoint: M4 discovery backend | release | T-029, T-030, T-031, T-032, T-033, T-034, T-035, T-036, T-037, T-038, T-039, T-040, T-041, T-042, T-043, T-044, T-045, T-046 | not started |
 
 ## M5 Organizer, tables, quotes, extras
@@ -146,5 +147,12 @@ Hotfix track, then M1 (restore and rehearsal first, then test harness, then the 
 | [T-078](T-078.md) | Admin page: Refund requests (approve or reject) | admin | T-070, T-066 | not started |
 | [T-079](T-079.md) | Admin page: Refunds list | admin | T-070, T-068 | not started |
 | [REL-M7](REL-M7.md) | Release checkpoint: M7 admin app | release | T-070, T-071, T-072, T-073, T-074, T-075, T-076, T-077, T-078, T-079 | not started |
+
+## Follow-ups (not scheduled)
+
+| ID | Title | Stack | Depends on | Status |
+|---|---|---|---|---|
+| [FU-001](FU-001.md) | Move the share page inline script to a file and add a Content-Security-Policy | backend | none | not started |
+| [FU-002](FU-002.md) | Make lint run again (typescript-eslint and TypeScript 7) | backend | none | not started |
 
 Totals: 83 work tasks (4 hotfix, 69 backend and database, 10 admin) and 8 release checkpoints.

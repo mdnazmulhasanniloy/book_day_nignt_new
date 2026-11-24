@@ -23,6 +23,8 @@
 | **UNUSED** | 7 |
 | **Total** | 151 |
 
+Field additions on existing routes (no new routes): T-006 added `ticketTierId` and `ticketTierName` to `POST /purchase/event` (`data.eventPurchase`) and to `GET /bookings/{id}` (`data.booking.eventPurchase`). Both are additive and null for no-tier and old purchases. T-008 adds no route or field: after commit `POST /purchase/event` also enqueues the worker job `expire-event-ticket-hold` (15 min) that releases the tier stock of an order still unpaid. The route table below is unchanged: Flutter parses by hand and ignores unknown keys (not every model was read).
+
 ## 3. Route table
 
 Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | status.
@@ -47,7 +49,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 |---|---|---|---|
 | `POST /admin/auth/login` | - | `admin/src/features/login/api/login.api.ts:15` | Admin only |
 | `POST /admin/auth/check` | - | `admin/src/apis/auth.api.ts:20` | Admin only |
-| `POST /admin/auth/refresh` | - | `admin/src/configs/axios.configs.ts:66` | Admin only |
+| `POST /admin/auth/refresh` | - | `admin/src/configs/axios.configs.ts:66` | Admin only. T-010: now 401 (was 500) when the session is consumed; the Admin client logs out on any refresh failure, so no behaviour change |
 | `POST /admin/auth/logout` | - | `admin/src/apis/auth.api.ts:25` | Admin only |
 | `GET /admin/profile` | - | - | **UNUSED** |
 | `PATCH /admin/profile` | - | `admin/src/apis/auth.api.ts:85` | Admin only |
@@ -55,11 +57,11 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 | `GET /admin/commission` | - | `admin/src/apis/commission.api.ts:32` | Admin only |
 | `PATCH /admin/commission` | - | `admin/src/apis/commission.api.ts:37` | Admin only |
 | `GET /admin/dashboard` | - | `admin/src/apis/dashboard.api.ts:34` | Admin only |
-| `GET /admin/users` | - | `admin/src/apis/users.api.ts:67` | Admin only |
-| `PATCH /admin/users/{id}/suspend` | - | `admin/src/apis/users.api.ts:82` | Admin only |
+| `GET /admin/users` | - | `admin/src/apis/users.api.ts:67` | Admin only. T-010: page/limit validated (422); the Admin client sends limit 10 or 5 and a positive page, so no behaviour change |
+| `PATCH /admin/users/{id}/suspend` | - | `admin/src/apis/users.api.ts:82` | Admin only. T-010: unknown id is 404 (was 500); the Admin client treats both as an error |
 | `PATCH /admin/users/{id}/delete` | - | `admin/src/apis/users.api.ts:95` | Admin only |
 | `PATCH /admin/users/{id}/restore` | - | - | **UNUSED** |
-| `GET /admin/earnings` | - | `admin/src/apis/earnings.api.ts:30` | Admin only |
+| `GET /admin/earnings` | - | `admin/src/apis/earnings.api.ts:30` | Admin only. T-010: page/limit validated (422) |
 
 ### legal
 
@@ -124,8 +126,8 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 |---|---|---|---|
 | `GET /club` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/club_repository.dart:35` | - | Flutter only |
 | `POST /club` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/club_repository.dart:16` | - | Flutter only |
-| `GET /club/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/club_repository.dart:45` | - | Flutter only |
-| `PUT /club/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/club_repository.dart:58` | - | Flutter only |
+| `GET /club/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/club_repository.dart:45` | - | Flutter only. T-012: missing or foreign id is now 404 NOT_FOUND (was 500); no client depends on the 500 (read only check: the app maps 4xx to a validation error with the server message, 5xx to a generic error) |
+| `PUT /club/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/club_repository.dart:58` | - | Flutter only. T-012: missing or foreign id is now 404 NOT_FOUND (was 500) |
 | `PUT /club/{id}/bookings/close` | - | - | **UNUSED** |
 | `GET /admin/club` | - | `admin/src/apis/clubs.api.ts:28` | Admin only |
 
@@ -133,10 +135,16 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 
 | Endpoint | Used by Flutter | Used by Admin | Status |
 |---|---|---|---|
-| `POST /event` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:15` | - | Flutter only |
+| `POST /event` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:15` | - | Flutter only. T-016: tier objects accept optional `tierType` (TICKET or PASS, default TICKET; invalid value 422). The live app does not send it. T-017: optional `timezone` (IANA, else 422), `pricingMode` (checked against price and tiers, 422 PRICING_MODE_INVALID, derived when omitted), empty-string descriptions stored as NULL; the response event row gains `timezone` and `pricingMode`. The live app sends none of them, so its create behaves as before (UTC, derived mode) |
 | `GET /event` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:37`<br>`flutter_app/lib/app/modules/club_owner_side/owner_home/repository/owner_stats_repository.dart:86` | - | Flutter only |
-| `PUT /event/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:85` | - | Flutter only |
-| `GET /event/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:48` | - | Flutter only |
+| `PUT /event/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:85` | - | Flutter only. T-012: missing or foreign id is now 404 NOT_FOUND (a foreign id was 403, which the app treats like 401). T-016: tier objects accept optional `tierType` (omitted keeps the stored value, so the live app never resets a PASS) and a tier with sales cannot be sent with `children` (422 TIER_SECTION_HAS_SALES). T-017: same optional `timezone`, `pricingMode` and empty-string description rules; without them the stored values are kept (a stored pricingMode that no longer fits the new tiers or price is re-derived, never a 422) |
+| `GET /ticket-tier-presets` | - | - | New in T-016 (public). Not called by Flutter or Admin yet |
+| `GET /cities` | - | - | New in T-033 (public). Not called by Flutter or Admin yet |
+| `GET /admin/cities`, `POST /admin/cities`, `PATCH /admin/cities/{id}` | - | - | New in T-033 (admin cookie; POST and PATCH also need the CSRF header). The admin Cities page is T-071, not built |
+| `GET /explore/filters` | - | - | New in T-037 (public). Not called by Flutter or Admin yet |
+| `GET /explore/map` | - | - | New in T-038 (optional user bearer). Not called by Flutter or Admin yet |
+| `GET /admin/filter-options`, `POST /admin/filter-options`, `PATCH /admin/filter-options/{id}` | - | - | New in T-037 (admin cookie; POST and PATCH also need the CSRF header). The admin Filter options page is T-072, not built |
+| `GET /event/{id}` | `flutter_app/lib/app/modules/club_owner_side/activity/repository/event_repository.dart:48` | - | Flutter only. T-012: missing or foreign id is now 404 NOT_FOUND (was 500) |
 | `POST /event/{id}/duplicate` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:448` | - | Flutter only |
 | `PUT /event/{id}/bookings/close` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:456` | - | Flutter only |
 | `GET /admin/event` | - | `admin/src/apis/events.api.ts:28` | Admin only |
@@ -150,7 +158,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 | `POST /event/{eventId}/modules/reorder` | - | - | **UNUSED** |
 | `POST /event/{eventId}/modules/{id}/duplicate` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:239` | - | Flutter only |
 | `PUT /event/{eventId}/modules/{id}` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:212` | - | Flutter only |
-| `DELETE /event/{eventId}/modules/{id}` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:229` | - | Flutter only |
+| `DELETE /event/{eventId}/modules/{id}` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:229` | - | Flutter only. T-013: a module with purchases is now 409 (was 500); the app maps 4xx to a validation error with the server message, so no client depended on the 500 |
 
 ### guestList
 
@@ -158,7 +166,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 |---|---|---|---|
 | `GET /event/{eventId}/guest-list` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:249` | - | Flutter only |
 | `PUT /event/{eventId}/guest-list` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:298` | - | Flutter only |
-| `POST /event/{eventId}/guest-list/join` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:59` | - | Flutter only |
+| `POST /event/{eventId}/guest-list/join` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:59` | - | Flutter only. T-020: a repeat join while a PENDING or CONFIRMED entry exists returns 409 GUEST_LIST_DUPLICATE (shown as a message; not tested in the app). |
 | `GET /event/{eventId}/guest-list/entries` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:278` | - | Flutter only |
 | `PUT /event/{eventId}/guest-list/entries/{id}` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:329` | - | Flutter only |
 
@@ -181,8 +189,8 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 
 | Endpoint | Used by Flutter | Used by Admin | Status |
 |---|---|---|---|
-| `GET /explore` | `flutter_app/lib/app/core/explore/repository/explore_api_repository.dart:13` | - | Flutter only |
-| `GET /explore/feed` | `flutter_app/lib/app/modules/user_side/home/widgets/discovery_feed_section.dart:46`<br>`flutter_app/lib/app/modules/user_side/home/views/trending_events_view.dart:72`<br>`flutter_app/lib/app/modules/user_side/home/views/organizers_view.dart:193` | - | Flutter only |
+| `GET /explore` | `flutter_app/lib/app/core/explore/repository/explore_api_repository.dart:13` | - | Flutter only. T-034: new optional `radiusKm` (10 to 50 step 10, server default stays 20), `cityId`, and a new `distanceKm` item field when a centre exists; the app sends none of these today, so its result is unchanged. T-035: new optional `group=day`, `from`, `to`, `dateFilter=this_week`; the app sends none of them, so its response is unchanged T-042 (tested locally, not deployed): `sort=trending` (already accepted by the schema, was ignored) now ranks events by views + Interested taps over 7 days; the app does not send it today, so its response is unchanged. |
+| `GET /explore/feed` | `flutter_app/lib/app/modules/user_side/home/widgets/discovery_feed_section.dart:46`<br>`flutter_app/lib/app/modules/user_side/home/views/trending_events_view.dart:72`<br>`flutter_app/lib/app/modules/user_side/home/views/organizers_view.dart:193` | - | Flutter only. T-036 (tested locally, not deployed): the server now honours optional `lat`/`lng`, `cityId`, `radiusKm`; the current app sends none of them, so its response is unchanged. |
 | `GET /explore/genres` | `flutter_app/lib/app/core/explore/repository/explore_api_repository.dart:27` | - | Flutter only |
 | `GET /explore/club/{id}/events/upcoming` | `flutter_app/lib/app/modules/user_side/club_details_view/widgets/club_community_section.dart:596-598` (path built with `${kind}`; ⚠️ UNVERIFIED which values) | - | Flutter only |
 | `GET /explore/club/{id}/events/past` | `flutter_app/lib/app/modules/user_side/club_details_view/widgets/club_community_section.dart:596-598` (path built with `${kind}`; ⚠️ UNVERIFIED which values) | - | Flutter only |
@@ -209,12 +217,28 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 | `POST /artists/{id}/follow` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:16` | - | Flutter only |
 | `DELETE /artists/{id}/follow` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:21` | - | Flutter only |
 | `GET /me/artists` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:31` | - | Flutter only |
+| `GET /artists` | - | - | New (CR-12, T-044, tested locally, not deployed); no client calls it yet. Public, optional bearer for `isFollowing` |
+| `GET /artists/{id}` | - | - | New (CR-12, T-044, tested locally, not deployed); no client calls it yet. Public, optional bearer for `isFollowing` |
+| `PATCH /artists/{id}` | - | - | New (CR-12, T-044, tested locally, not deployed); no client calls it yet. CLUB_OWNER whose event lineup links the artist |
+| `GET /admin/artists` | - | - | New (CR-12, T-044, tested locally, not deployed); the admin page is T-073, not started |
+| `PATCH /admin/artists/{id}` | - | - | New (CR-12, T-044, tested locally, not deployed); the admin page is T-073, not started |
+| `POST /event`, `PUT /event/{id}` (lineup `artistId`) | unchanged | - | Additive optional `artistId` on lineup items (T-044, tested locally); the live app does not send it and is unaffected |
+
+### interested (T-040, tested locally, not deployed)
+
+| Endpoint | Used by Flutter | Used by Admin | Status |
+|---|---|---|---|
+| `POST /events/{eventId}/interested` | - | - | New (CR-11); no client calls it yet (Flutter work is the last milestone). Count only, no list of users |
+| `DELETE /events/{eventId}/interested` | - | - | New (CR-11); no client calls it yet |
+| `GET /me/recently-viewed` | - | - | New (CR-11, T-042, tested locally, not deployed); no client calls it yet. User bearer, the caller's own rows only |
+| `GET /explore/most-viewed` | - | - | New (CR-11, T-042, tested locally, not deployed); no client calls it yet. Public, ranking by 30 day views in a city radius |
+| `GET /explore/{id}` (type=EVENT) | unchanged | - | Gains additive `interestedCount` and `isInterested` (bearer only); T-045 (tested locally) adds `mapUrl` and `club` (all other page fields were already returned); Flutter parses by hand and ignores unknown keys. T-041 (tested locally): no response change; `viewCount` is now filled by a flush job (up to about a minute behind) and a view is also kept in Redis and, with a token, in the user's recent views |
 
 ### wishlist
 
 | Endpoint | Used by Flutter | Used by Admin | Status |
 |---|---|---|---|
-| `POST /wishlist` | `flutter_app/lib/app/modules/user_side/favorite/repository/wishlist_repository.dart:40` | - | Flutter only |
+| `POST /wishlist` | `flutter_app/lib/app/modules/user_side/favorite/repository/wishlist_repository.dart:40` | - | Flutter only. T-013: a missing or unavailable target is now 404 NOT_FOUND (was 500); no client depended on the 500 (the admin app does not call the wishlist) |
 | `GET /wishlist` | `flutter_app/lib/app/modules/user_side/favorite/repository/wishlist_repository.dart:24` | - | Flutter only |
 | `DELETE /wishlist/{type}/{targetId}` | `flutter_app/lib/app/modules/user_side/favorite/repository/wishlist_repository.dart:58` | - | Flutter only |
 
@@ -290,7 +314,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 
 | Endpoint | Used by Flutter | Used by Admin | Status |
 |---|---|---|---|
-| `GET /bookings` | `flutter_app/lib/app/modules/user_side/booking/repository/booking_repository.dart:29` | - | Flutter only |
+| `GET /bookings` | `flutter_app/lib/app/modules/user_side/booking/repository/booking_repository.dart:29` | - | Flutter only. T-046 (tested locally, not deployed): additive `bucket` query parameter and `bookingStatus` item field; the app still sends only `tab`, `page`, `limit`, so its results are unchanged (extra key ignored). |
 | `GET /bookings/{id}` | `flutter_app/lib/app/modules/user_side/booking/repository/booking_repository.dart:49` | - | Flutter only |
 | `GET /bookings/{id}/ticket` | `flutter_app/lib/app/modules/user_side/booking/repository/booking_repository.dart:71` | - | Flutter only |
 | `GET /bookings/{id}/ticket/file` | `flutter_app/lib/app/modules/user_side/booking/repository/booking_repository.dart:66` | - | Flutter only |
@@ -302,7 +326,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 | `GET /owner/dashboard` | `flutter_app/lib/app/modules/club_owner_side/owner_home/repository/owner_stats_repository.dart:22` | - | Flutter only |
 | `GET /owner/earnings` | `flutter_app/lib/app/modules/club_owner_side/owner_home/repository/owner_stats_repository.dart:32` | - | Flutter only |
 | `GET /owner/payments` | `flutter_app/lib/app/modules/club_owner_side/owner_home/repository/owner_stats_repository.dart:72` | - | Flutter only |
-| `POST /owner/verify-ticket` | `flutter_app/lib/app/modules/club_owner_side/ticket_scanner/repository/ticket_scanner_repository.dart:68` | - | Flutter only |
+| `POST /owner/verify-ticket` | `flutter_app/lib/app/modules/club_owner_side/ticket_scanner/repository/ticket_scanner_repository.dart:68` | - | Flutter only. T-011: business failures are now 404/409/422 (were 500); the scanner screen shows the server message for any 4xx and a generic text for 5xx, and 401/403 are not used, so no logout path is triggered |
 | `GET /owner/bookings/export` | `flutter_app/lib/app/core/explore/repository/event_commerce_repository.dart:480` | - | Flutter only |
 
 ### public-web
@@ -335,7 +359,7 @@ Columns: endpoint | used by Flutter (file:line) | used by Admin (file:line) | st
 - Flutter builds `/explore/club/{id}/events/${kind}` (`club_community_section.dart:597`); the backend serves only `upcoming` and `past`. ⚠️ UNVERIFIED which values `kind` takes.
 - Flutter calls `/auth/*` and `/recover/*` flows but never `POST /auth/refresh`; the refresh token is stored and unused.
 - Admin reuses the user-facing `/recover/*` routes and `/media` (no admin-specific versions).
-- Both clients call `/media` upload and delete; the route has no auth (see `known-issues.md` S-01, S-18).
+- Both clients call `/media` upload and delete; the route has no auth (see `known-issues.md` S-01). `DELETE /media` body validation runs since T-014 (S-18); Flutter (`media_service.dart:69`) and Admin (`media.api.ts:21`) both send `{urls: [string]}`.
 - Flutter calls Google Places (New) directly: `POST https://places.googleapis.com/v1/places:autocomplete` and `GET https://places.googleapis.com/v1/places/{placeId}` (`explore_repository.dart:255,302`, `club_location_repository.dart:34,82`). Not a backend route.
 - Admin pages still on mock data: Notifications (`features/notifications/api/mock.ts`) and `useGetDashboardMetrics` (`features/dashboard/api/dashboard.api.ts`); the backend has no admin notifications endpoint. Unused mock files: `features/{clubs,events,earnings,settings}/api/mock.ts`.
 - Flutter does not use Socket.IO or any `/socket` route; the Admin app does not either.

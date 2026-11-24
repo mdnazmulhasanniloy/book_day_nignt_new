@@ -1,8 +1,10 @@
-import { TExploreQuery, TExploreDetailQuery, TExploreFeedQuery } from './explore.schema';
+import { TExploreQuery, TExploreDetailQuery, TExploreFeedQuery, TExploreMapQuery, TExploreMostViewedQuery } from './explore.schema';
 
 export interface IExploreListService {
   query: TExploreQuery;
   userId?: string;
+  /** Clock override for tests; defaults to the current time. */
+  now?: Date;
 }
 
 export interface IExploreDetailService {
@@ -11,9 +13,37 @@ export interface IExploreDetailService {
   userId?: string;
 }
 
+export interface ITrackEventView {
+  eventId: string;
+  /** Logged-in viewer; only then a personal recent view is kept. */
+  userId?: string;
+  now?: Date;
+}
+
 export interface IExploreFeedService {
   query: TExploreFeedQuery;
   userId?: string;
+}
+
+export interface IExploreMapService {
+  query: TExploreMapQuery;
+  /** Clock override for tests; defaults to the current time. */
+  now?: Date;
+  /** Pin cap override for tests; defaults to EXPLORE_MAP_MAX_PINS (300). */
+  maxPins?: number;
+}
+
+/** Lightweight pin of GET /explore/map (T-038). */
+export interface IExploreMapPin {
+  id: string;
+  type: 'CLUB' | 'EVENT';
+  name: string;
+  lat: number;
+  lng: number;
+  startAt: string | null;
+  thumbnail: string;
+  minPrice: number | null;
+  distanceKm?: number;
 }
 
 export interface IExploreClubEventsService {
@@ -44,9 +74,23 @@ export interface ILightweightExploreItem {
   price?: number;
   currency: string;
   isWishlist?: boolean;
+  distanceKm?: number;
   musicGenres?: string[];
   categoryType?: string;
   followerCount?: number;
   startAt?: Date;
   endAt?: Date;
+}
+
+export interface IExploreMostViewedService {
+  query: TExploreMostViewedQuery;
+  /** Clock override for tests; defaults to the current time. */
+  now?: Date;
+}
+
+export interface IExploreRecentlyViewedService {
+  /** Always the token user id. */
+  userId: string;
+  page: number;
+  limit: number;
 }

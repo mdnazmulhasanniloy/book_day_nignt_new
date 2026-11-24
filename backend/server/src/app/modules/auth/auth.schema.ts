@@ -140,6 +140,7 @@ export const oAuthLoginSchema = z
     fcmToken: z.string().optional(),
     lat: z.number(),
     lng: z.number(),
+    dateOfBirth: signupDateOfBirthSchema.optional(),
   })
   .strict();
 
