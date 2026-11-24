@@ -342,3 +342,21 @@ Real Italian admission sales stay off until an approved route exists; developmen
 6. T-063, T-064, T-065, T-066 and T-078 are superseded by the refund-engine tasks (ADR-007, CR-22).
 7. Statuses of T-001 to T-003 and HF-001 to HF-004 were verified by file comparison only; their tests are to be re-run in REL-HF.
 8. The effort figures are estimates by task, not commitments to the client; Phase 2 dates depend on the client confirming the added scope (see `scope-and-timeline-2026-11-24.md`).
+
+## 9. Option C: reduced launch (proposal, not the plan of record)
+
+Plan of record stays option A until the client chooses in writing (client document, section 5A). Option C was scheduled with the same scheduler, team (1 backend+admin, 1 Flutter), 30% allowance and calendar as section 2; only the Phase 2 task set was reduced. Phase 1 is unchanged. Not re-run for option B beyond the earlier figures.
+
+**Dates (option C):** stable build 2026-12-21; REL-M3 (fees, server total, gate) 2027-01-13; refunds basics REL-M6 2027-01-20; ready for final testing 2027-02-02 (last task T-186); REL-L ready 2027-02-05; launch candidate about 2027-02-09 (same 7-day owner-testing and store-review gap as option A). About 51 person-days including checkpoints (A: about 125). Critical path: still the single backend/admin lane (17 raw backend days plus 5 admin days in Phase 2); the release chain REL-HF to REL-M8a to REL-M3 sets the early dates. After launch the moved items need about 66 person-days; they follow in the milestone order of section 4 and finish about the same time as option A or a few weeks later, depending on launch support.
+
+**In (Phase 2 tasks kept):**
+- Fees (all of M3): T-022 to T-028, T-093 to T-099; Flutter FL-111, FL-112 (server total and removal of client calculation); update gate and checkpoint REL-M3 together.
+- Refund basics (M6 subset): T-134, T-135, T-136, T-137, T-140, T-143, T-144, T-067, T-068; Flutter FL-122, FL-123; cross-account suite T-069 (with the dependencies on moved tasks dropped); REL-M6.
+- Owner analytics and earnings: T-059 to T-062.
+- Admin (REL-M7 reduced): T-070 to T-073, T-075 to T-077, T-079, T-100, T-175.
+- Tiers and badge: T-152, T-153, FL-127; age rule: T-174, FL-133; purchase limit messages FL-129.
+- Acceptance: T-185, T-186 (demonstrations reduced to tickets, fees, refunds and approval); REL-L.
+
+**Out (moved to after launch):** table requests, quotes, card holds, deposits (M5 and T-090 to T-092 spikes, but T-025 stays for existing table checkout); roles (M9, T-101 to T-111, FL-121, T-176, T-177, T-183); settlement and payouts (M10, T-123 to T-133, FL-130, FL-134, T-178); chat (M13, FL-119, FL-120, T-180); per-day passes, scanner v2, codes (M11 except T-152, T-153; FL-124 to FL-126, FL-128, FL-136, T-184); venues and areas (M12, FL-131, FL-132, T-181, T-182); languages beyond today's and legal versions (M14 except T-174; FL-113, FL-114, T-172, T-173); organizer, collaboration, extras, quotes (M5 original: T-047 to T-058, T-074; FL-135); partner debits, waiver, goodwill refunds, who-may-refund matrix, reconciliation (T-138, T-139, T-141, T-142, T-145, T-179).
+
+**Consequences to confirm with the client:** payouts stay on the existing Connect behaviour (data-model migration 16 is not applied); club cost recovery after partner cancellation is by invoice outside the system; unregistered-venue events are not offered until M12; organizer items from the first tracker are moved after launch (needs explicit agreement); only the existing owner and admin access exists at launch (no team roles); chat and the WhatsApp link are not available. The migration set for option C (at least 6, 17 and the one of the approval gate; 22 for purchase limits and age) must be re-derived from the kept tasks when option C is chosen; some migrations (for example 17 and 18, which share the per-ticket status) may need splitting. Task files that depend on a moved task need their dependency lists rechecked then (a task file edit, not done now).

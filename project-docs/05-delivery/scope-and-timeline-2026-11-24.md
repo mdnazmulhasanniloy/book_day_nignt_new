@@ -85,10 +85,58 @@ We assume no work from 24 December to 1 January. Each release goes live only aft
 - The wording of terms, the venue authorization form and the adviser answers arrive before the matching screens are tested.
 - The 30% allowance is enough. Scope changes during the build are estimated separately.
 
+## 5A. Three ways to go, side by side
+
+The dates in section 5 assume our current team and the full launch scope. Because that is a long road, here are three options. Each date is our estimate, counted in the same way as above (30% allowance, no work from 24 December to 1 January, your answers and approvals on time).
+
+| | **A. Full scope, current team** | **B. Full scope, larger team** | **C. Reduced launch, current team** |
+|---|---|---|---|
+| Team | One developer for server and admin dashboard, one for the app, each with Claude | A second server and admin developer; for the earlier date, a second app developer as well | Same as A |
+| Stable build for your testing | 21 December 2026 | 21 December 2026 (the extra people cannot change the work already planned) | 21 December 2026 |
+| Fees and server-calculated price live | 10 February 2027 | Earlier than A; we have not yet re-planned this date | 13 January 2027 |
+| Ready for your final testing | 27 April 2027 | About a week and a half before the launch candidate | 2 February 2027 |
+| Launch candidate | **7 May 2027** | **About 23 February 2027**, or **about 1 February 2027** with both extra people | **About 9 February 2027** |
+| Work in total | About 116 days | The same work, shared between more people | About 50 days, roughly 40% of the full scope |
+| What you get at launch | Everything in section 3 | Everything in section 3 | The core listed below; the rest follows after launch |
+| Main risk | Long wait; one person per side is a single point of failure | New people need time to learn the system; dates assume they start at once with no learning time | Some features you asked for "Launch" arrive later; clubs run with simpler tools at first |
+
+**Option C in detail.** This is the smallest launch that is commercially usable: people can find events, buy tickets and passes with the correct fees, get refunds, and new club owners are checked before they sell.
+
+*In the launch:*
+- Everything in the stable build (section 5, phase 1): the finished work, security fixes, the new discovery screens, the approval step for new club owners and organizers, the update prompt in the app, purchase limits, time zones for existing events.
+- The new fee rules: 5% plus 0.50 booking fee, the club commission rates, start dates, and one correct total calculated by the server in every checkout. The app and the server are released together, and older app versions keep working until they are updated.
+- Free tickets, ticket tiers that open automatically when one sells out, the "Last tickets" label, and the event age rule shown on the event page.
+- Existing table bookings keep working as today, with the new fees applied.
+- Refunds, basic version: a customer cancels a single ticket within the club's policy and is refunded automatically; the booking fee is kept; a club that cancels an event refunds everyone; a changed date or venue sends a notice and opens the 7-day refund window; places return to sale when sales are still open; refunds you decide on are made by an administrator in the dashboard.
+- Owner screens for earnings and analytics (club and per event), and the dashboard pages for cities, genres and moods, artists, pricing rules, financial report, orders, refunds, approvals, and a fee calculator.
+- A multi-day pass sells and scans as one ticket for the whole event.
+- Your acceptance run and a shorter set of demonstrations (tickets, fees, refunds, approval).
+
+*Moved to after launch (about February to April 2027):*
+- Chat for bookings, the WhatsApp support link, and the protection against taking a deal elsewhere. Until then, customers and clubs use your normal support channels.
+- Team roles and the editable permissions page (Option C uses the club owner and administrator access that exists today).
+- Table requests, quotes, card holds, deposits and the second payment.
+- Split payments, scheduled payouts after the event and statements. Payouts keep working the way they work today.
+- Recovery of costs from clubs after a club cancellation: handled by invoice outside the system at first.
+- Goodwill partial refunds with the ticket kept.
+- Per-day entry for multi-day passes, per-day scanner results, no-show reports, guest-list approval hold and access codes.
+- Unregistered venues with the authorization form, venue disputes, the Cote d'Azur area and activation of the eleven destinations.
+- Four languages (the app keeps the languages it has today) and legal document versions.
+- Organizer profiles, following, collaboration requests, extra items and quotes with sign-in. These were in your first tracker, so we need your explicit agreement to move them.
+- The admin pages for roles, team accounts, settlements, chat, venues, areas, codes and the audit log.
+
+The total effort for the full scope does not shrink: the moved items still need about 65 days afterwards, and building them on a live system with real customers needs extra care. Option C gets you to market earlier; it does not make the whole scope cheaper.
+
+**Please confirm in writing:**
+1. Whether we continue with A, B or C.
+2. For C: that events at unregistered venues are not offered until that feature is built, that payouts stay as they are today for the first months, and that moving the organizer items to after launch is acceptable.
+
+*Italian ticketing, the four extra markets and the other items of section 4 are separate and unaffected by this choice; real Italian sales stay off until an approved route exists.*
+
 ## 6. What we need from you
 
 By **4 December 2026**:
-1. Written confirmation of the features in section 3 and their estimates, or your changes.
+1. Written confirmation of the features in section 3 and their estimates, or your changes, and your choice between options A, B and C (section 5A).
 2. Answers to the high-priority questions in our separate question list of 24 November.
 3. Access to the test system and hosting (DigitalOcean), or the name of the person who manages it. Without it we cannot run the read-only list of sold counts.
 
