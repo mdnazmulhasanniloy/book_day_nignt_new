@@ -2,7 +2,7 @@
 
 Branch `docs/client-answers-02`. Source of the client decisions: `01-discovery/client-answers-02.md` (24 November 2026) and `01-discovery/client-answers-01.md`. Client-facing companion: `scope-and-timeline-2026-11-24.md`. Questions we still owe the client: `client-clarifications-2026-11-24.md` (internal map next to it). Italian ticketing: `siae-decision-memo-2026-11-24.md`. Nothing here is committed, pushed, merged or deployed.
 
-How to read this plan: the **work queue** (section 5) is the one ordered list. A person with no other instruction takes the first task that is not blocked. Planned dates assume the real team: **one developer for backend and admin (working with Claude) and one Flutter developer (working with Claude)**, a 30% allowance on the effort of every task, no work from 24 December to 1 January, and the client answers marked "blocked" arriving by 7 December (High-priority answers are asked for by 4 December). Access received per the product owner: Stripe, Apple and Google, push. Hosting (DigitalOcean) is not confirmed, so the stalled-count run is blocked. The estimate per task is the raw estimate (max half a day); the planned dates already include the allowance.
+How to read this plan: the **work queue** (section 5) is the one ordered list. A person with no other instruction takes the first task that is not blocked. Planned dates assume the real team: **one developer for backend and admin (working with Claude) and one Flutter developer (working with Claude)**, a 30% allowance on the effort of every task, no work from 24 December to 1 January, and the client answers marked "blocked" arriving by 7 December (High-priority answers are asked for by 4 December). Access received per the product owner: Stripe, Apple and Google, push. Hosting (DigitalOcean) access is received, so the stalled-count run is not blocked. The estimate per task is the raw estimate (max half a day); the planned dates already include the allowance.
 
 ## 1. Where we are
 
@@ -104,7 +104,7 @@ Rules: one task at a time per person; failing test first; contract docs in the s
 | 14 | [FL-108](tasks/FL-108.md) | Flutter: artist list, profile, follow | flutter | 1 | M8a | - | 0.50 |  | 2026-12-03 | 2026-12-04 |
 | 15 | [FL-101](tasks/FL-101.md) | Flutter: version policy check at launch and the update-required screen | flutter | 1 | M8a | T-089 | 0.50 |  | 2026-12-04 | 2026-12-07 |
 | 16 | [T-088](tasks/T-088.md) | Language inventory of the Flutter app and backend texts (emails, push, errors) for EN, IT, FR, ES | backend | 1 | M14 | - | 0.50 |  | 2026-12-04 | 2026-12-07 |
-| 17 | [T-085](tasks/T-085.md) | Run the stalled-checkout list on live data (read-only) and produce the per-event report | backend | 1 | M1b | - | 0.50 | BLOCKED: hosting or database access (item 04) | 2026-12-07 | 2026-12-07 |
+| 17 | [T-085](tasks/T-085.md) | Run the stalled-checkout list on live data (read-only) and produce the per-event report | backend | 1 | M1b | - | 0.50 | access received, not blocked | 2026-12-07 (could start earlier, see section 8) | 2026-12-07 |
 | 18 | [T-086](tasks/T-086.md) | Per-event correction script for sold counts, run only after written approval for each event | backend | 1 | M1b | T-085 | 0.50 | BLOCKED: client written OK per event | 2026-12-07 | 2026-12-08 |
 | 19 | [FL-109](tasks/FL-109.md) | Flutter: My tickets buckets (future, pending, past) and booking status | flutter | 1 | M8a | - | 0.50 |  | 2026-12-07 | 2026-12-07 |
 | 20 | [FL-110](tasks/FL-110.md) | Flutter: send tier ids on event update, handle new error status codes (404/409/422) | flutter | 1 | M8a | - | 0.50 |  | 2026-12-07 | 2026-12-08 |
@@ -296,7 +296,6 @@ Rules: one task at a time per person; failing test first; contract docs in the s
 | FL-133 | Flutter: age rule on the event page and the 18+ warning before booking | adviser confirmation (Q31) | 2027-04-01 |
 | FL-136 | Flutter owner: code management screen (discount and guest-list codes) | priority (Q19) | 2027-03-24 |
 | T-083 | Admin endpoints: list, approve, reject partner applications, with notification | D12 (named approvers) | 2026-12-08 |
-| T-085 | Run the stalled-checkout list on live data (read-only) and produce the per-event report | hosting or database access (item 04) | 2026-12-07 |
 | T-086 | Per-event correction script for sold counts, run only after written approval for each event | client written OK per event | 2026-12-07 |
 | T-097 | Display mode per market and category (itemized or included) in the preview response | inclusive-display markets (Q2) | 2027-01-05 |
 | T-102 | Permission catalogue and resolver: page view/manage plus sensitive actions | default permission matrix (Q24) | 2026-12-22 |
@@ -317,7 +316,7 @@ Rules: one task at a time per person; failing test first; contract docs in the s
 | T-185 | Owner acceptance run on the labelled test accounts, tracker evidence per ID | tester availability (item 05) | 2027-04-26 |
 | T-186 | The five end-to-end demonstrations from the client answers (tables, split, passes, refunds, staff roles) | tester availability (item 05) | 2027-04-27 |
 
-Client items behind these: hosting or database access (item 04; Stripe, Apple/Google and push are received), named administrators (item 12), authorization form wording (item 07), second-payment deadline, Cote d'Azur town list, destination activation, working-day calendar, legal check of the 30-day chat deletion, adviser confirmation on under-18, Technical Fee refund on partner cancellation, last-minute threshold, default permission matrix, access-code priority. All are in `client-clarifications-2026-11-24.md` and the checklist at its end.
+Client items behind these: item 04 hosting is received along with Stripe, Apple/Google and push, so none of the access items blocks work now, named administrators (item 12), authorization form wording (item 07), second-payment deadline, Cote d'Azur town list, destination activation, working-day calendar, legal check of the 30-day chat deletion, adviser confirmation on under-18, Technical Fee refund on partner cancellation, last-minute threshold, default permission matrix, access-code priority. All are in `client-clarifications-2026-11-24.md` and the checklist at its end.
 
 ## 7. New scope: estimate only, no tasks
 
@@ -337,7 +336,7 @@ Real Italian admission sales stay off until an approved route exists; developmen
 1. Fees: a server-calculated total endpoint, the Flutter change to use it and the force-update gate ship together; `/service-charge` and old purchase responses keep working for old versions (ADR-012).
 2. Staff and platform roles are in separate tables with an additive field; `AccountRole` gets no new values (ADR-008).
 3. A pending partner never gets 401 or 403: HTTP 423 `PARTNER_APPROVAL_PENDING` plus an additive `partnerStatus` (ADR-010).
-4. Access received from the client (product owner, 2026-11-24): Stripe yes, Apple and Google yes, push yes; hosting (DigitalOcean) still not stated (the later message left the field blank), so it is treated as not received and T-085 stays blocked. Received means we have access; what is still missing is reported by the spike tasks.
+4. Access received from the client (product owner, 2026-11-24): Stripe yes, Apple and Google yes, push yes; hosting (DigitalOcean) received (product owner, later message of the same day), so T-085 is unblocked. T-085 is still listed at 2026-12-07 because dates were not re-planned; a re-run of the scheduler with T-085 free would start it on 2026-11-30 and bring the end of Phase 1 forward to about 2026-12-17 (the 2026-12-21 date is kept as buffer; all later dates unchanged). Received means we have access; what is still missing is reported by the spike tasks.
 5. Admin scaffolding (T-070) no longer waits for REL-M6; each admin page waits only for its own backend task.
 6. T-063, T-064, T-065, T-066 and T-078 are superseded by the refund-engine tasks (ADR-007, CR-22).
 7. Statuses of T-001 to T-003 and HF-001 to HF-004 were verified by file comparison only; their tests are to be re-run in REL-HF.
