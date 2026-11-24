@@ -110,7 +110,7 @@ The dates in section 5 assume our current team and the full launch scope. Becaus
 - Refunds, basic version: a customer cancels a single ticket within the club's policy and is refunded automatically; the booking fee is kept; a club that cancels an event refunds everyone; a changed date or venue sends a notice and opens the 7-day refund window; places return to sale when sales are still open; refunds you decide on are made by an administrator in the dashboard.
 - Owner screens for earnings and analytics (club and per event), and the dashboard pages for cities, genres and moods, artists, pricing rules, financial report, orders, refunds, approvals, and a fee calculator.
 - A multi-day pass sells and scans as one ticket for the whole event.
-- Your acceptance run and a shorter set of demonstrations (tickets, fees, refunds, approval).
+- Your acceptance run, on test accounts for a customer, a club owner and an administrator, and a shorter set of demonstrations (tickets, fees, refunds, approval).
 
 *Moved to after launch (about February to April 2027):*
 - Chat for bookings, the WhatsApp support link, and the protection against taking a deal elsewhere. Until then, customers and clubs use your normal support channels.
