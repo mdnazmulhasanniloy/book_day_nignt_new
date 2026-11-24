@@ -1,5 +1,4 @@
 node_modules/
-.env
 *.env
 !.env.example
 *.dump
@@ -10,3 +9,4 @@ dist/
 
 # T-002 rehearsal reports (timestamped copies stay local; rehearsal-latest.md is the tracked one)
 project-docs/05-delivery/reports/rehearsal-2*.md
+config.bat
