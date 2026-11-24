@@ -6,9 +6,96 @@ Project: Bookdia Night. Date prepared: 2026-11-21. Based on the review tracker o
 
 "CR-xx" numbers are our internal change-request numbers (see `02-product/change-requests.md`).
 
+## Status after the client response (2026-11-24)
+
+Source: `01-discovery/client-answers-02.md` (answers to `client-clarifications-2026-11-22.md`, questions Q1 to Q34; mapping in `client-clarifications-2026-11-22.map.md`). Recorded by Claude for product owner confirmation. "Resolved" means we can build on the answer; the points still open are in the next two tables. Under-18 (Q31) is resolved on the client side but NOT implemented (product owner decision, see below).
+
+| Q | Topic | Status | Answer (short) | CR / ADR |
+|---|---|---|---|---|
+| Q1 | Fee and commission amounts | Resolved (values); two details open | Technical Fee (customer) 5% of the eligible paid subtotal plus EUR 0.50 local equivalent once per order; Service Fee (partner commission) 10% tickets and passes, 15% tables, sunbeds, extras; Italy, France, Monaco, Spain, US; admin overrides by country, category, club, event, table or quote | CR-15, CR-26; ADR-003 amended |
+| Q2 | Fee display and base | Resolved; one detail open | Full price shown as soon as calculable, fee itemized discreetly, inclusive display by market and category; 5% on each in-app payment, fixed fee once on the first online payment; no fee on a balance paid at the venue; partner fixed charge only if admin sets it | CR-15, CR-26; ADR-012 |
+| Q3 | Card hold for tables | Resolved (A); proof needs Stripe | Authorize, capture after venue approval, fresh payment if unsupported or expired, zero cost on rejection | CR-07; ADR-005 |
+| Q4 | Quote validity | Resolved (A) | 48 h default, club-configurable, capped by the booking deadline, club may withdraw an unpaid quote, no simultaneous sale | CR-07; ADR-005 |
+| Q5 | Deposits | Resolved (C) | Club chooses: deposit online plus venue balance, full online, or two online payments; commission on the full base price | CR-07; ADR-005 |
+| Q6 | Chat or WhatsApp | Resolved (in-app primary plus WhatsApp support link) | Booking-linked chat, one Bookdia WhatsApp number as support link, diversion flagged, delete 30 days after closure | CR-20; ADR-009 |
+| Q7 | Who sets shares | Resolved (A) | Admin sets Bookdia share; owner proposes; organizer accepts before sales open; fallback to the eligible club | CR-21; ADR-006 |
+| Q8 | When partners are paid | Resolved (A, 3 days) | Transfer 3 calendar days after event end; Pending then Confirmed; holds for open refund or dispute | CR-21; ADR-006 |
+| Q9 | Failed payouts | Resolved (agree) | Retry up to 3 times in 3 days; immediate notice; we explain where funds sit | CR-21; ADR-006 |
+| Q10 | Venue or organizer cancels | Partly | Admission refunded, Service Fee reversed, Technical Fee refunded where law or terms require; club repays it by default; admin may waive; admin-only Charge to club. Default for the Technical Fee depends on terms and adviser | CR-22; ADR-007 |
+| Q11 | Event rescheduled or moved | Resolved (A); two details open | Notify at once; tickets stay valid; refund within 7 days of notice; immediate route for a last-minute change | CR-23; ADR-007 |
+| Q12 | Who approves refunds | Resolved | Automatic under policy; club decides exceptions; organizers only with owner permission; staff forward; admins handle disputes | CR-22; ADR-007 |
+| Q13 | Refund of an amount | Resolved (A) | Documented partial goodwill refund with admission kept (Italy needs adviser) | CR-22; ADR-007 |
+| Q14 | Deposit on a cancelled table | Resolved (C) | Club sets the policy per table, shown before payment | CR-07; ADR-005 |
+| Q15 | Cancelled tickets back on sale | Resolved | Unused invalidated tickets, including an approved late cancellation, return while sales are open; not on a cancelled event | CR-22; ADR-007 |
+| Q16 | Purchase limits | Resolved (A) | 5 per order, 10 per customer per event, configurable; repeat cancellations flagged | CR-25 |
+| Q17 | No-shows on multi-day passes | Resolved (A) | Recorded at each day's entry cutoff; next day stays valid | CR-05; ADR-013 |
+| Q18 | Entry hours and guest-list wait | Resolved (A) | Club sets entry cutoff (default event end) and guest-list hold (24 h default, 1 to 72 h, capped by the cutoff) | CR-05, CR-06; ADR-013 |
+| Q19 | Guest-list access codes | Resolved (design); priority open | One code screen: purpose, event or list, expiry, use limit | CR-06; ADR-013 |
+| Q20 | Progression, from price, low stock | Resolved (A) | Next tier opens on sellout; lowest price shown; Last tickets at 20% or less | CR-04; ADR-013 |
+| Q21 | Time zone of existing events | Resolved (A) | Backfill from venue or city, organizer can correct, ambiguous flagged | CR-17, CR-05 |
+| Q22 | New owner and organizer accounts | Resolved (own rule) | Pending: club-area home only, partner tools locked, enforced on the server; customer use needs a separate customer account | CR-18; ADR-010 |
+| Q23 | Existing club owners | Resolved (A) | Keep full access, no reapproval | CR-18; ADR-010 |
+| Q24 | Team roles and permissions | Resolved on roles; matrix open | Club roles (General Manager is the former Primary Manager; Event Manager is separate), platform roles, editable permissions page; owner invites; organizer permissions off until granted | CR-19; ADR-008 |
+| Q25 | Venue dispute | Resolved (A) | Sales suspended, sold tickets stay valid, admin decides within 2 working days; unregistered venues need form and admin approval | CR-23 |
+| Q26 | Cote d Azur area | Partly | Saint-Tropez to Menton as an area independent of the radius; Monaco separate; towns not listed | CR-24; ADR-011 |
+| Q27 | Destinations on day one | Resolved (A) | All eleven prepared and enabled; activation still needs events and checks | CR-24; ADR-011 |
+| Q28 | Sold numbers and unpaid checkouts | Resolved (A, A) | Read-only inspection allowed; differences listed first; change data only after written approval for each event | T-007 follow-up |
+| Q29 | Stripe account | Resolved (existing account); access received | Use the existing account with limited team access and Connect; payout countries Italy, France, Monaco, Spain, US (eligibility to verify, Monaco specially) | CR-07, CR-21; ADR-006 |
+| Q30 | Who puts versions live | Resolved (A) | We prepare releases; publish only after written Bookdia approval | release process |
+| Q31 | Minimum age | Answered, NOT implemented | Client: declared date of birth, under-18 may sign in and buy with a warning; event age rule shown; owner and organizer age to confirm separately. Product owner decision: signup stays 18+ until the client's adviser confirms in writing | CR-28 |
+| Q32 | Dates | Partly | Target mid-December 2026 usable build and early January 2027 launch; no fixed event date. Mid-December is NOT a hard date; the plan is in `completion-plan-2026-11-24.md` | plan |
+| Q33 | Languages | Resolved | English, Italian, French, Spanish complete at launch; other agreed languages shortly after; language inventory wanted | CR-27 |
+| Q34 | Priority of features | Resolved | Launch: tables, chat, team roles, partner approval, unregistered venues, splits, multi-day passes, ticket cancellation and refunds, purchase limits, Interested count. Soon after: referral, resale and waitlist. Later: attendee messaging, avatar preview. Scheduling does not approve extra charges | CR-18 to CR-34 |
+
+### Still open or waiting on the client
+
+| # | Item | Waiting on | Blocks |
+|---|---|---|---|
+| O1 | Fixed fee amount in each currency (USD at least) and what "eligible paid subtotal" excludes | Client | Fee rules (T-022, fee tasks) |
+| O2 | Which markets and categories use the inclusive price display (the US upfront rule is known) | Client, advisers | Display mode |
+| O3 | Default for refunding the Technical Fee when the partner cancels | Client, adviser, terms | Refund engine partner path |
+| O4 | How one person gets both a partner account and a customer account (same email) | Client | Pending-owner flow |
+| O5 | Cote d Azur towns or boundary | Client | Destination area seed |
+| O6 | Age requirement for owners and organizers; written adviser confirmation for under-18 | Client adviser | CR-28 |
+| O7 | "Last-minute" threshold for event changes; whether the 7-day window is configurable | Client | Event change task |
+| O8 | Whether deleting chats 30 days after closure is acceptable for disputes and fiscal records | Client adviser | Chat retention job (built but disabled until answered) |
+| O9 | Deadline for the second online payment and the result if unpaid | Client | Table second payment |
+| O10 | Default permission matrix per role and page | Client | Roles defaults |
+| O11 | Priority of guest-list access codes (not in the Q34 table) | Client | Codes task |
+| O12 | Working-day calendar for the 2-working-day venue decision | Client | Venue dispute task |
+| O13 | Delivery dates per delivery incl. passes and scanning (the client asks us; our proposal is in the plan) | Us, then client | Plan |
+| O14 | Approved Italian ticketing route and provider quote (new scope CR-29) | Client | Italian live sales (none until approved) |
+| O15 | Stripe holding limits and Monaco payout eligibility | Us (spike) | Settlement design |
+
+### Checklist items from the client (section 10 of the clarifications)
+
+Access received (product owner, 2026-11-24): Stripe yes, Apple and Google yes, push yes. Hosting / DigitalOcean: not yet stated, treated as not confirmed. Received means we have access; what each account still lacks (Connect permissions, per-country coverage, sign-in settings) is verified by the spike and release tasks and reported to the client.
+
+| # | Item | Status | Owner of the next step |
+|---|---|---|---|
+| 01 | Stripe: existing account, limited team access, test keys, Connect permissions, test coverage by country; verify Monaco | Received (product owner, 2026-11-24); Connect permissions and per-country coverage still to verify | Us: spike report listing exactly what is missing |
+| 02 | Apple Developer, TestFlight, Google Play Console, Apple and Google sign-in settings | Received (product owner, 2026-11-24) | Us: list what is missing |
+| 03 | Push notifications platform and account | Received (product owner, 2026-11-24); we still owe the client the answer on which platform, account and permissions we use | Us |
+| 04 | Hosting and test environment, or the infrastructure contact (also needed to run the read-only stalled-checkout list) | Not confirmed received | Us, client |
+| 05 | Testers: Joys Rossi (contact and TestFlight Apple ID received in answers-02); ten labelled test logins | Contact received; logins are ours to create (task `rb_seed`) | Us |
+| 06 | Pricing | Received (Q1, Q2) | none |
+| 07 | Venue authorization form (EN, IT, legal review) | Missing; we owe the proposed download, upload and review flow | Client (form), us (flow) |
+| 08 | Terms: booking, cancellation and refund, venue authorization (incl. partner recovery) | Missing; client asks us to prepare them (new scope CR-31, needs an adviser) | Client, us |
+| 09 | Referral inputs (holiday calendars, fees a complimentary event waives) | Missing; needed before referral development only | Client |
+| 10 | Design references | Screenshot link received; the screen-recording link is not in the text; ask which link is current and to keep it active | Client |
+| 11 | Product acceptance: Joys Rossi is the sole contact | Received | none |
+| 12 | Operational admins who approve owners, organizers, venues and handle disputes | Missing | Client |
+| 13 | Tax, accounting and legal advisers per launch market | Missing | Client |
+
+### Items we owe the client (from answers-02)
+
+Stripe feasibility and holding-limit report and the Monaco check; demonstrations (partially refunded order, insufficient partner balance, the five end-to-end runs); accounting and tax note; language inventory; push platform answer; venue authorization flow proposal; decision memo for the Italian ticketing route (`siae-decision-memo-2026-11-24.md`); estimates for the new-scope items (`scope-and-timeline-2026-11-24.md`); tracker evidence per ID with build, date and changes; the delivery dates. The 1.5% + EUR 0.26 test figure is retired.
+
+---
+
 ## Status after the client response (2026-11-22)
 
-The client answered in `01-discovery/client-answers-01.md`. Full mapping, ambiguities and impact: `05-delivery/client-answers-review-2026-11-22.md`. The question text below is kept as sent.
+The client answered in `01-discovery/client-answers-01.md`. Full mapping, ambiguities and impact: `05-delivery/client-answers-review-2026-11-22.md`. The question text below is kept as sent. All of Q1 to Q6, Q8, Q9 and D1 are now resolved or narrowed by the 2026-11-24 section above (`client-answers-02.md`); only the points listed there as open remain.
 
 | # | Status | What is settled | What is still open |
 |---|---|---|---|

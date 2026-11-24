@@ -2,6 +2,17 @@
 
 Scope: **backend first, then admin, then Flutter.** Flutter starts after both are done. Updated 2026-11-21 (task files, hotfix track and release checkpoints rebuilt after the repo was re-created).
 
+## Plan revision 2026-11-24 (client answers 02)
+
+The client answered the 22 November clarification questions (`01-discovery/client-answers-02.md`). The ordered work queue, phases, dates, milestones and release checkpoints are now in `completion-plan-2026-11-24.md`; this file keeps the original milestone map below and is superseded by it where they differ. What changed:
+
+- CR-05 (multi-day passes, scanning) is no longer deferred (milestone M11, ADR-013). The CR-01 owner-approval gate is no longer deferred (CR-18, milestone MG, ADR-010).
+- New milestones: MG partner gate, M9 roles, M10 settlement, M11 passes and scanning, M12 venues and areas, M13 chat, M14 languages and age, REL-L launch readiness. M3 gains the server-calculated total and the update gate, M5 gains the table payment flow, M6 is rebuilt as the refund engine (T-063 to T-066 and T-078 are superseded).
+- Flutter integration is now split: M8a (Phase 1, discovery and fixes), M8b (Phase 2, launch screens), M8c (Phase 3).
+- Phases: Phase 1 stable build (2026-12-21), Phase 2 launch scope (fees and update gate 2027-02-10, ready for final testing 2027-04-27, launch candidate 2027-05-07; team: one backend and admin developer, one Flutter developer), Phase 3 soon after launch.
+- New scope with no tasks until the client approves scope and cost: Italian fiscal ticketing, market setups (FR, MC, ES, US), legal terms drafting, referral, resale and waitlist, attendee messaging.
+- Migrations 1 (now active), 6 (amended), and new 14 to 22 are listed in `data-model.md` section 9.
+
 Rules for every milestone:
 - Backward compatible: the live Flutter app uses current endpoints. No removed or renamed response fields, no changed types. Breaking changes go to versioned endpoints (v2); v1 stays working and is marked deprecated. Per-operation answers are in `04-architecture/api-spec-diff-v2.md`.
 - Update `api-spec.yaml`, `data-model.md`, `api-usage-map.md` before or with code. Migrations are forward-only and applied before the code that uses them (`data-model.md` section 9).
@@ -22,7 +33,7 @@ Rules for every milestone:
 | M7 | Admin app: pages for every new admin endpoint (cities, filter options, artists, organizers, collaboration requests, pricing rules and financials, orders, refund requests, refunds) | CR-02, 09, 10, 12, 15, 16 | admin | not started | M3 to M6 | T-070 to T-079 | REL-M7 |
 | M8 | **Flutter integration only** (all Flutter-side work for the approved CRs, `freeCheckout`, tier ids on event update, new discovery screens, B-07, B-08, B-10). No task files yet by decision; app path `flutter_app/` | all | flutter | **not started** | M1 to M7 done | none | not planned |
 
-CR-05 (multi-day passes, scanning) is deferred (Q5) and has no milestone. The CR-01 owner-approval gate is deferred (D1) and has no milestone. Milestone order is a proposal; the owner confirms it.
+CR-05 (multi-day passes, scanning) and the CR-01 owner-approval gate are no longer deferred: see the plan revision above (M11 and MG). Milestone order is a proposal; the owner confirms it.
 
 ## Milestone to task map
 
