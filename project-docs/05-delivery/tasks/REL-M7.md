@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Stack | release |
-| Depends on | T-070, T-071, T-072, T-073, T-074, T-075, T-076, T-077, T-078, T-079 |
+| Depends on | T-070, T-071, T-072, T-073, T-074, T-075, T-076, T-077, T-079, T-100, T-175, T-176, T-177, T-178, T-179, T-180, T-181, T-182, T-183, T-184 |
 | Status | not started |
 
 Do not start the next milestone until every box below is checked or explicitly waived by the product owner.
@@ -11,6 +11,38 @@ Do not start the next milestone until every box below is checked or explicitly w
 ## Scope
 
 T-070 to T-079 (admin app only, no migrations). Requires the backend endpoints from REL-M3 to REL-M6 to be live.
+
+## Update 2026-11-24 (client answers 2)
+
+Phase 2. T-078 (refund requests page) is superseded by T-179 (refund oversight, partner debits). New pages: partner approvals, roles and permissions, club teams, settlements, booking chats, venue authorizations, audit log, codes and fee preview.
+
+Tasks added to this checkpoint:
+
+- T-100 Admin page: fee preview calculator (sample orders per market) (admin, 0.5 day)
+- T-175 Admin page: partner approvals queue (admin, 0.5 day)
+- T-176 Admin page: role permissions (per page and sensitive actions) and platform staff (admin, 0.5 day)
+- T-177 Admin page: club team accounts and suspension (admin, 0.5 day)
+- T-178 Admin page: settlements, transfers, retries and statements (admin, 0.5 day)
+- T-179 Admin page: refund oversight, partner debits, waiver and Charge to club (admin, 0.5 day)
+- T-180 Admin page: booking chat review and intervention (admin, 0.5 day)
+- T-181 Admin page: venue authorization review and disputes (admin, 0.5 day)
+- T-182 Admin: destination areas and activation in the Cities page (admin, 0.5 day)
+- T-183 Admin page: audit log for sensitive actions (admin, 0.5 day)
+- T-184 Admin and owner screens for access and discount codes (admin, 0.5 day)
+
+Removed from this checkpoint (superseded): T-078.
+
+Additional review items:
+
+- [ ] Every new page hides actions the role cannot use and shows the server 403 message.
+- [ ] The audit log page needs a backend endpoint that was not yet specified (`GET /v2/admin/audit-log`): confirm it exists before releasing.
+
+Additional smoke checks (staging, then the read-only subset on production):
+
+- [ ] Sign in as Platform Manager: no waive, Charge to club, role editing or payout actions are visible (T-179).
+- [ ] Sign in as Country Manager (Italy): French clubs and chats are not listed (T-177, T-180).
+
+Rollback additions: admin is a static client: re-deploy the previous build; no data change.
 
 ## 1. Review
 

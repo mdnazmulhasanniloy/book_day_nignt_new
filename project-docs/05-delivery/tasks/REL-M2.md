@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Stack | release |
-| Depends on | T-015, T-016, T-017, T-018, T-019, T-020, T-021 |
+| Depends on | T-015, T-016, T-017, T-018, T-019, T-020, T-021, T-084, T-087 |
 | Status | all tasks done in code; release checkpoint items not run |
 
 Do not start the next milestone until every box below is checked or explicitly waived by the product owner.
@@ -11,6 +11,25 @@ Do not start the next milestone until every box below is checked or explicitly w
 ## Scope
 
 T-015 to T-021. Migration 4 (event timezone, pricing mode, tier type). Suggested bump: MINOR.
+
+## Update 2026-11-24 (client answers 2)
+
+Phase 1. Adds the time zone backfill (existing events now get a zone from venue and city, ambiguous ones are listed) and the purchase limits.
+
+Tasks added to this checkpoint:
+
+- T-084 Time zone backfill for existing events from venue and city, with an ambiguous-records report (backend, 0.5 day)
+- T-087 Purchase limits: 5 per order, 10 per customer per event (configurable per event), repeat-cancellation flag (backend, 0.5 day)
+
+Additional review items:
+
+- [ ] Time zone backfill does not change any stored start instant, only the zone label; check three events before and after.
+- [ ] Purchase limits are configurable per event with defaults 5 per order and 10 per customer per event.
+
+Additional smoke checks (staging, then the read-only subset on production):
+
+- [ ] Backfill report lists ambiguous events; an event in New York shows start time in its zone on `GET /explore/{id}` (T-084).
+- [ ] Buy 6 tickets in one order: 422 with the limit message; table purchases are not counted (T-087).
 
 ## 1. Review
 

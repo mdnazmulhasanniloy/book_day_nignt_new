@@ -4,13 +4,27 @@
 |---|---|
 | Stack | release |
 | Depends on | HF-001, HF-002, HF-003, HF-004, HF-005 |
-| Status | code complete on `release/hotfix` (5 commits, 28 tests); waiting for a staging environment and your approval. See `release-hotfix-readiness-2026-11-23.md` |
+| Status | merge branch approved; release checkpoint items not run |
 
 Do not start the next milestone until every box below is checked or explicitly waived by the product owner.
 
 ## Scope
 
 HF-001 to HF-004 (S-17 verify, B-16, S-04, S-19). Branch from `main`. No migrations. Suggested version bump: PATCH.
+
+## Update 2026-11-24 (client answers 2)
+
+Phase 1. HF-005 (`/media` auth) is not in `main`: it exists only in the unpushed branch `fix/merge-hotfix` (merge commit `c31c358`, backend typecheck clean and 167 of 167 unit tests passing, DB tests not run). Release steps: approve and merge that branch, then run this checkpoint. HF-002, HF-003 and HF-004 are already in `main`.
+
+Additional review items:
+
+- [ ] Confirm `fix/merge-hotfix` was merged to `main` after the product owner approved it; do not push or merge without that approval.
+- [ ] Run `npm run test:db` against a `*_test` database: it was skipped in the merge check.
+
+Additional smoke checks (staging, then the read-only subset on production):
+
+- [ ] `POST /media` and `DELETE /media` without a token: 401; with a user token: 200 (HF-005).
+- [ ] Webhook with a bad signature: 400 `INVALID_STRIPE_SIGNATURE`; reset password without OTP: 403 `RECOVER_OTP_NOT_VERIFIED`.
 
 ## 1. Review
 
@@ -324,3 +338,7 @@ Backend CI uses no secrets (`DATABASE_URL` is a dummy literal inside the file). 
 - [ ] Section E.3 provenance and tag checks done; first tag chosen.
 - [ ] Decisions in section F made.
 - [ ] Workflows copied into root `.github/workflows/` (code change, later) and validated: CI run on a pull request, deploy tested with a throwaway tag against a non-production target if one exists, otherwise a dry run reviewed line by line before the hotfix tag.
+
+## Note 2026-11-24: statuses to re-verify
+
+T-001 to T-003 and HF-001 to HF-004 are marked done after a file comparison only. Before this release, re-run their tests (`npm test`, `npm run test:db` against a `*_test` or `*_rehearsal` database, typecheck) and the HF-001 staging check, and record the result here.

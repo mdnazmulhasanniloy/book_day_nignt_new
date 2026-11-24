@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Stack | release |
-| Depends on | T-047, T-048, T-049, T-050, T-051, T-052, T-053, T-054, T-055, T-056, T-057, T-058 |
+| Depends on | T-047, T-048, T-049, T-050, T-051, T-052, T-053, T-054, T-055, T-056, T-057, T-058, T-090, T-091, T-092, T-112, T-113, T-114, T-115, T-116, T-117, T-118, T-119, T-120, T-121, T-122 |
 | Status | not started |
 
 Do not start the next milestone until every box below is checked or explicitly waived by the product owner.
@@ -11,6 +11,41 @@ Do not start the next milestone until every box below is checked or explicitly w
 ## Scope
 
 T-047 to T-058. Migrations 2, 9, 8 (apply in that order). Suggested bump: MINOR.
+
+## Update 2026-11-24 (client answers 2)
+
+Phase 2. M5 now includes the full table payment flow (ADR-005): quotes with expiry and withdrawal, card hold with manual capture, fresh payment fallback and deposit modes. The Stripe spikes come first and need the client's Stripe test keys (not confirmed received). T-056 `QUOTE_REQUIRED` stays until the hold flow ships.
+
+Tasks added to this checkpoint:
+
+- T-090 Stripe test-mode spike 1: manual-capture hold, capture, cancel, expiry, unsupported methods (backend, 0.5 day; blocked: Stripe test keys (item 01))
+- T-091 Stripe spike 2: separate charges and transfers, reversals, available-balance limits, failed transfers (backend, 0.5 day; blocked: Stripe test keys with Connect (item 01))
+- T-092 Stripe payout eligibility report for Italy, France, Monaco, Spain and the US (backend, 0.25 day; blocked: Stripe account access (item 01))
+- T-112 Migration: table requests, quotes (expiry, withdrawn), payment plan, policy snapshot (backend, 0.5 day)
+- T-113 Quote lifecycle: issue, configurable expiry capped by the booking deadline, withdraw, notify (backend, 0.5 day)
+- T-114 Atomic table reservation on acceptance and no simultaneous sale of one table (backend, 0.5 day)
+- T-115 Table request with card authorization: request, pending, reject releases the hold (backend, 0.5 day; blocked: Stripe (spike))
+- T-116 Accept, capture before capture_before, capture failure releases the table (backend, 0.5 day; blocked: Stripe (spike))
+- T-117 Fresh payment after acceptance when a hold is unsupported or expired (backend, 0.5 day)
+- T-118 Deposit modes: deposit online plus balance at venue, full online, two online payments (backend, 0.5 day)
+- T-119 Second online payment: balance confirmation, deadline, fee only on the amount paid in app (backend, 0.5 day; blocked: second-payment deadline (Q5))
+- T-120 Deposit and cancellation policy per table, terms accepted by the guest saved with the booking (backend, 0.5 day)
+- T-121 Party size and admitted attendees recorded on a table booking, counted once in capacity (backend, 0.5 day)
+- T-122 Commission shortfall when the online payment is smaller than the commission: partner receivable record (backend, 0.5 day)
+
+Additional review items:
+
+- [ ] The spikes prove manual capture and Connect transfers on the client's own account; report exactly what is missing if not (checklist item 01).
+- [ ] A rejected request charges the customer zero including the Technical Fee (client Q3).
+- [ ] `feature switch` for table payments is off in production until the Flutter screens (REL-M8) are released.
+
+Additional smoke checks (staging, then the read-only subset on production):
+
+- [ ] Table request, reject: the authorization is cancelled and no charge exists; accept: capture happens before `capture_before` (T-115, T-116).
+- [ ] Two customers try the same table: only one succeeds (T-114).
+- [ ] Deposit EUR 500 on a EUR 1,000 table: EUR 525.50 online and EUR 500 at the venue shown; full payment EUR 1,050.50 (T-118).
+
+Rollback additions: old table purchase and v1 quotes keep working; new tables and the v2 endpoints are unused by old code. A captured payment is never rolled back by an image rollback: refund through the refund engine.
 
 ## 1. Review
 

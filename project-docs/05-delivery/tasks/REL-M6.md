@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Stack | release |
-| Depends on | T-059, T-060, T-061, T-062, T-063, T-064, T-065, T-066, T-067, T-068, T-069 |
+| Depends on | T-059, T-060, T-061, T-062, T-067, T-068, T-069, T-134, T-135, T-136, T-137, T-138, T-139, T-140, T-141, T-142, T-143, T-144, T-145 |
 | Status | not started |
 
 Do not start the next milestone until every box below is checked or explicitly waived by the product owner.
@@ -11,6 +11,41 @@ Do not start the next milestone until every box below is checked or explicitly w
 ## Scope
 
 T-059 to T-069. Migrations 13 and 7. Suggested bump: MINOR.
+
+## Update 2026-11-24 (client answers 2)
+
+Phase 2. T-063 to T-066 are superseded by the refund engine (ADR-007): per-ticket cancellation, club authority, partner cost recovery, restock. T-067 (refund webhooks) and T-068 (admin orders) stay. Analytics tasks T-059 to T-062 stay and gain scans and no-shows in REL-M11.
+
+Tasks added to this checkpoint:
+
+- T-134 Migration: per-ticket status, refunds one-to-many, refund items, goodwill amounts (backend, 0.5 day)
+- T-135 Cancellation policy per event (cutoff in hours or non-refundable), shown before purchase (backend, 0.5 day)
+- T-136 Customer cancels one ticket in time: invalidate that credential, keep the others (backend, 0.5 day)
+- T-137 Refund orchestration: admission refund, commission reversal, Technical Fee retained, pending until the processor confirms (backend, 0.5 day)
+- T-138 Club exception refunds and documented partial goodwill refunds with admission kept (backend, 0.5 day; blocked: Italy goodwill treatment (adviser))
+- T-139 Who may refund: owner, owner-permissioned organizer, staff forward requests, admin disputes (backend, 0.5 day)
+- T-140 Partner cancellation: admission refund, commission reversal, Technical Fee refund flag per market (backend, 0.5 day; blocked: Technical Fee rule on partner cancellation (adviser))
+- T-141 Partner debit and recovery: eligible balance, then future settlements, then invoice; never charged twice (backend, 0.5 day)
+- T-142 Admin waiver down to the unrecovered Stripe cost, and the admin-only Charge to club action, with audit (backend, 0.5 day)
+- T-143 Return eligible capacity on cancellation while sales are open; manual restock without double release (backend, 0.5 day)
+- T-144 Date or venue change: notices, 7-day refund window, immediate route for a last-minute change (backend, 0.5 day; blocked: last-minute threshold (Q11))
+- T-145 Refund and chargeback reconciliation against bank credits, no double reimbursement (backend, 0.5 day)
+
+Removed from this checkpoint (superseded): T-063, T-064, T-065, T-066.
+
+Additional review items:
+
+- [ ] Q12/Q13: eligible voluntary refunds are automatic; the club decides exceptions; admin handles disputes only. The old admin-approves-everything flow must not ship.
+- [ ] Technical Fee retained on customer cancellations; refunded only where law or terms require it; the market flag defaults are confirmed by the client adviser.
+- [ ] Migration 17 makes refunds one-to-many: check every `order.refund` use in code was updated.
+
+Additional smoke checks (staging, then the read-only subset on production):
+
+- [ ] Cancel one ticket of three in time: that credential is invalid, the other two scan (T-136).
+- [ ] Refund EUR 20 ticket plus EUR 1.50 Technical Fee: EUR 20 refunded (client example).
+- [ ] Partner cancellation: customer refund and partner debit recorded separately (T-140, T-141).
+
+Rollback additions: expand-only migration 17: old image ignores the new tables but cannot show per-ticket refunds; refunds already created stay valid.
 
 ## 1. Review
 

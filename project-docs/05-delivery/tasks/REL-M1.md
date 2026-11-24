@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Stack | release |
-| Depends on | T-001, T-002, T-003, T-004, T-005, T-006, T-007, T-008, T-009, T-010, T-011, T-012, T-013, T-014 |
+| Depends on | T-001, T-002, T-003, T-004, T-005, T-006, T-007, T-008, T-009, T-010, T-011, T-012, T-013, T-014, T-085, T-086 |
 | Status | not started |
 
 Do not start the next milestone until every box below is checked or explicitly waived by the product owner.
@@ -11,6 +11,23 @@ Do not start the next milestone until every box below is checked or explicitly w
 ## Scope
 
 T-001 to T-014. Migration 5 (add_tier_on_purchase). New worker job `expireEventTicketHold`. Suggested bump: MINOR.
+
+## Update 2026-11-24 (client answers 2)
+
+Phase 1. M1 is released with the built work of M2 and M4 (REL-M2, REL-M4). The two live-data tasks below are separate: the read-only report needs access to the hosting or database (checklist item 04), and no correction runs without the client's written OK per event (Q28).
+
+Tasks added to this checkpoint:
+
+- T-085 Run the stalled-checkout list on live data (read-only) and produce the per-event report (backend, 0.5 day; blocked: hosting or database access (item 04))
+- T-086 Per-event correction script for sold counts, run only after written approval for each event (backend, 0.5 day; blocked: client written OK per event)
+
+Additional review items:
+
+- [ ] The stalled-checkout list is delivered to the client event by event before any change; the correction script is not run in this release.
+
+Additional smoke checks (staging, then the read-only subset on production):
+
+- [ ] Run the stalled-checkout report on staging data and compare one event by hand (T-085).
 
 ## 1. Review
 

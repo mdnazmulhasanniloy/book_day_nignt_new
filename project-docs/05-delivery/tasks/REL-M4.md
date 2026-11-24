@@ -12,6 +12,14 @@ Do not start the next milestone until every box below is checked or explicitly w
 
 T-029 to T-046. Migrations 3, 10, 11, 12. Seed script for cities and filter options (needs the client's content, see `blockers.md`). Suggested bump: MINOR.
 
+## Update 2026-11-24 (client answers 2)
+
+Phase 1. Released together with REL-M1 and REL-M2. Flutter integration of the discovery endpoints is REL-M8 (M8a). The client wants the Cote d Azur as an area (REL-M12) and all eleven destinations enabled; activation of cities is a separate step after the client confirms each one.
+
+Additional review items:
+
+- [ ] Do not activate cities in production in this release (T-032 run and activation wait for the client, Q27).
+
 ## 1. Review
 
 - [ ] Rehearsal reports for migrations 3, 10, 11, 12 attached (geog row counts, filter option counts).

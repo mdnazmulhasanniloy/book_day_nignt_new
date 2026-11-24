@@ -3,14 +3,43 @@
 | Field | Value |
 |---|---|
 | Stack | release |
-| Depends on | T-022, T-023, T-024, T-025, T-026, T-027, T-028 |
-| Status | not started |
+| Depends on | T-022, T-023, T-024, T-025, T-026, T-027, T-028, T-089, T-093, T-094, T-095, T-096, T-097, T-098, T-099 |
+| Status | not started (rebuilt for the client rates, 2026-11-24) |
 
 Do not start the next milestone until every box below is checked or explicitly waived by the product owner.
 
 ## Scope
 
 T-022 to T-028. Migration 6 with the v1 write-through (ship together). Suggested bump: MINOR. Highest-risk release: changes live `Order` CHECK constraints.
+
+## Update 2026-11-24 (client answers 2)
+
+Phase 2. Fees and commissions are rebuilt around the client rates (ADR-003 amended): Technical Fee 5% plus EUR 0.50 once per order, Service Fee 10%/15%, overrides by country, category, club, event and table or quote. The server-calculated total, the version-policy endpoint and the gate ship in this same release together with the Flutter change (REL-M8). The old `/service-charge` and the old purchase response keep working for old app versions.
+
+Tasks added to this checkpoint:
+
+- T-089 Version policy endpoint and minimum supported version setting (backend, 0.5 day)
+- T-093 Fee rule: percent plus fixed part, fixed once per order, fixed amount per currency, country and quote scopes (backend, 0.5 day)
+- T-094 Fee allocation per item and rates saved on the order, for partial refunds (backend, 0.5 day)
+- T-095 Record the actual processor cost per payment and per issued ticket, separate from commission (backend, 0.5 day)
+- T-096 Server-calculated total: POST /v2/checkout/preview for tickets, tables, extras and baskets (backend, 0.5 day)
+- T-097 Display mode per market and category (itemized or included) in the preview response (backend, 0.5 day; blocked: inclusive-display markets (Q2))
+- T-098 Keep /service-charge and the old purchase response working for old app versions, with tests (backend, 0.5 day)
+- T-099 Minimum-version enforcement switch: fee model v2 active only when the gate is on (backend, 0.5 day)
+
+Additional review items:
+
+- [ ] Terminology in new text: Technical Fee (customer) and Service Fee (partner).
+- [ ] Do not switch fee model v2 on until the minimum-version gate is on and the new app is in the stores (ADR-012); the switch has its own rollback.
+- [ ] Wording and display per market is validated by the client's adviser before activation (sample orders per market).
+
+Additional smoke checks (staging, then the read-only subset on production):
+
+- [ ] `POST /v2/checkout/preview` for a EUR 20 ticket returns 21.50 and for two tickets 42.50; a free ticket returns 0.
+- [ ] Old app path: `GET /service-charge` and `POST /purchase/event` responses are byte-identical to before for an old client (golden test).
+- [ ] `GET /v2/app/version-policy` returns the minimum version setting.
+
+Rollback additions: turn the fee model v2 switch off first; migration 6 stays (forward-only). The v1 write-through keeps `/admin/commission` and `/service-charge` consistent.
 
 ## 1. Review
 
