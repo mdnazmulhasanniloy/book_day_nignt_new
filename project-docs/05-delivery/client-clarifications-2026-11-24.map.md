@@ -28,7 +28,7 @@ Maps each question to our internal identifiers, what it unblocks, and the defaul
 | Stripe access and test keys | answers-02 item 01; T-090, T-091, T-092 (access received; the spikes report what is missing); decision 1 of the brief |
 | Apple, TestFlight, Google Play, sign-in settings | item 02; FL-101 onward builds; release approval (Q30) |
 | Push access | item 03; T-171 |
-| Test system and hosting (received 2026-11-24, no longer asked) | item 04; T-085, T-086 (read-only run on live data) |
+| Test system and hosting | item 04; T-085, T-086 (read-only run on live data) |
 | WhatsApp Business number | Q6; T-169 |
 | Screen-recording link | item 10 |
 | Operational admins | item 12; T-083, T-159 |

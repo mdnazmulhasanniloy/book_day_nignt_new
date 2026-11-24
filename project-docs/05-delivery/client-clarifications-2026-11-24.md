@@ -183,6 +183,7 @@ Answer:
 ## What we still need you to send
 
 **Received, thank you:** Stripe access, Apple Developer, TestFlight and Google Play access with the Google and Apple sign-in settings, and push notification access. We will report exactly which Stripe Connect permissions or settings are still missing once we have tested them. Send any further access privately, never by plain email.
+- [ ] Access to the test system and hosting (DigitalOcean), or the name of the person who manages it. We also need it to run the read-only list of sold counts.
 
 **Still missing:**
 - [ ] The single Bookdia Night WhatsApp Business number for the support link

@@ -14,11 +14,11 @@ T-001 to T-014. Migration 5 (add_tier_on_purchase). New worker job `expireEventT
 
 ## Update 2026-11-24 (client answers 2)
 
-Phase 1. M1 is released with the built work of M2 and M4 (REL-M2, REL-M4). The two live-data tasks below are separate: the read-only report uses the hosting access received on 2026-11-24 (checklist item 04), and no correction runs without the client's written OK per event (Q28).
+Phase 1. M1 is released with the built work of M2 and M4 (REL-M2, REL-M4). The two live-data tasks below are separate: the read-only report needs access to the hosting or database (checklist item 04), and no correction runs without the client's written OK per event (Q28).
 
 Tasks added to this checkpoint:
 
-- T-085 Run the stalled-checkout list on live data (read-only) and produce the per-event report (backend, 0.5 day; hosting access received, not blocked)
+- T-085 Run the stalled-checkout list on live data (read-only) and produce the per-event report (backend, 0.5 day; blocked: hosting or database access (item 04))
 - T-086 Per-event correction script for sold counts, run only after written approval for each event (backend, 0.5 day; blocked: client written OK per event)
 
 Additional review items:

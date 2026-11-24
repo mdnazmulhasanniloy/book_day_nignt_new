@@ -69,14 +69,14 @@ Source: `01-discovery/client-answers-02.md` (answers to `client-clarifications-2
 
 ### Checklist items from the client (section 10 of the clarifications)
 
-Access received (product owner, 2026-11-24): Stripe yes, Apple and Google yes, push yes. Hosting / DigitalOcean: received (product owner, 2026-11-24), so the read-only stalled-checkout run is no longer blocked. Received means we have access; what each account still lacks (Connect permissions, per-country coverage, sign-in settings) is verified by the spike and release tasks and reported to the client.
+Access received (product owner, 2026-11-24): Stripe yes, Apple and Google yes, push yes. Hosting / DigitalOcean: not yet stated, treated as not confirmed. Received means we have access; what each account still lacks (Connect permissions, per-country coverage, sign-in settings) is verified by the spike and release tasks and reported to the client.
 
 | # | Item | Status | Owner of the next step |
 |---|---|---|---|
 | 01 | Stripe: existing account, limited team access, test keys, Connect permissions, test coverage by country; verify Monaco | Received (product owner, 2026-11-24); Connect permissions and per-country coverage still to verify | Us: spike report listing exactly what is missing |
 | 02 | Apple Developer, TestFlight, Google Play Console, Apple and Google sign-in settings | Received (product owner, 2026-11-24) | Us: list what is missing |
 | 03 | Push notifications platform and account | Received (product owner, 2026-11-24); we still owe the client the answer on which platform, account and permissions we use | Us |
-| 04 | Hosting and test environment, or the infrastructure contact (also needed to run the read-only stalled-checkout list) | Received 2026-11-24 | Us |
+| 04 | Hosting and test environment, or the infrastructure contact (also needed to run the read-only stalled-checkout list) | Not confirmed received | Us, client |
 | 05 | Testers: Joys Rossi (contact and TestFlight Apple ID received in answers-02); ten labelled test logins | Contact received; logins are ours to create (task `rb_seed`) | Us |
 | 06 | Pricing | Received (Q1, Q2) | none |
 | 07 | Venue authorization form (EN, IT, legal review) | Missing; we owe the proposed download, upload and review flow | Client (form), us (flow) |

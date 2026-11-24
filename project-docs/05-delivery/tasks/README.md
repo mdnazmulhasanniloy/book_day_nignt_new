@@ -216,7 +216,7 @@ Source: `05-delivery/completion-plan-2026-11-24.md` (work queue, dates, mileston
 | [T-082](T-082.md) | Partner gate middleware: 423 PARTNER_APPROVAL_PENDING (never 401/403) with the club-area home allowed | backend | 1 | T-081 | not started |
 | [T-083](T-083.md) | Admin endpoints: list, approve, reject partner applications, with notification | backend | 1 | T-082 | blocked by client: D12 (named approvers) |
 | [T-084](T-084.md) | Time zone backfill for existing events from venue and city, with an ambiguous-records report | backend | 1 | T-017, T-033 | not started |
-| [T-085](T-085.md) | Run the stalled-checkout list on live data (read-only) and produce the per-event report | backend | 1 | T-007 | not started (hosting access received 2026-11-24) |
+| [T-085](T-085.md) | Run the stalled-checkout list on live data (read-only) and produce the per-event report | backend | 1 | T-007 | blocked by client: hosting or database access (item 04) |
 | [T-086](T-086.md) | Per-event correction script for sold counts, run only after written approval for each event | backend | 1 | T-085 | blocked by client: client written OK per event |
 | [T-087](T-087.md) | Purchase limits: 5 per order, 10 per customer per event (configurable per event), repeat-cancellation flag | backend | 1 | T-006 | not started |
 | [T-088](T-088.md) | Language inventory of the Flutter app and backend texts (emails, push, errors) for EN, IT, FR, ES | backend | 1 | none | not started |

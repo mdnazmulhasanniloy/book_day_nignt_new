@@ -73,7 +73,7 @@ We cannot honestly give dates for these, because they depend on outside parties.
 
 | Phase | Contents | Proposed date |
 |---|---|---|
-| **1. Stable build for your testing** | Release of the finished work and the security fixes (each with your written approval); new discovery screens and sign-in fixes in the app; approval step for new owners; the app can ask for an update; time zones for existing events; purchase limits; first look at stalled-checkout counts (read only) | **21 December 2026** (the last development task is planned for 9 December; the rest is release approval and app store review) |
+| **1. Stable build for your testing** | Release of the finished work and the security fixes (each with your written approval); new discovery screens and sign-in fixes in the app; approval step for new owners; the app can ask for an update; time zones for existing events; purchase limits; first look at stalled-checkout counts (read only, needs hosting access) | **21 December 2026** (the last development task is planned for 9 December; the rest is release approval and app store review) |
 | **2. Launch scope** | Everything in section 3, released in steps | Fees, price calculated by the server and the update gate: **10 February 2027**. Roles, tables, splits and payouts, refunds, passes and scanning, venues and areas, chat, languages and admin pages: March to April 2027. Ready for your final testing **27 April 2027**; launch candidate **7 May 2027** |
 | **3. Soon after launch** | Referral programme, resale and waitlist, the remaining app languages already listed | Starts after launch; dates once section 4 is decided and detailed questions are answered |
 
@@ -138,17 +138,18 @@ The total effort for the full scope does not shrink: the moved items still need 
 By **4 December 2026**:
 1. Written confirmation of the features in section 3 and their estimates, or your changes, and your choice between options A, B and C (section 5A).
 2. Answers to the high-priority questions in our separate question list of 24 November.
+3. Access to the test system and hosting (DigitalOcean), or the name of the person who manages it. Without it we cannot run the read-only list of sold counts.
 
 By **11 December 2026**:
-3. The names of the administrators who approve owners, organizers and venues.
-4. The names of your tax, accounting and legal advisers for each launch market.
-5. The WhatsApp number and the screen-recording link.
+4. The names of the administrators who approve owners, organizers and venues.
+5. The names of your tax, accounting and legal advisers for each launch market.
+6. The WhatsApp number and the screen-recording link.
 
 Later:
-6. Your decision on the Italian ticketing route and on each item in section 4.
-7. The venue authorization form in English and Italian, and the legal terms, before the matching screens are tested.
-8. Your holiday calendar and fee rules, before referral work starts.
+7. Your decision on the Italian ticketing route and on each item in section 4.
+8. The venue authorization form in English and Italian, and the legal terms, before the matching screens are tested.
+9. Your holiday calendar and fee rules, before referral work starts.
 
 ## 7. How dates can move
 
-Dates move day for day if the written approvals or the adviser answers arrive late. They also move if the scope in section 3 grows, or if you change the order of priorities. We will tell you the new date as soon as we know.
+Dates move day for day if the hosting access, the written approvals or the adviser answers arrive late. They also move if the scope in section 3 grows, or if you change the order of priorities. We will tell you the new date as soon as we know.
