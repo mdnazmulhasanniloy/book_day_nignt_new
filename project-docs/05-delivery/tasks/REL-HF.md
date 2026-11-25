@@ -19,8 +19,8 @@ Phase 1. HF-005 (`/media` auth) is not in `main`: it exists only in the unpushed
 Additional review items:
 
 - [ ] Confirm `fix/merge-hotfix` was merged to `main` after the product owner approved it; do not push or merge without that approval.
-- [ ] Follow-up 1 (before release): run the database tests with `TEST_DATABASE_URL` set to a local `*_test` or `*_rehearsal` PostGIS database (`npm run test:db` in `backend/server`). They were skipped in the merge check of 2026-11-24 (167 of 167 unit tests passed; the database suites did not run). The run must include the HF-004 cases in `auth.checkOrder.db.test.ts` (reset without OTP gives 403 `RECOVER_OTP_NOT_VERIFIED`; `/recover/verify` with a wrong OTP gives 401, with the right OTP 200 and the marker set). Paste the pass counts here. The release does not go out until this is green.
-- [ ] Follow-up 2: lint does not run ("typescript-eslint does not support TS 7.0"; `typescript` ^7.0.2 in `backend/package.json` and `backend/server/package.json`, `typescript-eslint` ^8.66.0). Task [FU-002](FU-002.md) fixes it (pin TypeScript for the lint tooling or upgrade typescript-eslint). Not a release blocker for the hotfix, because the failure is in the tooling and the branch changes no lint configuration besides `backend/eslint.config.mjs`; the review item below that asks for green `npm run lint` is waived for REL-HF until FU-002 is done, and the waiver needs the product owner's OK.
+- [x] Follow-up 1: database tests run on 2026-11-25 on `fix/merge-hotfix` (tip `c31c358`) against a throwaway local `postgis/postgis:16-3.4` container (port 55432, database `bookdia_ci_test`, placeholder credentials, container removed afterwards; nothing near production). `npx prisma migrate deploy` applied all migrations, then `npm run test:db` in `backend/server`: **386 tests, 386 pass, 0 fail, 0 cancelled, 0 skipped** (83 suites, 45.8 s). HF-004 cases in `auth.checkOrder.db.test.ts`, suite "recover routes with a real user": pass: `reset with a valid token and body but no OTP verification -> 403 RECOVER_OTP_NOT_VERIFIED (HF-004 intact)`; pass: `verify with a wrong OTP -> 401 INVALID_OTP; with the right OTP -> 200 and marker set`. The T-032 seed suite against Postgres also ran and passed. Unit tests (no database) were 167 of 167 on the same commit; typecheck clean for server, worker and scheduler.
+- [x] Follow-up 2 (waived by the product owner on 2026-11-25, for REL-HF only): lint does not run ("typescript-eslint does not support TS 7.0"; `typescript` ^7.0.2, `typescript-eslint` ^8.66.0). The review item below that asks for a green `npm run lint` is waived for this release. [FU-002](FU-002.md) stays open and is not part of REL-HF.
 
 Additional smoke checks (staging, then the read-only subset on production):
 
@@ -32,7 +32,7 @@ Additional smoke checks (staging, then the read-only subset on production):
 - [ ] Each HF task has its evidence in the PR (HF-001: test and staging output; HF-004: the reproduction result either way).
 - [ ] Behaviour changes called out in the PR text: revoked tokens are now refused (HF-003); reset without OTP is refused (HF-004); bad Stripe signatures give 400 (HF-002); `/media` upload and delete now need a signed-in account (HF-005).
 - [ ] All tasks listed under 'Depends on' are Done and merged; `api-spec.yaml`, `data-model.md`, `api-usage-map.md` and `known-issues.md` match what shipped; `x-status: planned` removed for shipped operations.
-- [ ] `npm test`, `npm run test:db`, `npm run lint` and `npm run build` green in CI on the release commit.
+- [ ] `npm test`, `npm run test:db`, `npm run lint` (waived for REL-HF, see follow-up 2) and `npm run build` green in CI on the release commit.
 
 ## 2. Staging deploy
 
