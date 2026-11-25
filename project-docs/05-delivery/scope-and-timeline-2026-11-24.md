@@ -4,7 +4,7 @@ Prepared 24 November 2026, after your answers of the same date.
 
 This document replaces the target dates we had so far. It says what is already built, what is still to build, what is new, how long each piece takes, and when we propose to deliver. The dates are proposals for your review. Nothing in sections 3 and 4 starts until you confirm it (see section 6).
 
-**In one paragraph.** A usable build for your testing is realistic around **21 December 2026**. It will contain the work that is already finished, the security fixes, the new discovery screens in the app, and the approval step for new club owners and organizers. The full launch scope you asked for needs about 115 days of work in total. Our team is one developer for the server and the admin dashboard and one developer for the app, each working with Claude. With that team, the fees and the price calculated by the server are ready around **10 February 2027**, the whole launch scope is ready for your final testing around **27 April 2027**, and a launch candidate is realistic around **7 May 2027**. An early-January launch is not realistic for this scope. With a second server developer the launch candidate moves to about the end of February 2027, and with a second app developer as well to about the beginning of February; every 5 days of work you move out of the launch list brings the date forward by about a week. The Italian ticketing question and the market-by-market tax setup are separate pieces of work that we cannot date until you decide (section 4).
+**In one paragraph.** A usable build for your testing is realistic around **21 December 2026**. It will contain the work that is already finished, the important fixes, the new discovery screens in the app, and the approval step for new club owners and organizers. The full launch scope you asked for needs about 116 days of work in total. Our team is one developer for the server and the admin dashboard and one developer for the app, each working with Claude. With that team, the fees and the price calculated by the server are ready around **10 February 2027**, the whole launch scope is ready for your final testing around **27 April 2027**, and a launch candidate is realistic around **7 May 2027**. An early-January launch is not realistic for this scope. A reduced launch with the core features, with the rest following after launch (Option C in section 5A), is realistic around **9 February 2027**. With a second server developer the launch candidate moves to about the end of February 2027, and with a second app developer as well to about the beginning of February; every 5 days of work you move out of the launch list brings the date forward by about a week. The Italian ticketing question and the market-by-market tax setup are separate pieces of work that we cannot date until you decide (section 4).
 
 Days below are working days of one person. The figures include a 30% allowance for fixing and retesting. They cover the server, the admin dashboard and the app together. All estimates in this document are our own rough estimates; the ones in section 4 are not fixed until you decide and, where a provider is involved, until the provider confirms.
 
@@ -14,7 +14,7 @@ Days below are working days of one person. The figures include a 30% allowance f
 
 These items from your review tracker of 6 November are finished and tested on our side. They are not yet live: they go out in the releases of section 5, each only after your written approval.
 
-- Security fixes: password and reset protection, protected media upload, safe webhook handling.
+- Important fixes to account protection, uploads and payment confirmations.
 - Clear error messages for the door scanner, admin and owner screens.
 - Ticket types with presets, free tickets, promo-code protections, guest-list duplicate protection.
 - Sold-ticket counts that no longer grow with unpaid checkouts, and the 15-minute checkout hold.
@@ -73,7 +73,7 @@ We cannot honestly give dates for these, because they depend on outside parties.
 
 | Phase | Contents | Proposed date |
 |---|---|---|
-| **1. Stable build for your testing** | Release of the finished work and the security fixes (each with your written approval); new discovery screens and sign-in fixes in the app; approval step for new owners; the app can ask for an update; time zones for existing events; purchase limits; first look at stalled-checkout counts (read only, needs hosting access) | **21 December 2026** (the last development task is planned for 9 December; the rest is release approval and app store review) |
+| **1. Stable build for your testing** | Release of the finished work and the important fixes (each with your written approval); new discovery screens and sign-in fixes in the app; approval step for new owners; the app can ask for an update; time zones for existing events; purchase limits; first look at stalled-checkout counts (read only, needs hosting access) | **21 December 2026** (the last development task is planned for 9 December; the rest is release approval and app store review) |
 | **2. Launch scope** | Everything in section 3, released in steps | Fees, price calculated by the server and the update gate: **10 February 2027**. Roles, tables, splits and payouts, refunds, passes and scanning, venues and areas, chat, languages and admin pages: March to April 2027. Ready for your final testing **27 April 2027**; launch candidate **7 May 2027** |
 | **3. Soon after launch** | Referral programme, resale and waitlist, the remaining app languages already listed | Starts after launch; dates once section 4 is decided and detailed questions are answered |
 
@@ -103,7 +103,7 @@ The dates in section 5 assume our current team and the full launch scope. Becaus
 **Option C in detail.** This is the smallest launch that is commercially usable: people can find events, buy tickets and passes with the correct fees, get refunds, and new club owners are checked before they sell.
 
 *In the launch:*
-- Everything in the stable build (section 5, phase 1): the finished work, security fixes, the new discovery screens, the approval step for new club owners and organizers, the update prompt in the app, purchase limits, time zones for existing events.
+- Everything in the stable build (section 5, phase 1): the finished work, the important fixes, the new discovery screens, the approval step for new club owners and organizers, the update prompt in the app, purchase limits, time zones for existing events.
 - The new fee rules: 5% plus 0.50 booking fee, the club commission rates, start dates, and one correct total calculated by the server in every checkout. The app and the server are released together, and older app versions keep working until they are updated.
 - Free tickets, ticket tiers that open automatically when one sells out, the "Last tickets" label, and the event age rule shown on the event page.
 - Existing table bookings keep working as today, with the new fees applied.
@@ -126,6 +126,8 @@ The dates in section 5 assume our current team and the full launch scope. Becaus
 - The admin pages for roles, team accounts, settlements, chat, venues, areas, codes and the audit log.
 
 The total effort for the full scope does not shrink: the moved items still need about 65 days afterwards, and building them on a live system with real customers needs extra care. Option C gets you to market earlier; it does not make the whole scope cheaper.
+
+**Our recommendation:** Option C if reaching the market early matters most, because the sales, fee and refund basics are live in about three months and the rest follows without a second wait. Option A or B if you need the full feature list at the first launch.
 
 **Please confirm in writing:**
 1. Whether we continue with A, B or C.
