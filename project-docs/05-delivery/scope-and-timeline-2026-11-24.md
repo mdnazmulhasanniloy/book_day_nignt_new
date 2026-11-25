@@ -50,7 +50,7 @@ You asked for these in your answers of 22 and 24 November and marked them "Launc
 | Purchase limits | 1 | 5 per order, 10 per customer per event |
 | Four languages and the age display | 4.5 | English, Italian, French and Spanish across the app, emails and notifications; event age rule shown |
 | Stabilising the built work | 2 | Time zones for existing events; the read-only list of affected sold counts |
-| App updates for what is already built | 5 | New discovery screens, sign-in fixes, ticket and event page changes in the Flutter app |
+| App updates for what is already built | 5 | New discovery screens, sign-in fixes, ticket and event page changes in the app |
 | Acceptance and the five demonstrations | 1.5 | Test accounts for the ten roles, evidence for each item you will sign off |
 | **Subtotal** | **about 92** | |
 
@@ -120,14 +120,14 @@ The dates in section 5 assume our current team and the full launch scope. Becaus
 - Recovery of costs from clubs after a club cancellation: handled by invoice outside the system at first.
 - Goodwill partial refunds with the ticket kept.
 - Per-day entry for multi-day passes, per-day scanner results, no-show reports, guest-list approval hold and access codes.
-- Unregistered venues with the authorization form, venue disputes, the Cote d'Azur area and activation of the eleven destinations.
+- Unregistered venues with the authorization form, venue disputes, the Côte d'Azur area and activation of the eleven destinations.
 - Four languages (the app keeps the languages it has today) and legal document versions.
 - Organizer profiles, following, collaboration requests, extra items and quotes with sign-in. These were in your first tracker, so we need your explicit agreement to move them.
 - The admin pages for roles, team accounts, settlements, chat, venues, areas, codes and the audit log.
 
 The total effort for the full scope does not shrink: the moved items still need about 65 days afterwards, and building them on a live system with real customers needs extra care. Option C gets you to market earlier; it does not make the whole scope cheaper.
 
-**Our recommendation:** Option C if reaching the market early matters most, because the sales, fee and refund basics are live in about three months and the rest follows without a second wait. Option A or B if you need the full feature list at the first launch.
+**Our recommendation:** Option C if reaching the market early matters most, because the sales, fee and refund basics are live in about two and a half months and the rest follows without a second wait. Option A or B if you need the full feature list at the first launch.
 
 **Please confirm in writing:**
 1. Whether we continue with A, B or C.
