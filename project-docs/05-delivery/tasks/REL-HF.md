@@ -4,7 +4,7 @@
 |---|---|
 | Stack | release |
 | Depends on | HF-001, HF-002, HF-003, HF-004, HF-005 |
-| Status | merge branch approved; release checkpoint items not run |
+| Status | `fix/merge-hotfix` pushed to origin on 2026-11-25 (not merged to `main`); release checkpoint items not run |
 
 Do not start the next milestone until every box below is checked or explicitly waived by the product owner.
 
@@ -19,7 +19,8 @@ Phase 1. HF-005 (`/media` auth) is not in `main`: it exists only in the unpushed
 Additional review items:
 
 - [ ] Confirm `fix/merge-hotfix` was merged to `main` after the product owner approved it; do not push or merge without that approval.
-- [ ] Run `npm run test:db` against a `*_test` database: it was skipped in the merge check.
+- [ ] Follow-up 1 (before release): run the database tests with `TEST_DATABASE_URL` set to a local `*_test` or `*_rehearsal` PostGIS database (`npm run test:db` in `backend/server`). They were skipped in the merge check of 2026-11-24 (167 of 167 unit tests passed; the database suites did not run). The run must include the HF-004 cases in `auth.checkOrder.db.test.ts` (reset without OTP gives 403 `RECOVER_OTP_NOT_VERIFIED`; `/recover/verify` with a wrong OTP gives 401, with the right OTP 200 and the marker set). Paste the pass counts here. The release does not go out until this is green.
+- [ ] Follow-up 2: lint does not run ("typescript-eslint does not support TS 7.0"; `typescript` ^7.0.2 in `backend/package.json` and `backend/server/package.json`, `typescript-eslint` ^8.66.0). Task [FU-002](FU-002.md) fixes it (pin TypeScript for the lint tooling or upgrade typescript-eslint). Not a release blocker for the hotfix, because the failure is in the tooling and the branch changes no lint configuration besides `backend/eslint.config.mjs`; the review item below that asks for green `npm run lint` is waived for REL-HF until FU-002 is done, and the waiver needs the product owner's OK.
 
 Additional smoke checks (staging, then the read-only subset on production):
 
