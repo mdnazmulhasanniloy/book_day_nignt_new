@@ -4,10 +4,10 @@
   "description": "The Worker Service of the application",
   "main": "./dist/index.js",
   "scripts": {
-    "build": "sh scripts/build.sh",
+    "build": "node init && sh scripts/build.sh",
     "test": "tsx --test \"src/**/*.test.ts\"",
-    "dev": "npx prisma generate && nodemon",
-    "start": "node ./dist/index.js",
+    "dev": "node init && npx prisma generate && nodemon",
+    "start": "node init && node ./dist/index.js",
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "eslint \"src/**/*.{ts,js}\" --quiet"
   },
