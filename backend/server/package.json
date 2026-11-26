@@ -7,10 +7,10 @@
   "type": "commonjs",
   "main": "./dist/server.js",
   "scripts": {
-    "build": "sh scripts/build.sh",
+    "build": "node init && sh scripts/build.sh",
     "test": "tsx --test src/app/utils/dob.utils.test.ts src/app/utils/otpPolicy.test.ts src/app/modules/admin/admin.helpers.test.ts",
-    "dev": "npx prisma generate && nodemon",
-    "start": "node ./dist/server.js",
+    "dev": "node init && npx prisma generate && nodemon",
+    "start": "node init && node ./dist/server.js",
     "format": "prettier --write \"src/**/*.ts\"",
     "lint": "eslint \"src/**/*.{ts,js}\" --quiet"
   },
